@@ -33,3 +33,18 @@ def decode_token(token: str):
         return payload
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+        
+
+
+def create_refresh_token(data: dict):
+    expire = datetime.utcnow() + timedelta(days=7)
+
+    to_encode = data.copy()
+    to_encode.update({"exp": expire})
+
+    return jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM
+    )

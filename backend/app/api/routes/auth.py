@@ -8,7 +8,7 @@ from app.schemas.user import UserRegister
 from app.core.security import hash_password
 from app.schemas.user import UserLogin
 from app.core.security import verify_password
-from app.core.jwt import create_access_token
+from app.core.jwt import create_access_token, create_refresh_token, decode_token
 from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -38,6 +38,27 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
     return {"message": "User registered successfully"}
 
 
+# @router.post("/login")
+# def login(user: UserLogin, db: Session = Depends(get_db)):
+#     db_user = db.query(User).filter(User.email == user.email).first()
+
+#     if not db_user:
+#         raise HTTPException(status_code=400, detail="Invalid credentials")
+
+#     if not verify_password(user.password, db_user.password_hash):
+#         raise HTTPException(status_code=400, detail="Invalid credentials")
+
+#     token = create_access_token({"sub": db_user.id})
+
+#     return {
+#         "access_token": token,
+#         "token_type": "bearer"
+#     }
+
+
+
+
+
 @router.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
@@ -48,10 +69,16 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     if not verify_password(user.password, db_user.password_hash):
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
-    token = create_access_token({"sub": db_user.id})
+    access_token = create_access_token({"sub": db_user.id})
+    refresh_token = create_refresh_token({"sub": db_user.id})
+
+    # store refresh token
+    db_user.refresh_token = refresh_token
+    db.commit()
 
     return {
-        "access_token": token,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
         "token_type": "bearer"
     }
 
@@ -62,4 +89,24 @@ def get_me(current_user: User = Depends(get_current_user)):
         "id": current_user.id,
         "email": current_user.email,
         "organization_id": current_user.organization_id
+    }
+
+
+
+
+@router.post("/refresh")
+def refresh_token(token: str, db: Session = Depends(get_db)):
+    payload = decode_token(token)
+
+    user_id = payload.get("sub")
+
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user or user.refresh_token != token:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    new_access_token = create_access_token({"sub": user.id})
+
+    return {
+        "access_token": new_access_token
     }

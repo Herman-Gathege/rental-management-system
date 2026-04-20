@@ -11,5 +11,6 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    refresh_token = Column(String, nullable=True)
 
     organization = relationship("Organization")
