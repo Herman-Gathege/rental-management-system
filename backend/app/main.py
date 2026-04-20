@@ -29,3 +29,7 @@ def health_check():
 # def test_upload():
 #     url = upload_file("test.txt", b"Hello from rental system")
 #     return {"file_url": url}
+
+from app.api.routes.auth import router as auth_router
+
+app.include_router(auth_router)
