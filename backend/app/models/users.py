@@ -2,6 +2,7 @@ import uuid
 from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from app.db.base import Base
+from sqlalchemy import ForeignKey
 
 class User(Base):
     __tablename__ = "users"
@@ -14,6 +15,8 @@ class User(Base):
     refresh_token = Column(String, nullable=True)
     reset_token = Column(String, nullable=True)
     reset_token_expiry = Column(DateTime, nullable=True)
+    role_id = Column(String, ForeignKey("roles.id"))
 
 
+    role = relationship("Role")
     organization = relationship("Organization")

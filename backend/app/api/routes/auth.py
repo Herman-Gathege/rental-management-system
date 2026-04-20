@@ -13,7 +13,8 @@ from app.api.deps import get_current_user
 from app.services.email_service import send_email
 import uuid
 from datetime import datetime, timedelta
-
+from app.models.role import Role
+from app.core.roles import LANDLORD
 
 
 
@@ -21,29 +22,67 @@ from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+# @router.post("/register")
+# def register(user: UserRegister, db: Session = Depends(get_db)):
+#     # check existing user
+#     existing = db.query(User).filter(User.email == user.email).first()
+#     if existing:
+#         raise HTTPException(status_code=400, detail="Email already registered")
+
+#     # create organization
+#     org = Organization(name=user.organization_name)
+#     db.add(org)
+#     db.commit()
+#     db.refresh(org)
+
+#     # create user
+#     new_user = User(
+#         email=user.email,
+#         password_hash=hash_password(user.password),
+#         organization_id=org.id
+#     )
+#     db.add(new_user)
+#     db.commit()
+
+#     return {"message": "User registered successfully"}
+
 @router.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
-    # check existing user
+
+    # 1️⃣ Check if user already exists
     existing = db.query(User).filter(User.email == user.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # create organization
+    # 2️⃣ Create organization (first user becomes landlord)
     org = Organization(name=user.organization_name)
     db.add(org)
     db.commit()
     db.refresh(org)
 
-    # create user
+    # 3️⃣ Fetch LANDLORD role from DB (seeded at startup)
+    landlord_role = db.query(Role).filter(Role.name == LANDLORD).first()
+    if not landlord_role:
+        raise HTTPException(status_code=500, detail="Roles not seeded")
+
+    # 4️⃣ Create user and attach role
     new_user = User(
         email=user.email,
         password_hash=hash_password(user.password),
-        organization_id=org.id
+        organization_id=org.id,
+        role_id=landlord_role.id
     )
+
     db.add(new_user)
     db.commit()
+    db.refresh(new_user)
 
-    return {"message": "User registered successfully"}
+    return {
+        "message": "User registered successfully",
+        "user_id": new_user.id,
+        "organization_id": org.id,
+        "role": LANDLORD
+    }
 
 
 # @router.post("/login")

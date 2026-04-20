@@ -3,6 +3,8 @@ from app.db.session import engine
 from app.db.base import Base
 from app.services.email_service import send_email
 from app.services.s3_service import upload_file
+from app.db.session import SessionLocal
+from app.db.seed_roles import seed_roles
 
 
 
@@ -33,3 +35,9 @@ def health_check():
 from app.api.routes.auth import router as auth_router
 
 app.include_router(auth_router)
+
+@app.on_event("startup")
+def startup_event():
+    db = SessionLocal()
+    seed_roles(db)
+    db.close()
