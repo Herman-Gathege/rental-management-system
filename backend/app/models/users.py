@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, ForeignKey
+from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -12,5 +12,8 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     refresh_token = Column(String, nullable=True)
+    reset_token = Column(String, nullable=True)
+    reset_token_expiry = Column(DateTime, nullable=True)
+
 
     organization = relationship("Organization")

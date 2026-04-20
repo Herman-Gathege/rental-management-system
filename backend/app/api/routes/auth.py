@@ -10,6 +10,14 @@ from app.schemas.user import UserLogin
 from app.core.security import verify_password
 from app.core.jwt import create_access_token, create_refresh_token, decode_token
 from app.api.deps import get_current_user
+from app.services.email_service import send_email
+import uuid
+from datetime import datetime, timedelta
+
+
+
+
+
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -110,3 +118,96 @@ def refresh_token(token: str, db: Session = Depends(get_db)):
     return {
         "access_token": new_access_token
     }
+
+
+
+# @router.post("/forgot-password")
+# def forgot_password(email: str, db: Session = Depends(get_db)):
+#     user = db.query(User).filter(User.email == email).first()
+
+#     if not user:
+#         raise HTTPException(status_code=404, detail="User not found")
+
+#     token = str(uuid.uuid4())
+#     user.reset_token = token
+#     db.commit()
+
+#     reset_link = f"http://localhost:3000/reset-password?token={token}"
+#     print("RESET TOKEN:", token)
+
+#     send_email(
+#         user.email,
+#         "Password Reset",
+#         f"<p>Click here to reset: {reset_link}</p>"
+#     )
+    
+
+#     return {"message": "Reset email sent"}
+
+@router.post("/forgot-password")
+def forgot_password(email: str, db: Session = Depends(get_db)):
+
+    user = db.query(User).filter(User.email == email).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # generate token
+    token = str(uuid.uuid4())
+
+    # store token + expiry
+    user.reset_token = token
+    user.reset_token_expiry = datetime.utcnow() + timedelta(minutes=30)
+
+    db.commit()
+
+    reset_link = f"http://localhost:3000/reset-password?token={token}"
+
+    print("RESET TOKEN:", token)  # for debugging only
+
+    send_email(
+        user.email,
+        "Password Reset",
+        f"<p>Click here to reset: {reset_link}</p>"
+    )
+
+    return {"message": "Reset email sent"}
+
+
+
+# @router.post("/reset-password")
+# def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
+#     user = db.query(User).filter(User.reset_token == token).first()
+
+#     if not user:
+#         raise HTTPException(status_code=400, detail="Invalid token")
+
+#     user.password_hash = hash_password(new_password)
+#     user.reset_token = None
+#     db.commit()
+
+#     return {"message": "Password updated"}
+
+@router.post("/reset-password")
+def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
+
+    # find user by token
+    user = db.query(User).filter(User.reset_token == token).first()
+
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid token")
+
+    # check expiry
+    if not user.reset_token_expiry or user.reset_token_expiry < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Token expired")
+
+    # update password
+    user.password_hash = hash_password(new_password)
+
+    # invalidate token after use
+    user.reset_token = None
+    user.reset_token_expiry = None
+
+    db.commit()
+
+    return {"message": "Password updated successfully"}
