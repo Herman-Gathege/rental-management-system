@@ -1,3 +1,4 @@
+from app.api.routes import auth
 from fastapi import FastAPI
 from app.db.session import engine
 from app.db.base import Base
@@ -5,12 +6,33 @@ from app.services.email_service import send_email
 from app.services.s3_service import upload_file
 from app.db.session import SessionLocal
 from app.db.seed_roles import seed_roles
+from fastapi.middleware.cors import CORSMiddleware
+
 
 
 
 app = FastAPI(title="Rental Management API")
 
+# Allow React dev server
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+app.include_router(auth.router, prefix="/auth", tags=["Auth"])
+
+@app.get("/")
+def root():
+    return {"message": "API running"}
 
 @app.get("/health")
 def health_check():
