@@ -1,0 +1,172 @@
+/*frontend/src/styles/utilities.css*/
+
+/* =====================================================
+   TEXT
+===================================================== */
+
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.text-sm { font-size: 14px; }
+.text-md { font-size: 16px; }
+.text-lg { font-size: 18px; }
+.text-xl { font-size: 22px; }
+
+.text-bold { font-weight: 600; }
+
+.text-error { color: #ef4444; }
+.text-success { color: #16a34a; }
+.text-muted { color: #6b7280; }
+.text-warning {
+  color: #d97706;
+}
+
+
+
+/* =====================================================
+   SPACING (margin)
+===================================================== */
+
+.mt-sm { margin-top: 8px; }
+.mt-md { margin-top: 16px; }
+.mt-lg { margin-top: 24px; }
+
+.mb-sm { margin-bottom: 8px; }
+.mb-md { margin-bottom: 16px; }
+.mb-lg { margin-bottom: 24px; }
+.mr-sm { margin-right: 8px; }
+.mr-md { margin-right: 16px; }
+.mr-lg { margin-right: 24px; }
+.ml-sm { margin-left: 8px; }
+.ml-md { margin-left: 16px; }
+.ml-lg { margin-left: 24px; }
+
+.mx-auto { margin-left: auto; margin-right: auto; }
+
+
+
+/* =====================================================
+   SPACING (padding)
+===================================================== */
+
+.p-sm { padding: 8px; }
+.p-md { padding: 16px; }
+.p-lg { padding: 24px; }
+
+
+
+/* =====================================================
+   WIDTH / SIZE
+===================================================== */
+
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+
+.max-w-sm { max-width: 320px; }
+.max-w-md { max-width: 420px; }
+.max-w-lg { max-width: 640px; }
+
+
+
+/* =====================================================
+   FLEXBOX
+===================================================== */
+
+.flex { display: flex; }
+
+.flex-col { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.flex-wrap { flex-wrap: wrap; }
+
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+
+.gap-sm { gap: 8px; }
+.gap-md { gap: 16px; }
+.gap-lg { gap: 24px; }
+
+
+
+/* =====================================================
+   DISPLAY
+===================================================== */
+
+.block { display: block; }
+.hidden { display: none; }
+
+
+
+/* =====================================================
+   MOBILE VISIBILITY HELPERS
+   (mobile-first approach)
+===================================================== */
+
+/* hidden on mobile, visible on desktop */
+.hidden-mobile {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .hidden-mobile {
+    display: block;
+  }
+}
+
+/* visible on mobile, hidden on desktop */
+/* visible on mobile, hidden on desktop */
+.hidden-desktop {
+  display: inherit;
+}
+
+@media (min-width: 1024px) {
+  .hidden-desktop {
+    display: none;
+  }
+}
+
+
+/* =====================================================
+   GRID
+===================================================== */
+
+.grid {
+  display: grid;
+}
+
+.grid-cols-1 {
+  grid-template-columns: 1fr;
+}
+
+.grid-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+@media (min-width: 1024px) {
+  .grid-cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+
+/* .stat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+} */
+
+@media (max-width: 768px) {
+  .flex-mobile-col {
+    flex-direction: column;
+  }
+}

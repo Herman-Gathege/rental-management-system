@@ -1,0 +1,61 @@
+/* AuthForm.module.css */
+
+/* Center the form on the page */
+.formContainer {
+  max-width: 400px;
+  margin: 5rem auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+
+/* Style for inputs */
+.formContainer input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  margin: 0.5rem 0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.formContainer input:focus {
+  border-color: #0077ff;
+}
+
+/* Style for buttons */
+.formContainer button {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  margin-top: 1rem;
+  border: none;
+  border-radius: 6px;
+  background-color: #0077ff;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.formContainer button:hover {
+  background-color: #005fcc;
+}
+
+/* Error / message styling */
+.formContainer p {
+  margin-top: 1rem;
+  color: red;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 500px) {
+  .formContainer {
+    padding: 1.5rem;
+  }
+}

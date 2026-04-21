@@ -1,0 +1,133 @@
+/*frontend/src/styles/layout.css*/
+
+/* =============================
+   AUTH LAYOUT
+============================= */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+/* =============================
+   DASHBOARD LAYOUT 
+============================= */
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+  overflow: hidden; /* prevents layout overflow */
+}
+
+.dashboard-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.dashboard-content {
+  padding: 16px;
+  padding-bottom: 80px;
+}
+
+/* Desktop enhancements */
+@media (min-width: 1024px) {
+  .dashboard-content {
+    padding: 24px;
+    padding-bottom: 24px;
+  }
+}
+
+
+/* =============================
+   SIDEBAR (DESKTOP ONLY)
+============================= */
+
+/* .sidebar {
+  width: 220px;
+  background: #ffffff;
+  color: #1f2937;
+  padding: 1rem;
+  flex-shrink: 0;
+  border-right: 1px solid #e5e7eb;
+}
+
+.collapsed {
+  width: 72px;
+} */
+
+
+/* =============================
+   MOBILE BOTTOM NAV
+============================= */
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: row;            /* horizontal layout */
+  justify-content: space-around;
+  align-items: center;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  padding: 0.5rem 0;
+  z-index: 20;
+  left: 0;
+}
+
+.bottom-nav a { 
+  text-decoration: none;
+}
+
+/* Each nav item */
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;         /* icon on top, text below */
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  color: #6b7280;
+  text-decoration: none;
+  min-width: 60px;                /* comfy tap target */
+  transition: color 0.2s ease, transform 0.1s ease;
+}
+
+/* Icons */
+.bottom-nav-item svg {
+  font-size: 1.4rem;
+}
+
+/* Active route */
+.bottom-nav-item.active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Tap feedback */
+.bottom-nav-item:active {
+  transform: scale(0.95);
+}
+
+/* =============================
+   RESPONSIVE VISIBILITY
+============================= */
+
+/* Hide on desktop */
+@media (min-width: 768px) {
+  .bottom-nav {
+    display: none;
+  }
+}
+
+
+

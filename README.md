@@ -1,302 +1,265 @@
-# 🏢 Rental Property Management System (Backend)
+# 🏢 Rental Property Management Platform
 
-A multi-tenant SaaS backend for managing rental properties, tenants, leases, and financial operations. Built with **FastAPI**, **PostgreSQL**, and **JWT-based authentication**.
+A full-stack multi-tenant SaaS platform for managing rental properties, tenants, staff, and finances.
 
----
+This repository contains the entire development environment:
 
-# 🚀 Tech Stack
+- React frontend  
+- FastAPI backend  
+- PostgreSQL database  
+- Redis  
+- pgAdmin  
+- Docker orchestration  
 
-* **Backend:** FastAPI (Python)
-* **Database:** PostgreSQL
-* **ORM:** SQLAlchemy
-* **Migrations:** Alembic
-* **Auth:** JWT (Access + Refresh Tokens)
-* **Storage:** AWS S3 (stubbed for now)
-* **Email:** SendGrid (stubbed for now)
-
----
-
-# 📁 Project Structure
-
-```
-backend/
-├── app/
-│   ├── api/
-│   │   ├── deps.py
-│   │   └── routes/
-│   │       └── auth.py
-│   ├── core/
-│   │   ├── config.py
-│   │   ├── jwt.py
-│   │   ├── roles.py
-│   │   └── security.py
-│   ├── db/
-│   │   ├── base.py
-│   │   ├── deps.py
-│   │   ├── session.py
-│   │   └── seed_roles.py
-│   ├── models/
-│   │   ├── organization.py
-│   │   ├── role.py
-│   │   └── users.py
-│   ├── schemas/
-│   │   └── user.py
-│   ├── services/
-│   │   ├── email_service.py
-│   │   └── s3_service.py
-│   └── main.py
-```
+👉 Everything runs with one command.
 
 ---
 
-# ⚙️ Setup Instructions
+## ✨ Tech Stack
 
-## 1️⃣ Clone Repository
+### Frontend
+- React + Vite  
+- Context API for auth  
+- Modular feature architecture  
+- Nginx (production container)  
 
-```
-git clone <your-repo-url>
-cd Rental-Property-Management-Tool/backend
-```
+### Backend
+- FastAPI  
+- SQLAlchemy  
+- Alembic migrations  
+- JWT Authentication (Access + Refresh)  
+- Redis (token + background tasks ready)  
+- Role Based Access Control  
 
----
-
-## 2️⃣ Create Virtual Environment
-
-```
-python3 -m venv venv
-source venv/bin/activate
-```
-
----
-
-## 3️⃣ Install Dependencies
-
-```
-pip install -r requirements.txt
-```
+### Infrastructure
+- Docker + Docker Compose  
+- PostgreSQL 15  
+- Redis 7  
+- pgAdmin 4  
+- Nginx reverse proxy  
 
 ---
 
-## 4️⃣ Environment Variables
+## 📦 Repository Structure
+Rental-Property-Management-Tool/
+│
+├── backend/ → FastAPI API
+├── frontend/ → React Vite app
+├── docker-compose.yml
+└── README.md
 
-Create a `.env` file in `/backend`:
-
-```
-DATABASE_URL=postgresql://user:password@localhost:5432/rental_db
-SECRET_KEY=supersecretkey
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=15
-
-# Optional (can be fake for dev)
-SENDGRID_API_KEY=your_key
-AWS_ACCESS_KEY_ID=your_key
-AWS_SECRET_ACCESS_KEY=your_secret
-AWS_BUCKET_NAME=your_bucket
-```
 
 ---
 
-## 5️⃣ Run Database Migrations
+## 🚀 QUICK START (ONE COMMAND)
 
+This project is Docker-first.  
+You do **NOT** need Python, Node, or Postgres installed locally.
+
+### 1️⃣ Clone repo
+
+```bash
+git clone <repo-url>
+cd Rental-Property-Management-Tool
 ```
+
+### 2️⃣ Start the entire platform
+
+```bash
+docker compose up --build
+```
+
+⏳ First startup may take several minutes.
+
+### 🌐 Access the Apps
+
+Once containers finish booting:
+
+Service	URL
+Frontend	http://localhost
+
+Backend API	http://localhost:8000
+
+Swagger Docs	http://localhost:8000/docs
+
+pgAdmin	http://localhost:5050
+pgAdmin login
+Email: admin@admin.com
+Password: admin
+🧠 What Happens Automatically
+
+### When Docker starts:
+
+PostgreSQL container boots
+Backend waits for DB readiness
+Alembic migrations run automatically
+Roles are seeded automatically
+FastAPI starts
+React app is built and served via Nginx
+
+### 👉 No manual migration or seeding is required.
+
+### 🔑 Default Architecture Ports
+Container	Internal Port	Host Port
+frontend (nginx)	80	5173
+backend (FastAPI)	8000	8000
+postgres	5432	5433
+redis	6379	6380
+pgadmin	80	5050
+🧪 Verifying Everything Works
+Backend health check
+
+Open:
+http://localhost:8000/docs
+
+You should see Swagger UI.
+
+Frontend check
+
+Open:
+http://localhost
+
+You should see the React app.
+
+🗄️ Database Connection (pgAdmin)
+
+Inside pgAdmin create a server:
+
+Host: postgres
+Port: 5432
+User: rental_user
+Password: rental_pass
+Database: rental_db
+
+### ⚠️ Important: host is postgres (Docker network), not localhost.
+
+🔐 Authentication Overview
+
+Implemented features:
+
+Registration
+Login
+JWT Access tokens
+Refresh tokens stored in DB
+Password reset flow
+Role Based Access Control
+
+Supported Roles
+
+### Role	Description
+
+LANDLORD	- Portfolio owner
+PROPERTY_MANAGER - Manages properties
+FINANCE -	Accounting team
+TENANT -	Rent payer
+SYSTEM -	Automations
+
+### 🛠️ Development Workflow
+
+Start environment
+```bash
+docker compose up
+
+Stop environment
+
+docker compose down
+
+Reset database completely
+
+docker compose down -v
+docker compose up --build
+⚠️ This deletes all data and recreates the DB from scratch.
+```
+
+### 🐛 Debugging Guide
+Backend not connecting to Postgres
+```bash
+docker compose logs backend
+```
+You should see:
+
+Postgres is ready!
+Running upgrade...
+Uvicorn running on http://0.0.0.0:8000
+
+Frontend not loading
+```bash
+docker compose down
+docker compose up --build
+```
+
+Port already in use
+```bash
+sudo lsof -i :5432
+```
+Stop local Postgres if running.
+
+### Redis warning about memory overcommit
+
+Linux only — run once:
+```bash
+sudo sysctl vm.overcommit_memory=1
+```
+
+🔄 Running Backend Commands Manually
+
+Enter backend container
+```bash
+docker compose exec backend bash
+```
+
+Run migrations manually
+```bash
 alembic upgrade head
 ```
-
----
-
-## 6️⃣ Seed Roles
-
-```
+Seed roles manually
+```bash
 python -m app.db.seed_roles
 ```
 
----
+### 🎨 Frontend Architecture Overview
+src/
+├── api/              → API clients
+├── context/          → Auth state
+├── features/
+│   ├── auth/
+│   ├── dashboard/
+│   └── superadmin/
+├── routes/           → Routing + guards
+├── components/       → Shared UI
+└── styles/           → Global CSS
 
-## 7️⃣ Start Server
+### 👉 The frontend is feature-based, not page-based.
 
-```
-uvicorn app.main:app --reload
-```
-
----
-
-## 8️⃣ Access API Docs
-
-```
-http://127.0.0.1:8000/docs
-```
-
----
-
-# 🔐 Authentication System
-
-## Features Implemented
-
-* User Registration
-* Login (JWT)
-* Access Tokens (short-lived)
-* Refresh Tokens (long-lived)
-* Protected Routes
-* Role-Based Access Control (RBAC)
-* Password Reset (email-based)
-
----
-
-# 🔑 Auth Flow
-
-### Register
-
-```
-POST /auth/register
+### 👩‍💻 Adding a New Developer
+```bash
+git clone <repo>
+cd Rental-Property-Management-Tool
+docker compose up --build
 ```
 
-### Login
+Open:
+http://localhost
 
-```
-POST /auth/login
-```
+🎉 Ready to code.
 
-Returns:
+### 📌 Current Development Stage
+✅ Sprint 1 completed
+Auth system
+Roles
+Docker environment
+Frontend scaffolding
 
-* access_token
-* refresh_token
+🔜 Next
+Organization bootstrap
+User invitations
+Property + unit models
 
----
+### 🤝 Contributing
+Create feature branch
+Run app with Docker
+Commit changes
+Open Pull Request
+💡 Final Note
 
-### Get Current User
-
-```
-GET /auth/me
-Authorization: Bearer <access_token>
-```
-
----
-
-### Refresh Token
-
-```
-POST /auth/refresh?token=<refresh_token>
-```
-
----
-
-### Forgot Password
-
-```
-POST /auth/forgot-password?email=<email>
-```
-
----
-
-### Reset Password
-
-```
-POST /auth/reset-password?token=<token>&new_password=<password>
-```
-
----
-
-# 🛡️ RBAC (Roles)
-
-Roles supported:
-
-* LANDLORD
-* PROPERTY_MANAGER
-* FINANCE
-* TENANT
-
----
-
-## Role Protection Example
-
-```
-Depends(require_role("LANDLORD"))
-```
-
----
-
-# 🧪 Testing with cURL
-
-### Login
-
-```
-curl -X POST "http://127.0.0.1:8000/auth/login" \
--H "Content-Type: application/json" \
--d '{
-  "email": "admin@test.com",
-  "password": "123456"
-}'
-```
-
----
-
-### Protected Route
-
-```
-curl -X GET "http://127.0.0.1:8000/auth/me" \
--H "Authorization: Bearer YOUR_ACCESS_TOKEN"
-```
-
----
-
-### Refresh Token
-
-```
-curl -X POST "http://127.0.0.1:8000/auth/refresh?token=YOUR_REFRESH_TOKEN"
-```
-
----
-
-# ⚠️ Common Issues
-
-### Invalid Token
-
-* Ensure `Authorization: Bearer <token>` format
-* Do NOT include refresh token in header
-
----
-
-### Migration Errors
-
-* Ensure DB is running
-* Check `DATABASE_URL`
-
----
-
-### 422 Errors
-
-* Ensure correct request format (JSON vs form)
-
----
-
-# 🧠 Development Notes
-
-* Multi-tenant system via `organization_id`
-* Future: property-level isolation
-* External services (email/S3) are stubbed for dev
-* Designed for scalability (10k+ units)
-
----
-
-# 📌 Next Steps (Sprint 2)
-
-* Organization switching
-* Property & Unit models
-* Tenant onboarding
-* Lease management
-
----
-
-# 🤝 Contributing
-
-1. Fork repo
-2. Create feature branch
-3. Run migrations
-4. Test endpoints
-5. Submit PR
-
----
-
-# 📄 License
-
-MIT License
+#### This README will save future-you hours of setup pain 😄

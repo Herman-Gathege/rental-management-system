@@ -1,0 +1,316 @@
+/* =============================
+   POS LAYOUT
+============================= */
+
+.pos-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  height: calc(100vh - 64px);
+  padding: 16px;
+}
+
+/* =============================
+   PAYMENT PANEL
+============================= */
+
+.payment-panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.payment-panel h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.payment-error {
+  color: #ef4444;
+  font-size: 14px;
+}
+
+.cart-summary {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.confirm-button {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.confirm-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* =============================
+   CART PANEL
+============================= */
+
+.cart-panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* =============================
+   SEARCH
+============================= */
+
+.search-bar {
+  position: relative;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  margin-top: 4px;
+  z-index: 20;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.search-header,
+.search-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 100px 60px;
+  padding: 8px;
+  font-size: 13px;
+}
+
+.search-header {
+  font-weight: 600;
+  background: #f9fafb;
+}
+
+.search-row {
+  cursor: pointer;
+}
+
+.search-row:hover {
+  background: #f3f4f6;
+}
+
+.no-result {
+  padding: 12px;
+  text-align: center;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* =============================
+   CART TABLE
+============================= */
+
+.cart-table-wrapper {
+  overflow-x: auto;        /* already there */
+  max-width: 100%;         /* prevent table from exceeding parent */
+  -webkit-overflow-scrolling: touch; /* smooth scroll on mobile */
+
+}
+
+.cart-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.cart-table th,
+.cart-table td {
+  padding: 8px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cart-table td {
+  max-width: 150px;      /* optional: prevent super long cells from stretching */
+  overflow: hidden;
+  text-overflow: ellipsis; /* truncate with "…" */
+}
+
+.qty-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qty-control button {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  cursor: pointer;
+}
+
+.remove-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* =============================
+   MODAL
+============================= */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  width: 100%;
+  max-width: 480px;
+  position: relative;
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* =============================
+   RESPONSIVE
+============================= */
+
+@media (max-width: 900px) {
+  .pos-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .payment-panel {
+    order: 2;
+  }
+
+  .cart-panel {
+    order: 1;
+  }
+
+  .cart-table-wrapper {
+    overflow-x: auto;
+  }
+}
+
+
+/* =============================
+   PAYMENT SELECTOR
+============================= */
+
+.payment-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.payment-buttons button {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #434649;
+  background: #f9fafb;
+  font-size: 14px;
+  cursor: pointer;
+  color : #434649;
+}
+
+.payment-buttons button.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+/* =============================
+   CUSTOMER SELECTOR
+============================= */
+
+.customer-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.customer-selector label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.customer-selector select {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+}
+
+.customer-selector button {
+  align-self: flex-start;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px dashed #2563eb;
+  background: transparent;
+  color: #2563eb;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* =============================
+   MOBILE TWEAKS
+============================= */
+
+@media (max-width: 600px) {
+  .payment-buttons {
+    flex-direction: column;
+  }
+
+  .customer-selector button {
+    width: 100%;
+    text-align: center;
+  }
+}
