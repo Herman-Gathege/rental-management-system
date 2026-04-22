@@ -1,0 +1,23 @@
+# backend/app/models/users.py
+import uuid
+from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime
+from sqlalchemy.orm import relationship
+from app.db.base import Base
+from sqlalchemy import ForeignKey
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    organization_id = Column(String, ForeignKey("organizations.id"))
+    email = Column(String, unique=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    refresh_token = Column(String, nullable=True)
+    reset_token = Column(String, nullable=True)
+    reset_token_expiry = Column(DateTime, nullable=True)
+    role_id = Column(String, ForeignKey("roles.id"))
+
+
+    role = relationship("Role")
+    organization = relationship("Organization")

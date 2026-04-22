@@ -1,0 +1,23 @@
+.alertsRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.danger {
+  color: #dc2626;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.warning {
+  color: #d97706;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ok {
+  color: #15803d;              /* calm green */
+  font-size: 0.9rem;
+  font-weight: 500;
+}

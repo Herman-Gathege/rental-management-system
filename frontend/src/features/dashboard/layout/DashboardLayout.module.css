@@ -1,0 +1,370 @@
+/* DashboardLayout.module.css */
+
+/* Layout */
+.layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f4f6f8;
+}
+
+/* Sidebar */
+/* .sidebar {
+  width: 220px;
+  background: #ffffff;
+  color: #1f2937;
+  padding: 1rem;
+  flex-shrink: 0;
+  border-right: 1px solid #e5e7eb;
+  transition: width 0.25s ease;
+}
+
+.collapsed {
+  width: 72px;
+} */
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+/* Logo */
+.logo {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+/* Collapse button */
+.collapseBtn1 {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  font-size: 1.2rem;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  transform: rotate(90deg); /* initial tilt */
+  transition: transform 0.2s ease; /* smooth rotation */
+}
+
+/* Rotated icon when collapsed */
+.rotated {
+  transform: rotate(180deg); /* flips arrow */
+  transition: transform 0.2s ease; /* smooth */
+}
+
+
+/* Links */
+.link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  margin-bottom: 0.3rem;
+  color: #374151;
+  border-radius: 6px;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+
+/* Icons */
+.icon {
+  font-size: 18px;
+  min-width: 18px;
+}
+
+/* Hover */
+.link:hover {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+/* Active */
+.active {
+  background: #00b4d8ff;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Submenu */
+.subMenu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-left: 1.5rem;
+}
+
+/* Chevron */
+.chevron {
+  transition: transform 0.2s ease;
+}
+
+
+
+/* Main area */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Navbar */
+.navbar {
+  height: 60px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+}
+
+/* .navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+} */
+
+/* Avatar */
+.avatarWrapper {
+  position: relative;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* Dropdown */
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: 48px;
+  background: white;
+  border-radius: 6px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  overflow: hidden;  
+}
+
+.dropdown button {
+  padding: 0.7rem 1.2rem;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: #000;
+}
+
+.dropdown button:hover {
+  background: #f1f5f9;
+}
+
+
+
+.left {
+  display: flex;
+  align-items: center;
+}
+
+.fullscreenBtn {
+  background: #111827;
+  color: white;
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+  font-size: 1.1rem;
+  margin-right: 10px;
+}
+
+.fullscreenBtn:hover {
+  background: #000;
+}
+
+
+/* Content */
+.content {
+  padding: 2rem;
+  text-align: left;
+}
+
+/* ===== Stock History Table (Dashboard-aligned) ===== */
+
+.stock-history-card {
+  background: #ffffff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  overflow-x: auto;
+  max-width: 100%;
+  margin-bottom: 2rem;
+}
+
+.stock-history-card h3 {
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+  color: #1f2937;
+  text-align: left;
+}
+
+/* Table */
+.stock-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.stock-history-table th,
+.stock-history-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Header */
+.stock-history-table th {
+  background: #f3f4f6;
+  color: #374151;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Hover only (no zebra striping, matches dashboard) */
+.stock-history-table tr:hover {
+  background: #f9fafb;
+}
+
+/* Preformatted cell content */
+.stock-history-table td pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+}
+
+/* Action buttons */
+.actionsCell {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.iconBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  font-size: 1.1rem;
+  color: #444;
+  transition: color 0.15s ease, transform 0.1s ease;
+}
+
+.iconBtn:hover {
+  transform: scale(1.1);
+}
+
+
+.danger {
+  color: #c0392b;
+}
+
+.danger:hover {
+  color: #e74c3c;
+}
+
+
+.timeWrapper {
+  display: flex;
+  flex-direction: column;
+  margin-right: auto; /* pushes avatar to the right */
+  text-align: left;
+  font-size: 0.85rem;
+  /* color: #4570b6; */
+  background: rgba(224, 231, 255, 0.74);
+  padding: 0.4rem 0.6rem;
+}
+
+.timeWrapper .date {
+  font-weight: 500;
+}
+
+.timeWrapper .time {
+  font-weight: 600;
+  color: #4570b6;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+
+/* Header inside card */
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+/* Summary cards container */
+.summary-cards {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+/* Individual summary card */
+.summary-card {
+  background: #f3f4f6;
+  padding: 1rem;
+  border-radius: 8px;
+  min-width: 120px;
+  text-align: center;
+  font-weight: 500;
+  flex: 1 1 120px;
+}
+
+/* Filter buttons container */
+.filter-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+/* Table wrapper for horizontal scroll */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+/* No data row */
+.no-data {
+  text-align: center;
+  padding: 1rem 0;
+  color: #6b7280;
+}

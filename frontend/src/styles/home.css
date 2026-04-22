@@ -1,0 +1,223 @@
+/* =============================
+   HOME PAGE
+============================= */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+@media (max-width: 768px) {
+  .home-hero-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .home-hero-content h1 {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-step-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+@media (max-width: 768px) {
+  .page-container.flex {
+    flex-direction: column;
+    gap: 12px;
+    height: auto;
+  }
+}
+
+
+.home {
+  display: flex;
+  flex-direction: column;
+  /* gap: 64px; */
+}
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+
+/* ---------- HERO ---------- */
+.home-hero {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  /* padding: 96px 0; */
+}
+
+.home-hero-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.home-hero-logo {
+  width: 180px;
+  margin-bottom: 24px;
+}
+
+.home-hero-content h1 {
+  font-size: 40px;
+  line-height: 1.2;
+  margin-bottom: 16px;
+}
+
+.home-hero-content p {
+  max-width: 520px;
+}
+
+
+/* ---------- TRUST ---------- */
+.home-trust {
+  padding: 80px 0;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.home-trust-content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  align-items: center;
+}
+
+.trust-text {
+  font-size: 16px;
+  max-width: 720px;
+  color: #374151;
+}
+
+.home-trust-image {
+  width: 100%;
+  max-width: 1000px;
+}
+
+.home-trust-image img {
+  width: 100%;
+  height: auto;
+  border-radius: 16px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.12);
+}
+
+
+
+
+/* ---------- FEATURES ---------- */
+.home-features {
+  padding: 80px 0;
+}
+
+.home-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+
+
+/* ---------- STEPS ---------- */
+.home-steps {
+  padding: 80px 0;
+  background: #f9fafb;
+}
+
+
+.home-step-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+/* ---------- CTA ---------- */
+.home-cta {
+  background: var(--primary);
+  color: white;
+  padding: 80px 24px;
+}
+
+.home-cta .text-muted {
+  color: #dbeafe;
+}
+
+.home-cta .btn-primary {
+  background: white;
+  color: var(--primary);
+}
+
+
+/* ---------- FOOTER ---------- */
+.home-footer {
+  padding: 32px 16px;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+}
+
+.home-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.home-logo img {
+  width: 200px;
+  height: 80px;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.home-logo span {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: #111827; /* dark neutral */
+}
+
+.home-nav-logo {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.home-nav-logo img {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ---------- HERO IMAGE ---------- */
+.home-hero-image {
+  width: 100%;
+  max-width: 600px; /* controls how big it can grow */
+}
+
+.home-hero-image img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  border-radius: 16px;
+}

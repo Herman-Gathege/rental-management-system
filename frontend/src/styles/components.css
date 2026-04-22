@@ -1,0 +1,612 @@
+/*frontend/src/styles/components.css*/
+
+
+/* =============================
+   FORM ELEMENT#298cce
+============================= */
+
+.input {
+  width: 100%;
+  height: 52px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  font-size: 16px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+
+/* =============================
+   BUTTONS
+============================= */
+
+.btn {
+  height: 52px;
+  min-width: 120px; /* ensures a decent size on small buttons */
+  width: auto;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  padding: 0 20px;
+  transition: all 0.2s ease; /* smooth hover/resize */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap; /* prevents text wrapping */
+}
+
+.primary-btn {
+  background: #1b7a3a;
+  color: white;
+}
+
+.btn-danger{
+  background: var(--danger);
+  color: white;
+}
+
+/* Small screens (mobile) */
+@media (max-width: 768px) {
+  .btn {
+    height: 44px; /* slightly smaller height */
+    font-size: 13px;
+    padding: 0 15px;
+    min-width: 100px;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .btn {
+    height: 40px;
+    font-size: 12px;
+    padding: 0 12px;
+    min-width: 80px;
+  }
+}
+
+/* Optional hover effect */
+/* .btn:hover {
+  opacity: 0.9;
+  transform: scale(1.02);
+} */
+
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-secondary {
+  background: white;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: #eff6ff; /* very light blue */
+}
+
+.btn-secondary:active {
+  transform: translateY(1px);
+}
+
+
+.btn-primary:disabled {
+  opacity: 0.6;
+}
+
+/* Make active filter buttons more distinct */
+.btn-filter-active {
+  background: var(--primary);
+  color: white;
+  border: none;
+}
+
+.btn-filter-active:hover {
+  background: #1d4ed8; /* slightly darker blue on hover */
+}
+
+
+
+/* =============================
+   CARD
+============================= */
+
+.card {
+  /* background: white; */
+  padding: 24px;
+  border-radius: 16px;
+  /* box-shadow: 0 4px 12px rgba(0,0,0,0.06); */
+}
+
+.card-w {
+  background: #b3cfe557;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  cursor: pointer;
+}
+
+.stat-card-r {
+  background: #b3cfe557;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-w:hover {
+  box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+  transition: all 0.2s ease;
+
+}
+
+
+/* =============================
+   FORM STACKING
+============================= */
+
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+
+/* =============================
+   NAVBAR
+============================= */
+
+.navbar {
+  height: 64px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+
+  position: relative;
+  top: 0;
+  z-index: 100;
+
+  padding: 0 24px;
+}
+
+/* =============================
+   NAVBAR TEXT
+============================= */
+
+.text-sm {
+  font-size: 14px;
+}
+
+.text-bold {
+  font-weight: 600;
+}
+
+.text-muted {
+  color: #6b7280;
+}
+
+
+/* =============================
+   BUTTONS – GHOST
+============================= */
+
+.btn-ghost {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+
+  background: none;
+  border: none;
+
+  font-size: 18px;
+  cursor: pointer;
+  color: #374151;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-ghost:hover {
+  background: #f3f4f6;
+}
+
+/* Ensure icons inside ghost buttons always render */
+.btn-ghost svg {
+  width: 18px;
+  height: 18px;
+  color: inherit;
+  display: block;
+}
+
+
+
+/* =============================
+   AVATAR
+============================= */
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* =============================
+   NAVBAR DROPDOWN
+============================= */
+
+.dropdown {
+  position: absolute;
+  top: 52px;
+  right: 0;
+
+  display: flex;              /* ADD THIS */
+  flex-direction: column;     /* ADD THIS */
+
+  min-width: 260px;
+
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+  overflow: hidden;
+  z-index: 200;
+}
+
+
+/* .dropdown-item {
+  padding: 12px 16px;
+  font-size: 14px;
+
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+
+  cursor: pointer;
+  color: #374151;
+}
+
+.dropdown-item:hover {
+  background: #f3f4f6;
+} */
+
+/* ================================
+   DROPDOWN LARGE (PRO VERSION)
+================================ */
+
+.dropdown-lg {
+  width: 260px;
+  padding: 8px 0;
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+  animation: dropdownFade 0.15s ease;
+  max-height: 80vh; /* never exceed viewport height */
+  overflow-y: auto;
+}
+
+
+
+/* animation */
+@keyframes dropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ================================
+   HEADER
+================================ */
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.avatar-sm {
+  width: 36px;
+  height: 36px;
+  font-size: 14px;
+}
+
+.dropdown-user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.dropdown-role {
+  font-size: 12px;
+  color: #6b7280;
+  text-transform: capitalize;
+}
+
+/* ================================
+   DIVIDER
+================================ */
+
+.dropdown-divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 6px 0;
+}
+
+/* ================================
+   ITEMS
+================================ */
+
+.dropdown-item {
+  padding: 10px 16px;
+  font-size: 14px;
+  border-radius: 8px;
+  margin: 2px 6px;
+  transition: all 0.12s ease;
+}
+
+.dropdown-item:hover {
+  background: #f3f4f6;
+  transform: translateX(2px);
+}
+
+/* ================================
+   LOGOUT
+================================ */
+
+.dropdown-danger {
+  color: var(--danger);
+}
+
+.dropdown-danger:hover {
+  background: #fee2e2;
+}
+
+/* .chevron {
+  font-size: 18px;
+  color: var(--color-muted);
+} */
+
+.rotate-180 {
+  transform: rotate(180deg);
+}
+
+
+/* =============================
+   MODAL
+============================= */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal {
+  background: white;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 520px;
+  padding: 20px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+
+
+
+/* =============================
+   TABLE
+============================= */
+
+.staff-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.staff-table th,
+.staff-table td {
+  padding: 12px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.staff-table th {
+  background: #f3f4f6;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+
+.hint {
+  background: #eef6ff;
+  border-left: 4px solid var(--primary);
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #1e3b8ac4;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* bulb size */
+.hint svg {
+  flex-shrink: 0;
+  font-size: 18px;
+}
+
+.company-blue {
+  color: var(--primary);
+}
+
+/* Expanded dropdown card */
+.expanded-card {
+  background-color: #f9f9f9; /* soft light background */
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.2s ease-in-out;
+}
+
+/* List inside expanded card */
+.expanded-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Each item row */
+.expanded-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 0.9rem;
+}
+
+/* Last item no border */
+.expanded-list-item:last-child {
+  border-bottom: none;
+}
+
+/* Name styling */
+.item-name {
+  flex: 2;
+  font-weight: 500;
+}
+
+/* Quantity */
+.item-qty {
+  flex: 1;
+  text-align: center;
+  color: #555;
+}
+
+/* Unit price */
+.item-price {
+  flex: 1;
+  text-align: right;
+  color: #333;
+}
+
+/* Line total */
+.item-total {
+  flex: 1;
+  text-align: right;
+  color: #111;
+  font-weight: 600;
+}
+
+/* =============================
+   PURCHASE FORM STACKED ITEMS
+============================= */
+
+.purchase-items-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.purchase-item-card {
+  background: #f9fafb;
+  padding: 16px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-row label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Stack columns on small modal width */
+@media (max-width: 520px) {
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.success-banner {
+  background: #e6f9ed;
+  color: #1b7a3a;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+}

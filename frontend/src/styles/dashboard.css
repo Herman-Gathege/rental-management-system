@@ -1,0 +1,422 @@
+/*frontend/src/styles/dashboard.css*/
+
+
+
+/* =============================
+   SIDEBAR SHELL
+============================= */
+
+/* .sidebar {
+  width: 260px;
+  height: 100vh;
+  background: white;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.25s ease;
+  position: sticky;
+  padding: 1rem;
+} */
+
+.sidebar {
+  width: 260px;
+  height: 100vh;
+  background: white;
+  border-right: 1px solid #e5e7eb;
+
+  display: flex;
+  flex-direction: column;
+
+  position: sticky;
+  top: 0;
+
+  overflow: hidden; /* prevents spill */
+}
+
+.sidebar-collapsed {
+  width: 72px;
+}
+
+.sidebar-nav {
+  flex: 1;                  /* fills remaining space */
+  overflow-y: auto;         /* scroll instead of spill */
+  padding: 1rem 0.5rem;
+}
+
+/* .sidebar {
+  width: 220px;
+  background: #ffffff;
+  color: #1f2937;
+  padding: 1rem;
+  flex-shrink: 0;
+  border-right: 1px solid #e5e7eb;
+}
+
+.collapsed {
+  width: 72px;
+} */
+
+/* =============================
+   SIDEBAR HEADER
+============================= */
+
+/* .sidebar-header {
+  position: relative; 
+  height: 64px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; 
+  border-bottom: 1px solid #e5e7eb;
+  overflow: visible; 
+} */
+
+.sidebar-header {
+  position: relative;
+  height: 64px;
+  padding: 0 16px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  border-bottom: 1px solid #e5e7eb;
+
+  flex-shrink: 0;           /* prevents compression */
+  z-index: 5;               /* ensures above nav */
+}
+
+.sidebar-logo {
+  white-space: nowrap;
+}
+
+/* ----------------------------
+   COLLAPSE BUTTON
+---------------------------- */
+/* .sidebar-collapse-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: transparent;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  position: absolute;
+  top: 12px;
+  right: -12px;
+  z-index: 50;
+  transform: rotate(90deg); 
+  font-size: 20px;
+  font-weight: bold;
+  color: #184da3;
+  transition: transform 0.2s ease, background 0.2s ease;
+} */
+
+.sidebar-collapse-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: white;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  position: absolute;
+  top: 14px;
+  right: -18px; /* move fully outside */
+
+  z-index: 20; /* force above border */
+
+  transform: rotate(90deg);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.sidebar-collapse-btn:hover {
+  background: #f3f4f6;
+  
+}
+
+
+.collapse-icon {
+  margin-left: 0; /* override the old rule */
+  font-size: 22px;
+  color: #184da3;
+  transition: transform 0.2s ease;
+}
+
+
+/* Rotate when collapsed */
+.collapse-icon.rotated {
+  transform: rotate(180deg);
+}
+
+
+
+/* Center button when collapsed */
+.sidebar-collapsed .sidebar-header,
+.sidebar-header.collapsed-header {
+  justify-content: center; /* center collapse button */
+  padding: 0; /* optional, remove extra spacing */
+}
+
+/* =============================
+   SIDEBAR LINKS
+============================= */
+
+/* .sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 15px;
+  color: #374151;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s ease;
+  min-height: 44px; 
+} */
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 12px 14px;
+  border-radius: 10px;
+
+  font-size: 15px;
+  color: #374151;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+
+  min-height: 44px;
+
+  flex-shrink: 0; /* prevents compression bug */
+}
+
+.sidebar-link:hover {
+  background: #f3f4f6;
+}
+
+.sidebar-link.active {
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Icons */
+.sidebar-link svg {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/* =============================
+   SIDEBAR SUBMENU
+============================= */
+
+.sidebar-submenu {
+  display: flex;
+  flex-direction: column;
+  margin-left: 34px;
+  gap: 4px;
+}
+
+.sidebar-submenu .sidebar-link {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+/* =============================
+   CHEVRONS
+============================= */
+
+
+/* .sidebar-link .chevron {
+  margin-left: auto;
+
+  display: flex;              
+  align-items: center;        
+  justify-content: center;
+
+  width: 18px;                
+  height: 18px;
+
+  flex-shrink: 0;             
+  line-height: 0;             
+
+  transition: transform 0.2s ease;
+} */
+
+.sidebar-link .chevron {
+  margin-left: auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 18px;
+  height: 18px;
+
+  flex-shrink: 0;
+}
+
+/* .sidebar-link .chevron {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+} */
+
+.rotated {
+  transform: rotate(180deg);
+}
+
+/* =============================
+   COLLAPSED SIDEBAR
+============================= */
+
+.sidebar-collapsed {
+  width: 72px;
+}
+
+.sidebar-collapsed .sidebar-logo,
+.sidebar-collapsed .sidebar-submenu,
+.sidebar-collapsed .sidebar-link span,
+.sidebar-collapsed .chevron {
+  display: none !important;
+}
+
+.sidebar-collapsed .sidebar-link {
+  justify-content: center;
+  padding: 12px 0;
+}
+
+
+/* Hide sidebar on smaller screens */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+
+  /* Optional: if you want to show a mobile toggle button */
+  .mobile-sidebar-toggle {
+    display: block; /* You can style a hamburger button */
+  }
+}
+
+
+.bg-light {
+  background: #f9fafb;
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+}
+
+/* Stock responsive layout */
+.stock-cards {
+  display: grid;
+  gap: 16px;
+}
+
+/* Hide cards on desktop */
+@media (min-width: 768px) {
+  .stock-cards {
+    display: none;
+  }
+}
+
+/* Hide table on mobile */
+@media (max-width: 767px) {
+  .stock-table-wrapper {
+    display: none;
+  }
+}
+
+/* Card internals */
+.stock-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stock-card-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.stock-card-body span {
+  color: #6b7280;
+}
+
+.stock-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* =============================
+   SUPPLIER CARDS (MOBILE)
+============================= */
+
+.supplier-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.supplier-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.supplier-card strong {
+  font-size: 15px;
+}
+
+.supplier-card span {
+  color: var(--text-muted, #6b7280);
+  font-weight: 500;
+}
+
+.supplier-card > div:last-child {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.expanded-headers {
+  font-weight: 600;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #eee;
+}
+
+.expanded-list-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+}
+
+.purchase-item-mobile-card {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 10px;
+  background: #fafafa;
+}

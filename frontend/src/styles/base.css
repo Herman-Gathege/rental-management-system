@@ -1,0 +1,19 @@
+/*frontend/src/styles/base.css*/
+
+:root {
+  --primary: #2563eb;
+  --secondary: #24a5fb;
+  --danger: #ef4444;
+  --bg: #f6f7fb;
+
+  --radius: 12px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+}

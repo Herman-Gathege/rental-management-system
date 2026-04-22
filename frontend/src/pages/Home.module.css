@@ -1,0 +1,186 @@
+.homeContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 5rem;
+  padding: 3rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ================= HERO ================= */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+.heroContent h1 {
+  font-size: 3rem;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+}
+
+.heroContent h1 span {
+  color: #2563eb;
+}
+
+.heroContent p {
+  font-size: 1.2rem;
+  color: #555;
+  max-width: 520px;
+}
+
+.heroButtons {
+  margin-top: 2rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.heroImage {
+  height: 320px;
+  background: #f3f4f6;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+/* ================= BUTTONS ================= */
+.primaryBtn {
+  background-color: #2563eb;
+  color: #fff;
+  padding: 0.9rem 2rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.primaryBtn:hover {
+  background-color: #1e4ed8;
+}
+
+.secondaryBtn {
+  background-color: transparent;
+  color: #2563eb;
+  padding: 0.9rem 2rem;
+  border: 1px solid #2563eb;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+/* ================= TRUST ================= */
+.trust {
+  text-align: center;
+  font-size: 1.1rem;
+  color: #444;
+}
+
+.trustSpan {
+  font-weight: 600;
+  color: #2563eb;
+}
+
+/* ================= FEATURES ================= */
+.features {
+  text-align: center;
+}
+
+.sectionSubtitle {
+  color: #666;
+  margin-bottom: 3rem;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 2rem;
+}
+
+.featureCard {
+  background: #f9fafb;
+  padding: 2rem;
+  border-radius: 16px;
+  text-align: left;
+}
+
+.featureCard h3 {
+  margin-bottom: 0.5rem;
+}
+
+/* ================= HOW IT WORKS ================= */
+.howItWorks {
+  text-align: center;
+}
+
+.steps {
+  display: flex;
+  justify-content: center;
+  gap: 3rem;
+  margin-top: 2rem;
+}
+
+.step {
+  max-width: 200px;
+}
+
+.step span {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+/* ================= CTA ================= */
+.cta {
+  background: #000;
+  color: #fff;
+  padding: 3rem 2rem;
+  border-radius: 20px;
+  text-align: center;
+}
+
+.ctaSubtitle{
+  margin: 1rem 0 2rem;
+  opacity: 0.9;
+  color: #fff;
+}
+
+.ctaTitle {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: #e6e6e6;
+}
+
+/* ================= FOOTER ================= */
+.footer {
+  text-align: center;
+  color: #777;
+  font-size: 0.9rem;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 768px) {
+  .hero {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .heroContent p {
+    margin: 0 auto;
+  }
+
+  .steps {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+}

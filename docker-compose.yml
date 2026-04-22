@@ -1,0 +1,64 @@
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: rental_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: rental_user
+      POSTGRES_PASSWORD: rental_pass
+      POSTGRES_DB: rental_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: rental_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+
+  redis:
+    image: redis:7
+    container_name: rental_redis
+    ports:
+      - "6380:6379"
+
+  backend:
+    build: ./backend
+    container_name: rental_backend
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+    command: >
+        sh -c "
+          echo 'Waiting for Postgres...' &&
+          until pg_isready -h rental_postgres -p 5432 -U rental_user; do
+            sleep 2;
+          done &&
+          echo 'Postgres is ready!' &&
+          alembic upgrade head &&
+          python -m app.db.seed_roles &&
+          uvicorn app.main:app --host 0.0.0.0 --port 8000
+        "
+  
+  frontend:
+    build: ./frontend
+    container_name: rental_frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

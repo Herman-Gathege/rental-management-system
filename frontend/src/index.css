@@ -1,0 +1,98 @@
+/* Global reset */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Root container for all pages */
+#root {
+  min-height: 100vh;
+  background-color: #f9f9f9;
+}
+
+
+
+/* Links */
+a {
+  text-decoration: none;
+  color: #0077ff;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #005fcc;
+}
+
+/* Buttons */
+/* button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  background-color: #0077ff;
+  color: #fff;
+  padding: 0.8rem 1.2rem;
+  font-size: 1rem;
+  transition: background-color 0.2s;
+}
+
+button:hover {
+  background-color: #00b4d8ff;
+} */
+
+/* Forms (applies to Login/Register forms too) */
+/* form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+} */
+
+/* Inputs */
+/* input {
+  width: 100%;
+  max-width: 400px;
+  padding: 0.8rem 1rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+} */
+
+/* input:focus {
+  border-color: #0077ff;
+} */
+
+/* Headings */
+/* h1, h2, h3 {
+  color: #222;
+  margin-bottom: 1rem;
+} */
+
+/* Paragraphs / messages */
+/* p {
+  color: #333;
+  margin-top: 0.5rem;
+} */
+
+/* Cards / containers */
+/* .card {
+  padding: 2rem;
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  margin: 1rem 0;
+} */
+
+/* Responsive */
+@media (max-width: 600px) {
+  #root {
+    padding: 1rem;
+  }
+
+  input, button {
+    width: 100%;
+  }
+}
