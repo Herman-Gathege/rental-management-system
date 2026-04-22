@@ -1,3 +1,4 @@
+# backend/app/models/organization.py
 import uuid
 from sqlalchemy import Column, String
 from app.db.base import Base

@@ -1,23 +1,24 @@
+//frontend/src/context/AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from "react";
 import { loginUser, registerUser, getMe } from "../api/auth";
 
-const AuthContext = createContext();
 
+const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
-export function AuthProvider({ children }) {
+export function AuthProvider({ children  }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  /* LOAD USER IF TOKEN EXISTS */
+  /* Restore session on page refresh */
   useEffect(() => {
-    const loadUser = async () => {
+    const init = async () => {
       try {
         const token = localStorage.getItem("access_token");
-        if (!token) return setLoading(false);
+        if (!token) throw new Error();
 
-        const data = await getMe();
-        setUser(data);
+        const me = await getMe();
+        setUser(me);
       } catch {
         logout();
       } finally {
@@ -25,7 +26,7 @@ export function AuthProvider({ children }) {
       }
     };
 
-    loadUser();
+    init();
   }, []);
 
   /* LOGIN */

@@ -1,3 +1,4 @@
+# backend/app/services/email_service.py
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from app.core.config import settings

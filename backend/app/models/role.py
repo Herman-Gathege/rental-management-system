@@ -1,3 +1,4 @@
+# backend/app/models/role.py
 from sqlalchemy import Column, String, DateTime
 from datetime import datetime
 from app.db.base import Base

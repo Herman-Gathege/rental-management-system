@@ -1,26 +1,23 @@
+//frontend/src/api/auth.js
 import API from "./client";
 
 /* LOGIN */
 export const loginUser = async (email, password) => {
-  const form = new URLSearchParams();
-  form.append("username", email);
-  form.append("password", password);
-
-  const res = await API.post("/auth/login", form, {
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  const { data } = await API.post("/auth/login", {
+    email,
+    password,
   });
-
-  return res.data;
+  return data;
 };
 
-/* REGISTER */
-export const registerUser = async (data) => {
-  const res = await API.post("/auth/register", data);
-  return res.data;
+/* REGISTER LANDLORD */
+export const registerUser = async (payload) => {
+  const { data } = await API.post("/auth/register", payload);
+  return data;
 };
 
 /* GET CURRENT USER */
 export const getMe = async () => {
-  const res = await API.get("/auth/me");
-  return res.data;
+  const { data } = await API.get("/auth/me");
+  return data;
 };

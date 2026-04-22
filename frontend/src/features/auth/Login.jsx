@@ -1,3 +1,4 @@
+//frontend/src/features/auth/Login.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -15,8 +16,8 @@ export default function Login() {
     e.preventDefault();
     try {
       await login(form.email, form.password);
-      navigate("/dashboard");
-    } catch (err) {
+      navigate("/dashboard"); // ⭐ redirect after login
+    } catch {
       alert("Login failed");
     }
   };

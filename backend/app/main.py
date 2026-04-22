@@ -1,3 +1,4 @@
+# backend/app/main.py
 from app.api.routes import auth
 from fastapi import FastAPI
 from app.db.session import engine

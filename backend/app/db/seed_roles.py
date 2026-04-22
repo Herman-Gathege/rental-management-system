@@ -1,3 +1,4 @@
+# backend/app/db/seed_roles.py
 from sqlalchemy.orm import Session
 from app.models.role import Role
 from app.core.roles import ALL_ROLES

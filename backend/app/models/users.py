@@ -1,3 +1,4 @@
+# backend/app/models/users.py
 import uuid
 from sqlalchemy import Column, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
