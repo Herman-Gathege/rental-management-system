@@ -25,11 +25,11 @@ export default function Register() {
   };
 
   return (
-    <div className="auth-container">
-      <h1>Create Account</h1>
-
+    <div className="auth-page">
       <form onSubmit={handleSubmit}>
+        <h2 className="text-center">Create Account</h2>
         <input
+          className="input"
           placeholder="Organization Name"
           required
           onChange={(e) =>
@@ -38,6 +38,7 @@ export default function Register() {
         />
 
         <input
+          className="input"
           type="email"
           placeholder="Email"
           required
@@ -45,13 +46,17 @@ export default function Register() {
         />
 
         <input
+          className="input"
           type="password"
           placeholder="Password"
+          autoComplete="new-password"
           required
           onChange={(e) => setForm({ ...form, password: e.target.value })}
         />
 
-        <button type="submit">Register</button>
+        <button type="submit" className="btn btn-primary">
+          Register
+        </button>
       </form>
     </div>
   );

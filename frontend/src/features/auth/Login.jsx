@@ -23,15 +23,17 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-container">
-      <h1>Login</h1>
+    <div className="auth-page">
+      <form className="auth-card card form-stack" onSubmit={handleSubmit}>
+        <h2 className="text-center">Login</h2>
 
-      <form onSubmit={handleSubmit}>
         <input
           type="email"
           placeholder="Email"
           required
           onChange={(e) => setForm({ ...form, email: e.target.value })}
+          className="input"
+          autoComplete="email"
         />
 
         <input
@@ -39,9 +41,13 @@ export default function Login() {
           placeholder="Password"
           required
           onChange={(e) => setForm({ ...form, password: e.target.value })}
+          className="input"
+          autoComplete="current-password"
         />
 
-        <button type="submit">Login</button>
+        <button className="btn btn-primary" type="submit">
+          Login
+        </button>
       </form>
     </div>
   );
