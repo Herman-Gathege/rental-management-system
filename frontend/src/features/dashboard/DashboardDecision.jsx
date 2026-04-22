@@ -11,19 +11,19 @@ export default function DashboardDecision() {
     if (!user) return;
 
     switch (user.role) {
-      case "landlord":
+      case "LANDLORD":
         navigate("/owner");
         break;
-      case "property_manager":
+      case "PROPERTY_MANAGER":
         navigate("/manager");
         break;
-      case "finance":
+      case "FINANCE":
         navigate("/finance");
         break;
-      case "tenant":
+      case "TENANT":
         navigate("/tenant");
         break;
-      case "super_admin":
+      case "SYSTEM":
         navigate("/super-admin");
         break;
       default:

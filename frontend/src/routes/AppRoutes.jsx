@@ -48,7 +48,7 @@ export default function AppRoutes() {
       <Route
         path="/owner/*"
         element={
-          <ProtectedRoute allowedRoles={["landlord"]}>
+          <ProtectedRoute allowedRoles={["LANDLORD"]}>
             <DashboardLayout />
           </ProtectedRoute>
         }
@@ -61,7 +61,7 @@ export default function AppRoutes() {
       <Route
         path="/manager/*"
         element={
-          <ProtectedRoute allowedRoles={["property_manager"]}>
+          <ProtectedRoute allowedRoles={["PROPERTY_MANAGER"]}>
             <StaffLayout />
           </ProtectedRoute>
         }
@@ -74,7 +74,7 @@ export default function AppRoutes() {
       <Route
         path="/finance/*"
         element={
-          <ProtectedRoute allowedRoles={["finance"]}>
+          <ProtectedRoute allowedRoles={["FINANCE"]}>
             <DashboardLayout />
           </ProtectedRoute>
         }
@@ -86,7 +86,7 @@ export default function AppRoutes() {
       <Route
         path="/tenant/*"
         element={
-          <ProtectedRoute allowedRoles={["tenant"]}>
+          <ProtectedRoute allowedRoles={["TENANT"]}>
             <DashboardLayout />
           </ProtectedRoute>
         }
@@ -98,7 +98,7 @@ export default function AppRoutes() {
       <Route
         path="/super-admin/*"
         element={
-          <ProtectedRoute allowedRoles={["super_admin"]}>
+          <ProtectedRoute allowedRoles={["SYSTEM"]}>
             <SuperAdminLayout />
           </ProtectedRoute>
         }

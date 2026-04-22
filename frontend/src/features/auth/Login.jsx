@@ -16,7 +16,7 @@ export default function Login() {
     e.preventDefault();
     try {
       await login(form.email, form.password);
-      navigate("/dashboard"); // ⭐ redirect after login
+      navigate("/dashboard"); // ⭐ single entry point
     } catch {
       alert("Login failed");
     }
