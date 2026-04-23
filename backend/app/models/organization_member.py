@@ -3,12 +3,14 @@ from sqlalchemy import Column, Integer, ForeignKey, DateTime, UniqueConstraint, 
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.base import Base
+import uuid
+
 
 
 class OrganizationMember(Base):
     __tablename__ = "organization_members"
 
-    id = Column(String, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
 
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"))
     organization_id = Column(String, ForeignKey("organizations.id", ondelete="CASCADE"))

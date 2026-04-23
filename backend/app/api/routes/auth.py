@@ -30,25 +30,28 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         if existing:
             raise HTTPException(status_code=400, detail="Email already registered")
 
-        # 2️⃣ create organization (portfolio container)
-        org = Organization(name=user.organization_name)
-        db.add(org)
-        db.flush()  # get org.id without committing
-
-        # 3️⃣ fetch LANDLORD role
-        landlord_role = db.query(Role).filter(Role.name == LANDLORD).first()
-        if not landlord_role:
-            raise HTTPException(status_code=500, detail="Roles not seeded")
-
-        # 4️⃣ create user (global identity only)
+        # 2️⃣ create user FIRST
         new_user = User(
             email=user.email,
             password_hash=hash_password(user.password),
         )
         db.add(new_user)
-        db.flush()  # get user.id
+        db.flush()  # ✅ now we have new_user.id
 
-        # 5️⃣ create organization membership (THIS is the real role)
+        # 3️⃣ create organization WITH owner_id
+        org = Organization(
+            name=user.organization_name,
+            owner_id=new_user.id   # 🔥 FIX HERE
+        )
+        db.add(org)
+        db.flush()
+
+        # 4️⃣ fetch LANDLORD role
+        landlord_role = db.query(Role).filter(Role.name == LANDLORD).first()
+        if not landlord_role:
+            raise HTTPException(status_code=500, detail="Roles not seeded")
+
+        # 5️⃣ create membership
         from app.models.organization_member import OrganizationMember
 
         membership = OrganizationMember(
@@ -56,10 +59,9 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
             organization_id=org.id,
             role_id=landlord_role.id,
         )
-
         db.add(membership)
 
-        # 6️⃣ commit everything together
+        # 6️⃣ commit everything
         db.commit()
 
         return {
