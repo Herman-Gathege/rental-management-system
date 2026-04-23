@@ -8,11 +8,11 @@ from app.db.base import Base
 class OrganizationInvitation(Base):
     __tablename__ = "organization_invitations"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True)
 
     email = Column(String, nullable=False)
-    role_id = Column(Integer, ForeignKey("roles.id"))
-    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"))
+    role_id = Column(String, ForeignKey("roles.id"))
+    organization_id = Column(String, ForeignKey("organizations.id", ondelete="CASCADE"))
 
     token = Column(String, unique=True, nullable=False)
     status = Column(String, default="pending")  # pending / accepted / expired

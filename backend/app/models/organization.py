@@ -12,7 +12,7 @@ class Organization(Base):
     name = Column(String, nullable=False)
 
      # The user who created the organization (landlord)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    owner_id = Column(String, ForeignKey("users.id"), nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

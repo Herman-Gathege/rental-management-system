@@ -8,14 +8,14 @@ from app.db.base import Base
 class Property(Base):
     __tablename__ = "properties"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True)
 
     name = Column(String, nullable=False)
     address = Column(String, nullable=False)
     city = Column(String, nullable=False)
     country = Column(String, nullable=False)
 
-    organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"))
+    organization_id = Column(String, ForeignKey("organizations.id", ondelete="CASCADE"))
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
