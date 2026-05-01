@@ -1,0 +1,131 @@
+/*frontend\src\features\team\team.css*/
+
+.team-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.team-page h2 {
+  margin: 0;
+}
+
+/* ─── Invite Form ─── */
+
+.invite-section h3 {
+  margin: 0 0 0.75rem 0;
+}
+
+.invite-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.invite-form .input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.invite-form select.input {
+  flex: 0 0 auto;
+  min-width: 160px;
+}
+
+/* ─── Table ─── */
+
+.team-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.team-table th,
+.team-table td {
+  padding: 0.625rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border, #dee2e6);
+}
+
+.team-table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted, #6c757d);
+}
+
+/* ─── Cards (Mobile) ─── */
+
+.team-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.team-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--color-border, #dee2e6);
+}
+
+/* ─── Role Badges ─── */
+
+.role-badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.role-landlord {
+  background: #d4edda;
+  color: #155724;
+}
+
+.role-property_manager {
+  background: #cce5ff;
+  color: #004085;
+}
+
+.role-finance {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.role-tenant {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+/* ─── Invitations ─── */
+
+.invitations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.invitation-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border, #dee2e6);
+  flex-wrap: wrap;
+}
+
+.badge-pending {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  background: #ffeeba;
+  color: #856404;
+}

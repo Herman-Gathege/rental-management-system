@@ -11,6 +11,12 @@ import DashboardDecision from "../features/dashboard/DashboardDecision";
 import DashboardLayout from "../features/dashboard/layout/DashboardLayout";
 import OwnerDashboard from "../features/dashboard/OwnerDashboard";
 
+/* SPRINT 2 — Properties & Team */
+import Properties from "../features/properties/Properties";
+import CreateProperty from "../features/properties/CreateProperty";
+import PropertyDetail from "../features/properties/PropertyDetail";
+import Team from "../features/team/Team";
+
 /* PROPERTY MANAGER */
 import StaffLayout from "../features/dashboard/layout/StaffLayout";
 import StaffDashboard from "../features/dashboard/StaffDashboard";
@@ -28,7 +34,6 @@ import SuperAdminDashboard from "../features/dashboard/SuperAdminDashboard";
 export default function AppRoutes() {
   return (
     <Routes>
-
       {/* PUBLIC */}
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
@@ -55,6 +60,12 @@ export default function AppRoutes() {
       >
         <Route index element={<OwnerDashboard />} />
         <Route path="dashboard" element={<OwnerDashboard />} />
+
+        {/* Sprint 2 routes */}
+        <Route path="properties" element={<Properties />} />
+        <Route path="properties/new" element={<CreateProperty />} />
+        <Route path="properties/:propertyId" element={<PropertyDetail />} />
+        <Route path="team" element={<Team />} />
       </Route>
 
       {/* ================= PROPERTY MANAGER ================= */}
@@ -105,7 +116,6 @@ export default function AppRoutes() {
       >
         <Route index element={<SuperAdminDashboard />} />
       </Route>
-
     </Routes>
   );
 }
