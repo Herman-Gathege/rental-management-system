@@ -1,46 +1,39 @@
-//frontend/src/components/BottomNav.jsx
 import { NavLink } from "react-router-dom";
 import {
-  FiBarChart2,
-  FiBox,
+  FiHome,
+  FiBriefcase,
+  FiLayers,
   FiUsers,
-  FiMenu,
-  FiHome
+  FiDollarSign,
 } from "react-icons/fi";
-import { useState } from "react";
 
 export default function BottomNav() {
-  const [open, setOpen] = useState(false);
-
   return (
-    <>
-      <nav className="bottom-nav hidden-desktop">
+    <nav className="bottom-nav hidden-desktop">
+      <NavLink to="/owner/dashboard" end className="bottom-nav-item">
+        <FiHome />
+        <span>Home</span>
+      </NavLink>
 
-        <NavLink to="/owner/dashboard" end className="bottom-nav-item">
-         <FiHome />
-         <span>Home</span>
-       </NavLink>
+      <NavLink to="/owner/properties" className="bottom-nav-item">
+        <FiBriefcase />
+        <span>Properties</span>
+      </NavLink>
 
-        <NavLink to="/owner/sales" className="bottom-nav-item">
-          <FiBarChart2 />
-          <span>Sales</span>
-        </NavLink>
+      <NavLink to="/owner/units" className="bottom-nav-item">
+        <FiLayers />
+        <span>Units</span>
+      </NavLink>
 
-        <NavLink to="/owner/stock" className="bottom-nav-item">
-          <FiBox />
-          <span>Stock</span>
-        </NavLink>
+      <NavLink to="/owner/tenants" className="bottom-nav-item">
+        <FiUsers />
+        <span>Tenants</span>
+      </NavLink>
 
-        <NavLink to="/owner/customers/debtors" className="bottom-nav-item">
-          <FiUsers />
-          <span>Customers</span>
-        </NavLink>
-
-        
-
-      </nav>
-
-      
-    </>
+      <NavLink to="/owner/payments" className="bottom-nav-item">
+        <FiDollarSign />
+        <span>Rent</span>
+      </NavLink>
+    </nav>
   );
 }

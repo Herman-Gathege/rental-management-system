@@ -1,0 +1,168 @@
+/*frontend\src\styles\properties.css*/
+
+.properties-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.properties-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.properties-header h2 {
+  margin: 0;
+}
+
+/* ─── Table ─── */
+
+.properties-table-wrapper {
+  overflow-x: auto;
+}
+
+.properties-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.properties-table th,
+.properties-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border, #dee2e6);
+}
+
+.properties-table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted, #6c757d);
+}
+
+.properties-table .prop-name {
+  font-weight: 600;
+}
+
+.properties-table tbody tr:hover {
+  background: var(--color-surface, #f8f9fa);
+}
+
+/* ─── Cards (Mobile) ─── */
+
+.properties-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.property-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.property-card-header {
+  font-size: 1rem;
+}
+
+/* ─── Empty State ─── */
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.empty-state .btn {
+  margin-top: 1rem;
+}
+
+/* ─── Form ─── */
+
+.property-form {
+  max-width: 500px;
+}
+
+.property-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.property-form label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #6c757d);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ─── Detail Page ─── */
+
+.property-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.property-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.info-item label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted, #6c757d);
+  margin-bottom: 0.25rem;
+}
+
+.info-item span {
+  font-size: 0.95rem;
+  color: var(--color-text, #212529);
+}
+
+/* ─── Managers section ─── */
+
+.managers-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.managers-section h3 {
+  margin: 0;
+}
+
+.manager-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--color-border, #dee2e6);
+}
+
+.assign-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.assign-form select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: 6px;
+  font-size: 0.875rem;
+}

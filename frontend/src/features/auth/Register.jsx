@@ -26,7 +26,7 @@ export default function Register() {
 
   return (
     <div className="auth-page">
-      <form onSubmit={handleSubmit}>
+      <form className="auth-card card form-stack" onSubmit={handleSubmit}>
         <h2 className="text-center">Create Account</h2>
         <input
           className="input"

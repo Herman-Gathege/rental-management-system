@@ -1,0 +1,100 @@
+/*frontend\src\components\PropertySwitcher.css*/
+
+.property-switcher {
+  position: relative;
+}
+
+.switcher-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface, #f8f9fa);
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--color-text, #212529);
+  transition: all 0.2s ease;
+  min-width: 160px;
+}
+
+.switcher-trigger:hover {
+  background: var(--color-surface-hover, #e9ecef);
+  border-color: var(--color-border-hover, #adb5bd);
+}
+
+.switcher-icon {
+  font-size: 1rem;
+}
+
+.switcher-label {
+  flex: 1;
+  text-align: left;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.switcher-arrow {
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.switcher-arrow.open {
+  transform: rotate(180deg);
+}
+
+.switcher-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  min-width: 200px;
+  background: white;
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.switcher-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.switcher-option:hover {
+  background: var(--color-surface, #f8f9fa);
+}
+
+.switcher-option.active {
+  background: var(--color-primary-light, #e7f1ff);
+}
+
+.option-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text, #212529);
+}
+
+.option-city {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #6c757d);
+}
+
+.switcher-empty {
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #6c757d);
+  padding: 0.5rem;
+}

@@ -74,6 +74,7 @@ from app.db.seed_roles import seed_roles
 # Routers
 from app.api.routes.auth import router as auth_router
 from app.api.routes.organizations import router as org_router
+from app.api.routes.properties import router as properties_router
 
 app = FastAPI(title="Rental Management API")
 
@@ -81,6 +82,8 @@ app = FastAPI(title="Rental Management API")
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost",
+    "http://127.0.0.1",
 ]
 
 app.add_middleware(
@@ -91,9 +94,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register routers (ONLY ONCE)
+# Register routers
 app.include_router(auth_router)
 app.include_router(org_router)
+app.include_router(properties_router)
 
 @app.get("/")
 def root():
