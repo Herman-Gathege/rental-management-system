@@ -1,9 +1,9 @@
 /*frontend\src\features\properties\properties.jsx*/
 
 import { useEffect, useState } from "react";
-import { getProperties } from "../../../api/properties";
+import { getProperties } from "../../api/properties";
 import { Link } from "react-router-dom";
-import "./Properties.css";
+// import "./Properties.css";
 
 export default function Properties() {
   const [properties, setProperties] = useState([]);

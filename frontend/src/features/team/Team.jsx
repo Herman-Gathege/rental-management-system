@@ -5,8 +5,8 @@ import {
   getMyOrganization,
   inviteUser,
   getInvitations,
-} from "../../../api/organizations";
-import "./Team.css";
+} from "../../api/organizations";
+// import "./Team.css";
 
 const INVITABLE_ROLES = ["PROPERTY_MANAGER", "FINANCE", "TENANT"];
 

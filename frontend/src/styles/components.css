@@ -78,9 +78,19 @@
 } */
 
 
+.btn {
+  text-decoration: none;   /* remove underline */
+  color: inherit;          /* inherit correct color */
+}
+
 .btn-primary {
   background: var(--primary);
   color: white;
+}
+
+.btn-primary:hover {
+  background: #1d4ed8; /* slightly darker blue */
+  color: white;        /* 🔥 force text to stay white */
 }
 
 .btn-secondary {

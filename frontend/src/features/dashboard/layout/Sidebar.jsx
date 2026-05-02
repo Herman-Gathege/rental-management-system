@@ -84,7 +84,7 @@ export default function Sidebar() {
             {propertyOpen && !collapsed && (
               <div className="sidebar-submenu">
                 <NavLink to="/owner/properties" className={linkClass}>All Properties</NavLink>
-                <NavLink to="/owner/properties/add" className={linkClass}>Add Property</NavLink>
+                <NavLink to="/owner/properties/new" className={linkClass}>Add Property</NavLink>
               </div>
             )}
 

@@ -1,9 +1,9 @@
 /*frontend\src\features\properties\createproperty.jsx*/
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createProperty } from "../../../api/properties";
-import { useProperty } from "../../../context/PropertyContext";
-import "./Properties.css";
+import { createProperty } from "../../api/properties";
+import { useProperty } from "../../context/PropertyContext";
+// import "./Properties.css";
 
 export default function CreateProperty() {
   const navigate = useNavigate();

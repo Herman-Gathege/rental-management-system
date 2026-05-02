@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getProperty, assignManager, removeManager } from "../../../api/properties";
-import { getMyOrganization } from "../../../api/organizations";
-import "./Properties.css";
+import { getProperty, assignManager, removeManager } from "../../api/properties";
+import { getMyOrganization } from "../../api/organizations";
+// import "./Properties.css";
 
 export default function PropertyDetail() {
   const { propertyId } = useParams();

@@ -102,32 +102,53 @@
 
 
 /* =====================================================
-   MOBILE VISIBILITY HELPERS
-   (mobile-first approach)
+MOBILE VISIBILITY HELPERS
 ===================================================== */
 
-/* hidden on mobile, visible on desktop */
+/* Hidden on mobile, visible on tablet/desktop */
 .hidden-mobile {
-  display: none;
+  display: none !important;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .hidden-mobile {
-    display: block;
+    display: revert !important;
   }
 }
 
-/* visible on mobile, hidden on desktop */
-/* visible on mobile, hidden on desktop */
+/* Visible on mobile, hidden on tablet/desktop */
 .hidden-desktop {
-  display: inherit;
+  /* intentionally empty → keep element's own display */
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
+  .hidden-desktop {
+    display: none !important;
+  }
+}
+/* hidden on mobile, visible on desktop */
+/* .hidden-mobile {
+  display: none;
+} */
+
+/* @media (min-width: 1024px) {
+  .hidden-mobile {
+    display: block;
+  }
+} */
+
+/* visible on mobile, hidden on desktop */
+/* visible on mobile, hidden on desktop */
+/* .hidden-desktop {
+  display: inherit;
+} */
+
+/* @media (min-width: 1024px) {
   .hidden-desktop {
     display: none;
   }
 }
+   */
 
 
 /* =====================================================
