@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { FiMaximize, FiMinimize, FiChevronDown } from "react-icons/fi";
 import { NavLink } from "react-router-dom";
+import PropertySwitcher from "../../../components/PropertySwitcher/PropertySwitcher";
 import {
   ownerNavigation,
   staffNavigation,
@@ -98,21 +99,28 @@ export default function Navbar() {
   return (
     <header className="navbar flex justify-between items-center p-md">
       {/* LEFT */}
-      <button
-        type="button"
-        onClick={toggleFullscreen}
-        className="btn"
-        title="Toggle Fullscreen"
-      >
-        {isFullscreen ? (
-          <FiMinimize size={20} />
-        ) : (
-          <FiMaximize size={20} />
+      <div className="flex items-center gap-md">
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="btn"
+          title="Toggle Fullscreen"
+        >
+          {isFullscreen ? (
+            <FiMinimize size={20} />
+          ) : (
+            <FiMaximize size={20} />
+          )}
+        </button>
+
+        {/* Property Switcher — Sprint 2 */}
+        {(role === "landlord" || role === "property_manager") && (
+          <PropertySwitcher />
         )}
-      </button>
+      </div>
 
       {/* CENTER */}
-      <div className="flex flex-col items-center text-sm">
+      <div className="flex flex-col items-center text-sm hidden-mobile">
         <span className="text-muted">{formattedDate}</span>
         <span className="text-bold">{formattedTime}</span>
       </div>

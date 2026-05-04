@@ -66,6 +66,7 @@ export default function AppRoutes() {
         <Route path="properties/new" element={<CreateProperty />} />
         <Route path="properties/:propertyId" element={<PropertyDetail />} />
         <Route path="team" element={<Team />} />
+        <Route path="staff" element={<Team />} />
       </Route>
 
       {/* ================= PROPERTY MANAGER ================= */}
