@@ -89,8 +89,8 @@ export const ownerNavigation = [
     label: "Team",
     icon: FiKey,
     children: [
-      { label: "All Members", path: "/owner/team" },
-      { label: "Invite Member", path: "/owner/team" },
+      { label: "Team", path: "/owner/team" },
+      { label: "Invite Team Member", path: "/owner/team/invite" },
     ],
   },
 

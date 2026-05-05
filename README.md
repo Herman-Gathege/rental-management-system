@@ -97,7 +97,18 @@ Roles are seeded automatically
 FastAPI starts
 React app is built and served via Nginx
 
-### 👉 No manual migration or seeding is required.
+### 👉 running manual migrations
+```bash
+cd backend
+change postgres url to local host
+
+alembic revision --autogenerate -m "your message here"
+alembic upgrade head
+
+go back to root dir
+change postgres url back
+docker compose up --build
+```
 
 ### 🔑 Default Architecture Ports
 Container	Internal Port	Host Port
