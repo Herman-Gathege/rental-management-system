@@ -7,3 +7,6 @@ from app.models.organization_member import OrganizationMember
 from app.models.organization_invitation import OrganizationInvitation
 from app.models.property import Property
 from app.models.property_manager import PropertyManager
+from app.models.unit import Unit
+from app.models.tenant import Tenant
+from app.models.lease import Lease

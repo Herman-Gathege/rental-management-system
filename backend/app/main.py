@@ -75,6 +75,9 @@ from app.db.seed_roles import seed_roles
 from app.api.routes.auth import router as auth_router
 from app.api.routes.organizations import router as org_router
 from app.api.routes.properties import router as properties_router
+from app.api.routes.units import router as units_router
+from app.api.routes.tenants import router as tenants_router
+from app.api.routes.leases import router as leases_router
 
 app = FastAPI(title="Rental Management API")
 
@@ -98,6 +101,9 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(org_router)
 app.include_router(properties_router)
+app.include_router(units_router)
+app.include_router(tenants_router)
+app.include_router(leases_router)
 
 @app.get("/")
 def root():
