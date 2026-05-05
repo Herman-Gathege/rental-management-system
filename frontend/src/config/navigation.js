@@ -1,3 +1,4 @@
+/*frontend\src\config\navigation.js */
 import {
   FiHome,
   FiUsers,
@@ -24,7 +25,7 @@ export const ownerNavigation = [
     icon: FiBriefcase,
     children: [
       { label: "All Properties", path: "/owner/properties" },
-      { label: "Add Property", path: "/owner/properties/add" },
+      { label: "Add Property", path: "/owner/properties/new" },
     ],
   },
 
@@ -83,13 +84,13 @@ export const ownerNavigation = [
     ],
   },
 
-  /* STAFF & PROPERTY MANAGERS */
+  /* TEAM — Sprint 2 */
   {
-    label: "Staff & Managers",
+    label: "Team",
     icon: FiKey,
     children: [
-      { label: "All Staff", path: "/owner/staff" },
-      { label: "Invite Staff", path: "/owner/staff/create" },
+      { label: "Team", path: "/owner/team" },
+      { label: "Invite Team Member", path: "/owner/team/invite" },
     ],
   },
 

@@ -1,3 +1,5 @@
+/*frontend\src\features\dashboard\layout\Sidebar.jsx*/
+
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { useEffect, useState } from "react";
@@ -140,8 +142,9 @@ export default function Sidebar() {
               </div>
             )}
 
-            <NavLink to="/owner/staff" className={linkClass}>
-              <FiKey /> {!collapsed && <span>Staff & Managers</span>}
+            {/* TEAM — Sprint 2 */}
+            <NavLink to="/owner/team" className={linkClass}>
+              <FiKey /> {!collapsed && <span>Team</span>}
             </NavLink>
 
             <NavLink to="/owner/settings" className={linkClass}>

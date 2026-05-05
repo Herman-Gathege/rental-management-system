@@ -1,12 +1,14 @@
 //frontend/src/context/AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from "react";
 import { loginUser, registerUser, getMe } from "../api/auth";
+import { getMyOrganization } from "../api/organizations";
 
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [organization, setOrganization] = useState(null);
   const [loading, setLoading] = useState(true);
 
   /* Restore session on page refresh */
@@ -18,6 +20,15 @@ export function AuthProvider({ children }) {
 
         const me = await getMe();
         setUser(me);
+
+        // Fetch organization data
+        try {
+          const orgData = await getMyOrganization();
+          setOrganization(orgData.organization);
+        } catch {
+          // User may not have an org yet
+          setOrganization(null);
+        }
       } catch {
         logout();
       } finally {
@@ -42,8 +53,16 @@ export function AuthProvider({ children }) {
     const me = await getMe();
 
     if (!me) throw new Error("Failed to fetch user");
-    console.log("ME:", me);
     setUser(me);
+
+    // Fetch organization after login
+    try {
+      const orgData = await getMyOrganization();
+      setOrganization(orgData.organization);
+    } catch {
+      setOrganization(null);
+    }
+
     return me;
   };
 
@@ -56,11 +75,13 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    localStorage.removeItem("active_property_id");
     setUser(null);
+    setOrganization(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, organization, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
