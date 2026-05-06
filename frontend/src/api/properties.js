@@ -1,4 +1,4 @@
-/*frontend\src\api\properties.js*/
+//frontend\src\api\properties.js
 
 import API from "./client";
 
