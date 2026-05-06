@@ -17,6 +17,15 @@ import CreateProperty from "../features/properties/CreateProperty";
 import PropertyDetail from "../features/properties/PropertyDetail";
 import Team from "../features/team/Team";
 
+/* SPRINT 3 — Units, Tenants, Leases */
+import Units from "../features/units/Units";
+import CreateUnit from "../features/units/CreateUnit";
+import Tenants from "../features/tenants/Tenants";
+import CreateTenant from "../features/tenants/CreateTenant";
+import Leases from "../features/leases/Leases";
+import CreateLease from "../features/leases/CreateLease";
+import LeaseDetail from "../features/leases/LeaseDetail";
+
 /* PROPERTY MANAGER */
 import StaffLayout from "../features/dashboard/layout/StaffLayout";
 import StaffDashboard from "../features/dashboard/StaffDashboard";
@@ -67,6 +76,16 @@ export default function AppRoutes() {
         <Route path="properties/:propertyId" element={<PropertyDetail />} />
         <Route path="team" element={<Team />} />
         <Route path="staff" element={<Team />} />
+
+        {/* Sprint 3 routes */}
+        <Route path="units" element={<Units />} />
+        <Route path="units/add" element={<CreateUnit />} />
+        <Route path="units/vacant" element={<Units />} />
+        <Route path="tenants" element={<Tenants />} />
+        <Route path="tenants/add" element={<CreateTenant />} />
+        <Route path="leases" element={<Leases />} />
+        <Route path="leases/create" element={<CreateLease />} />
+        <Route path="leases/:leaseId" element={<LeaseDetail />} />
       </Route>
 
       {/* ================= PROPERTY MANAGER ================= */}

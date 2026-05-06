@@ -1,4 +1,4 @@
-/*frontend\src\api\organizations.js*/
+//frontend\src\api\organizations.js
 
 import API from "./client";
 
