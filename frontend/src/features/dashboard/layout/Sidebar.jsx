@@ -136,7 +136,7 @@ export default function Sidebar() {
             </button>
             {paymentsOpen && !collapsed && (
               <div className="sidebar-submenu">
-                <NavLink to="/owner/payments" className={linkClass}>Rent Dashboard</NavLink>
+                <NavLink to="/owner/billing" className={linkClass}>Rent Dashboard</NavLink>
                 <NavLink to="/owner/payments/history" className={linkClass}>Payment History</NavLink>
                 <NavLink to="/owner/payments/late" className={linkClass}>Late Payments</NavLink>
               </div>

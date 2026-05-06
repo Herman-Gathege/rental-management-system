@@ -10,3 +10,5 @@ from app.models.property_manager import PropertyManager
 from app.models.unit import Unit
 from app.models.tenant import Tenant
 from app.models.lease import Lease
+from app.models.charge import Charge
+from app.models.payment import Payment

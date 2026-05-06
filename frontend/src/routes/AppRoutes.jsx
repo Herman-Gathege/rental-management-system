@@ -26,6 +26,12 @@ import Leases from "../features/leases/Leases";
 import CreateLease from "../features/leases/CreateLease";
 import LeaseDetail from "../features/leases/LeaseDetail";
 
+/* SPRINT 4 — Billing, Payments, Finance */
+import Billing from "../features/billing/Billing";
+import PaymentsList from "../features/payments/Payments";
+import RecordPayment from "../features/payments/RecordPayment";
+import FinancialDashboard from "../features/finance/FinancialDashboard";
+
 /* PROPERTY MANAGER */
 import StaffLayout from "../features/dashboard/layout/StaffLayout";
 import StaffDashboard from "../features/dashboard/StaffDashboard";
@@ -86,6 +92,16 @@ export default function AppRoutes() {
         <Route path="leases" element={<Leases />} />
         <Route path="leases/create" element={<CreateLease />} />
         <Route path="leases/:leaseId" element={<LeaseDetail />} />
+
+        {/* Sprint 4 routes */}
+        <Route path="billing" element={<Billing />} />
+        <Route path="payments" element={<PaymentsList />} />
+        <Route path="payments/record" element={<RecordPayment />} />
+        <Route path="payments/history" element={<PaymentsList />} />
+        <Route path="payments/late" element={<Billing />} />
+        <Route path="finance" element={<FinancialDashboard />} />
+        <Route path="finance/expenses" element={<FinancialDashboard />} />
+        <Route path="reports" element={<FinancialDashboard />} />
       </Route>
 
       {/* ================= PROPERTY MANAGER ================= */}
