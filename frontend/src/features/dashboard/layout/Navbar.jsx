@@ -16,7 +16,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(
-    !!document.fullscreenElement
+    !!document.fullscreenElement,
   );
 
   // ----------------------------
@@ -34,8 +34,7 @@ export default function Navbar() {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
 
     document.addEventListener("fullscreenchange", handler);
-    return () =>
-      document.removeEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
   if (!user) return <header className="navbar" />;
@@ -59,13 +58,11 @@ export default function Navbar() {
   // ----------------------------
   // SAFE USER DISPLAY HELPERS
   // ----------------------------
-  const displayName =
-    user.full_name || user.email || "User";
+  const displayName = user.full_name || user.email || "User";
 
-  const avatarLetter =
-    (user.full_name || user.email || "U")
-      .charAt(0)
-      .toUpperCase();
+  const avatarLetter = (user.full_name || user.email || "U")
+    .charAt(0)
+    .toUpperCase();
 
   // ----------------------------
   // FORMATTED TIME
@@ -88,9 +85,7 @@ export default function Navbar() {
   // ----------------------------
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
-      document.documentElement
-        .requestFullscreen()
-        .catch(console.error);
+      document.documentElement.requestFullscreen().catch(console.error);
     } else {
       document.exitFullscreen();
     }
@@ -106,11 +101,7 @@ export default function Navbar() {
           className="btn"
           title="Toggle Fullscreen"
         >
-          {isFullscreen ? (
-            <FiMinimize size={20} />
-          ) : (
-            <FiMaximize size={20} />
-          )}
+          {isFullscreen ? <FiMinimize size={20} /> : <FiMaximize size={20} />}
         </button>
 
         {/* Property Switcher — Sprint 2 */}
@@ -120,8 +111,8 @@ export default function Navbar() {
       </div>
 
       {/* CENTER */}
-      <div className="flex flex-col items-center text-sm hidden-mobile">
-        <span className="text-muted">{formattedDate}</span>
+      <div className="flex flex-col items-center text-sm hidden-mobile gap-md">
+        <span className="text-muted mr-sm">{formattedDate}</span>
         <span className="text-bold">{formattedTime}</span>
       </div>
 
@@ -148,17 +139,11 @@ export default function Navbar() {
           <div className="dropdown dropdown-lg">
             {/* USER HEADER */}
             <div className="dropdown-header">
-              <div className="avatar avatar-sm">
-                {avatarLetter}
-              </div>
+              <div className="avatar avatar-sm">{avatarLetter}</div>
 
               <div className="dropdown-user-info">
-                <div className="dropdown-name">
-                  {displayName}
-                </div>
-                <div className="dropdown-role">
-                  {user.role}
-                </div>
+                <div className="dropdown-name">{displayName}</div>
+                <div className="dropdown-role">{user.role}</div>
               </div>
             </div>
 
@@ -166,36 +151,33 @@ export default function Navbar() {
 
             {/* NAVIGATION */}
             {navigation.map((item) =>
-              item.children
-                ? item.children.map((child) => (
-                    <NavLink
-                      key={child.path}
-                      to={child.path}
-                      className="dropdown-item"
-                      onClick={() => setOpen(false)}
-                    >
-                      {child.label}
-                    </NavLink>
-                  ))
-                : (
+              item.children ? (
+                item.children.map((child) => (
                   <NavLink
-                    key={item.path}
-                    to={item.path}
+                    key={child.path}
+                    to={child.path}
                     className="dropdown-item"
                     onClick={() => setOpen(false)}
                   >
-                    {item.label}
+                    {child.label}
                   </NavLink>
-                )
+                ))
+              ) : (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className="dropdown-item"
+                  onClick={() => setOpen(false)}
+                >
+                  {item.label}
+                </NavLink>
+              ),
             )}
 
             <div className="dropdown-divider" />
 
             {/* LOGOUT */}
-            <button
-              className="btn btn-secondary mr-sm ml-sm"
-              onClick={logout}
-            >
+            <button className="btn btn-secondary mr-sm ml-sm" onClick={logout}>
               Logout
             </button>
           </div>
