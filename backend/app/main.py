@@ -78,6 +78,9 @@ from app.api.routes.properties import router as properties_router
 from app.api.routes.units import router as units_router
 from app.api.routes.tenants import router as tenants_router
 from app.api.routes.leases import router as leases_router
+from app.api.routes.charges import router as charges_router
+from app.api.routes.payments import router as payments_router
+from app.api.routes.finance import router as finance_router
 
 app = FastAPI(title="Rental Management API")
 
@@ -104,6 +107,9 @@ app.include_router(properties_router)
 app.include_router(units_router)
 app.include_router(tenants_router)
 app.include_router(leases_router)
+app.include_router(charges_router)
+app.include_router(payments_router)
+app.include_router(finance_router)
 
 @app.get("/")
 def root():
