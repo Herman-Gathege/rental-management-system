@@ -81,6 +81,7 @@ from app.api.routes.leases import router as leases_router
 from app.api.routes.charges import router as charges_router
 from app.api.routes.payments import router as payments_router
 from app.api.routes.finance import router as finance_router
+from app.api.routes.audit import router as audit_router
 
 app = FastAPI(title="Rental Management API")
 
@@ -110,6 +111,7 @@ app.include_router(leases_router)
 app.include_router(charges_router)
 app.include_router(payments_router)
 app.include_router(finance_router)
+app.include_router(audit_router)
 
 @app.get("/")
 def root():

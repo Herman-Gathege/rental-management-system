@@ -1,4 +1,3 @@
-//frontend/src/routes/AppRoutes.jsx
 import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -31,6 +30,12 @@ import Billing from "../features/billing/Billing";
 import PaymentsList from "../features/payments/Payments";
 import RecordPayment from "../features/payments/RecordPayment";
 import FinancialDashboard from "../features/finance/FinancialDashboard";
+
+/* Edit Pages + History */
+import EditProperty from "../features/properties/EditProperty";
+import EditUnit from "../features/units/EditUnit";
+import EditTenant from "../features/tenants/EditTenant";
+import History from "../features/history/History";
 
 /* PROPERTY MANAGER */
 import StaffLayout from "../features/dashboard/layout/StaffLayout";
@@ -80,15 +85,19 @@ export default function AppRoutes() {
         <Route path="properties" element={<Properties />} />
         <Route path="properties/new" element={<CreateProperty />} />
         <Route path="properties/:propertyId" element={<PropertyDetail />} />
+        <Route path="properties/:propertyId/edit" element={<EditProperty />} />
         <Route path="team" element={<Team />} />
         <Route path="staff" element={<Team />} />
 
         {/* Sprint 3 routes */}
         <Route path="units" element={<Units />} />
         <Route path="units/add" element={<CreateUnit />} />
+        <Route path="units/:unitId/edit" element={<EditUnit />} />
         <Route path="units/vacant" element={<Units />} />
         <Route path="tenants" element={<Tenants />} />
         <Route path="tenants/add" element={<CreateTenant />} />
+        <Route path="tenants/:tenantId" element={<EditTenant />} />
+        <Route path="tenants/:tenantId/edit" element={<EditTenant />} />
         <Route path="leases" element={<Leases />} />
         <Route path="leases/create" element={<CreateLease />} />
         <Route path="leases/:leaseId" element={<LeaseDetail />} />
@@ -98,6 +107,9 @@ export default function AppRoutes() {
         <Route path="payments" element={<PaymentsList />} />
         <Route path="payments/record" element={<RecordPayment />} />
         <Route path="payments/history" element={<PaymentsList />} />
+
+        {/* History / Audit */}
+        <Route path="history" element={<History />} />
         <Route path="payments/late" element={<Billing />} />
         <Route path="finance" element={<FinancialDashboard />} />
         <Route path="finance/expenses" element={<FinancialDashboard />} />
