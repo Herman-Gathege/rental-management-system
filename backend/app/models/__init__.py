@@ -13,3 +13,4 @@ from app.models.lease import Lease
 from app.models.charge import Charge
 from app.models.payment import Payment
 from app.models.audit_log import AuditLog
+from app.models.checklist_item_template import ChecklistItemTemplate

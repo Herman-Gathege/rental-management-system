@@ -156,7 +156,7 @@ export default function CreateTenant() {
           title="Identification Documents"
           summary={pendingDocs.length > 0 ? `${pendingDocs.length} file(s) ready` : null}
         >
-          <p className="text-sm text-muted" style={{ marginBottom: 12 }}>
+          <p className="text-sm doc-upload-hint">
             Upload clear copies of National ID (both sides) or Passport biodata page.
             Documents upload after the tenant is created.
           </p>
@@ -320,20 +320,10 @@ function DocumentUploadRow({ label, documentType, pendingDocs, onSelect, onRemov
   const pending = pendingDocs.find((d) => d.documentType === documentType);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "8px 0",
-        borderBottom: "1px solid #f3f4f6",
-      }}
-    >
-      <div style={{ flex: 1 }}>
+    <div className="doc-upload-row">
+      <div className="doc-upload-row-info">
         <div className="text-sm text-bold">{label}</div>
-        {pending && (
-          <div className="text-sm text-muted">{pending.filename}</div>
-        )}
+        {pending && <div className="text-sm text-muted">{pending.filename}</div>}
       </div>
 
       <div className="flex gap-sm">
@@ -346,13 +336,13 @@ function DocumentUploadRow({ label, documentType, pendingDocs, onSelect, onRemov
             Remove
           </button>
         ) : (
-          <label className="btn btn-secondary btn-sm" style={{ marginBottom: 0 }}>
+          <label className="btn btn-secondary btn-sm doc-upload-label">
             Choose file
             <input
               type="file"
               accept="image/*,application/pdf"
               onChange={(e) => onSelect(e, documentType)}
-              style={{ display: "none" }}
+              className="doc-upload-hidden-input"
             />
           </label>
         )}

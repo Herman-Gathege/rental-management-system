@@ -620,3 +620,296 @@
   border-radius: 6px;
   font-size: 14px;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   COLLAPSIBLE SECTION
+   Used in tenant create/edit forms to group fields
+   ───────────────────────────────────────────────────────────── */
+
+.collapsible-section {
+  margin-bottom: 1rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+.collapsible-header {
+  width: 100%;
+  padding: 12px 16px;
+  background: #f9fafb;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.collapsible-header.open {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.collapsible-summary {
+  margin-left: 8px;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.collapsible-toggle {
+  font-size: 1.2rem;
+  color: #6b7280;
+}
+
+.collapsible-body {
+  padding: 16px;
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   DOCUMENT UPLOAD ROW
+   Used in tenant create/edit for ID document uploads
+   ───────────────────────────────────────────────────────────── */
+
+.doc-upload-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.doc-upload-row:last-child {
+  border-bottom: none;
+}
+
+.doc-upload-row-info {
+  flex: 1;
+}
+
+.doc-upload-label {
+  margin-bottom: 0 !important;
+  cursor: pointer;
+}
+
+.doc-upload-hidden-input {
+  display: none;
+}
+
+.doc-upload-hint {
+  margin-bottom: 12px;
+  color: #6b7280;
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   SETTINGS HUB
+   Tile grid on /owner/settings landing page
+   ───────────────────────────────────────────────────────────── */
+
+.settings-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.settings-tile {
+  padding: 1.25rem;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: transform 0.15s, box-shadow 0.15s;
+  border-left: 4px solid #2563eb;
+}
+
+.settings-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.settings-tile-icon {
+  color: #2563eb;
+}
+
+.settings-tile-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.settings-tile-desc {
+  margin: 0;
+  color: #6b7280;
+}
+
+/* Tile color variants — add modifier classes for different sections */
+.settings-tile.tile-purple {
+  border-left-color: #8b5cf6;
+}
+
+.settings-tile.tile-purple .settings-tile-icon {
+  color: #8b5cf6;
+}
+
+.settings-tile.tile-green {
+  border-left-color: #16a34a;
+}
+
+.settings-tile.tile-green .settings-tile-icon {
+  color: #16a34a;
+}
+
+.settings-tile.tile-orange {
+  border-left-color: #d97706;
+}
+
+.settings-tile.tile-orange .settings-tile-icon {
+  color: #d97706;
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   CHECKLIST TEMPLATE PAGE
+   Manage org-level inspection checklist items
+   ───────────────────────────────────────────────────────────── */
+
+.checklist-back-link {
+  text-decoration: none;
+  color: #6b7280;
+  margin-bottom: 1rem;
+}
+
+.checklist-add-card {
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.checklist-add-card h3 {
+  margin-top: 0;
+  font-size: 1rem;
+}
+
+.checklist-items-card {
+  padding: 0;
+  overflow: hidden;
+  margin-top: 1.5rem;
+}
+
+.checklist-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  background: white;
+}
+
+.checklist-row:last-child {
+  border-bottom: none;
+}
+
+.checklist-row.disabled {
+  opacity: 0.5;
+  background: #fafafa;
+}
+
+.checklist-row-number {
+  width: 36px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.checklist-row-name {
+  flex: 1;
+}
+
+.checklist-row-tag {
+  margin-left: 8px;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.checklist-row-tag.tag-disabled {
+  color: #dc2626;
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   HISTORY / AUDIT LOG ENTRIES
+   Used on /owner/history page
+   ───────────────────────────────────────────────────────────── */
+
+.audit-entry {
+  padding: 12px 16px;
+  border-left: 4px solid #6b7280;
+}
+
+.audit-entry.action-create {
+  border-left-color: #16a34a;
+}
+
+.audit-entry.action-update {
+  border-left-color: #2563eb;
+}
+
+.audit-entry.action-delete {
+  border-left-color: #ef4444;
+}
+
+.audit-entry.action-terminate {
+  border-left-color: #d97706;
+}
+
+.audit-entry.action-payment {
+  border-left-color: #8b5cf6;
+}
+
+.audit-entry.action-billing {
+  border-left-color: #0891b2;
+}
+
+.audit-action-badge {
+  color: white;
+  margin-right: 8px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #6b7280;
+}
+
+.audit-action-badge.action-create {
+  background: #16a34a;
+}
+
+.audit-action-badge.action-update {
+  background: #2563eb;
+}
+
+.audit-action-badge.action-delete {
+  background: #ef4444;
+}
+
+.audit-action-badge.action-terminate {
+  background: #d97706;
+}
+
+.audit-action-badge.action-payment {
+  background: #8b5cf6;
+}
+
+.audit-action-badge.action-billing {
+  background: #0891b2;
+}
+
+.audit-entry-description {
+  margin-top: 6px;
+}
+
+.audit-entry-values {
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 0.85rem;
+}

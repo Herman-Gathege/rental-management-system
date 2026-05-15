@@ -1,3 +1,4 @@
+//frontend\src\routes\AppRoutes.jsx
 import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -31,11 +32,17 @@ import PaymentsList from "../features/payments/Payments";
 import RecordPayment from "../features/payments/RecordPayment";
 import FinancialDashboard from "../features/finance/FinancialDashboard";
 
-/* Edit Pages + History */
+/* Edit Pages */
 import EditProperty from "../features/properties/EditProperty";
 import EditUnit from "../features/units/EditUnit";
 import EditTenant from "../features/tenants/EditTenant";
+
+/* History / Audit */
 import History from "../features/history/History";
+
+/* Settings */
+import Settings from "../features/settings/Settings";
+import ChecklistTemplate from "../features/settings/ChecklistTemplate";
 
 /* PROPERTY MANAGER */
 import StaffLayout from "../features/dashboard/layout/StaffLayout";
@@ -107,13 +114,16 @@ export default function AppRoutes() {
         <Route path="payments" element={<PaymentsList />} />
         <Route path="payments/record" element={<RecordPayment />} />
         <Route path="payments/history" element={<PaymentsList />} />
-
-        {/* History / Audit */}
-        <Route path="history" element={<History />} />
         <Route path="payments/late" element={<Billing />} />
         <Route path="finance" element={<FinancialDashboard />} />
         <Route path="finance/expenses" element={<FinancialDashboard />} />
-        <Route path="reports" element={<FinancialDashboard />} />
+
+        {/* History / Audit */}
+        <Route path="history" element={<History />} />
+
+        {/* Settings */}
+        <Route path="settings" element={<Settings />} />
+        <Route path="settings/checklist" element={<ChecklistTemplate />} />
       </Route>
 
       {/* ================= PROPERTY MANAGER ================= */}

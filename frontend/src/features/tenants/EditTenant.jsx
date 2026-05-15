@@ -184,25 +184,16 @@ export default function EditTenant() {
           summary={documents.length > 0 ? `${documents.length} on file` : null}
           defaultOpen={true}
         >
-          <p className="text-sm text-muted" style={{ marginBottom: 12 }}>
+          <p className="text-sm doc-upload-hint">
             Upload or remove ID documents. Changes happen immediately.
           </p>
 
           {/* Existing documents list */}
           {documents.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
+            <div className="mb-md">
               {documents.map((doc) => (
-                <div
-                  key={doc.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "8px 0",
-                    borderBottom: "1px solid #f3f4f6",
-                  }}
-                >
-                  <div>
+                <div key={doc.id} className="doc-upload-row">
+                  <div className="doc-upload-row-info">
                     <div className="text-sm text-bold">
                       {formatDocType(doc.document_type)}
                     </div>
@@ -399,23 +390,16 @@ function UploadRow({ label, documentType, onUpload, uploadingType }) {
   const isUploading = uploadingType === documentType;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "8px 0",
-      }}
-    >
+    <div className="doc-upload-row">
       <div className="text-sm">{label}</div>
-      <label className="btn btn-secondary btn-sm" style={{ marginBottom: 0 }}>
+      <label className="btn btn-secondary btn-sm doc-upload-label">
         {isUploading ? "Uploading..." : "Upload"}
         <input
           type="file"
           accept="image/*,application/pdf"
           onChange={(e) => onUpload(e, documentType)}
           disabled={isUploading}
-          style={{ display: "none" }}
+          className="doc-upload-hidden-input"
         />
       </label>
     </div>
