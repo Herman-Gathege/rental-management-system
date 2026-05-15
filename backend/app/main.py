@@ -67,6 +67,9 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
+from pathlib import Path
 
 from app.db.session import SessionLocal
 from app.db.seed_roles import seed_roles
@@ -100,6 +103,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ─── Static file serving for uploads (local dev storage) ───
+# Files saved by s3_service.upload_file() are accessible at /uploads/<key>
+UPLOAD_DIR = Path("/app/uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 # Register routers
 app.include_router(auth_router)

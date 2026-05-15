@@ -49,30 +49,88 @@ class UnitOut(BaseModel):
 # ─── Tenant ───
 
 class TenantCreate(BaseModel):
+    # Personal
     full_name: str
     email: Optional[str] = None
     phone: str
+    alternative_phone: Optional[str] = None
     id_number: Optional[str] = None
     emergency_contact: Optional[str] = None
+
+    # Next of kin
+    next_of_kin_name: Optional[str] = None
+    next_of_kin_relationship: Optional[str] = None
+    next_of_kin_phone: Optional[str] = None
+    next_of_kin_alt_phone: Optional[str] = None
+    next_of_kin_email: Optional[str] = None
+
+    # Employer
+    employer_name: Optional[str] = None
+    employer_location: Optional[str] = None
+    employer_phone: Optional[str] = None
+    employer_email: Optional[str] = None
 
 
 class TenantUpdate(BaseModel):
+    # Personal
     full_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    alternative_phone: Optional[str] = None
     id_number: Optional[str] = None
     emergency_contact: Optional[str] = None
+
+    # Next of kin
+    next_of_kin_name: Optional[str] = None
+    next_of_kin_relationship: Optional[str] = None
+    next_of_kin_phone: Optional[str] = None
+    next_of_kin_alt_phone: Optional[str] = None
+    next_of_kin_email: Optional[str] = None
+
+    # Employer
+    employer_name: Optional[str] = None
+    employer_location: Optional[str] = None
+    employer_phone: Optional[str] = None
+    employer_email: Optional[str] = None
 
 
 class TenantOut(BaseModel):
     id: str
     organization_id: str
+
     full_name: str
     email: Optional[str] = None
     phone: str
+    alternative_phone: Optional[str] = None
     id_number: Optional[str] = None
     emergency_contact: Optional[str] = None
+
+    next_of_kin_name: Optional[str] = None
+    next_of_kin_relationship: Optional[str] = None
+    next_of_kin_phone: Optional[str] = None
+    next_of_kin_alt_phone: Optional[str] = None
+    next_of_kin_email: Optional[str] = None
+
+    employer_name: Optional[str] = None
+    employer_location: Optional[str] = None
+    employer_phone: Optional[str] = None
+    employer_email: Optional[str] = None
+
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ─── Tenant Document ───
+
+class TenantDocumentOut(BaseModel):
+    id: str
+    tenant_id: str
+    document_type: str
+    file_url: str
+    original_filename: Optional[str] = None
+    uploaded_at: datetime
 
     class Config:
         from_attributes = True
