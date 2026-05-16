@@ -1,0 +1,437 @@
+#backend\app\api\routes\inspections.py
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime, date
+import uuid
+import json
+
+from app.db.deps import get_db
+from app.api.deps import get_current_user
+from app.models.users import User
+from app.models.organization_member import OrganizationMember
+from app.models.lease import Lease
+from app.models.lease_inspection import LeaseInspection
+from app.models.inspection_item import InspectionItem
+from app.models.inspection_note import InspectionNote
+from app.services.audit_service import log_action
+from app.services.s3_service import upload_file
+
+router = APIRouter(prefix="/inspections", tags=["Inspections"])
+
+
+# ─── Schemas ───
+
+class InspectionItemUpdate(BaseModel):
+    condition: Optional[str] = None       # good / fair / poor / damaged
+    comments: Optional[str] = None
+    deduction_amount: Optional[float] = None  # move-out only
+
+
+class SignInspectionPayload(BaseModel):
+    tenant_signed_name: str
+    tenant_signature_data: str  # base64 PNG data URL
+
+
+class AddNotePayload(BaseModel):
+    note: str
+
+
+# ─── Helpers ───
+
+def get_user_org(user: User, db: Session):
+    """Helper: get the current user's org membership or raise 403."""
+    membership = (
+        db.query(OrganizationMember)
+        .filter(OrganizationMember.user_id == user.id)
+        .first()
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="No organization found")
+    return membership
+
+
+def get_inspection_for_org(inspection_id: str, org_id: str, db: Session) -> LeaseInspection:
+    """
+    Load an inspection that belongs to the user's organization.
+    Walks via the lease to verify org ownership.
+    """
+    inspection = (
+        db.query(LeaseInspection)
+        .join(Lease, LeaseInspection.lease_id == Lease.id)
+        .filter(
+            LeaseInspection.id == inspection_id,
+            Lease.organization_id == org_id
+        )
+        .first()
+    )
+    if not inspection:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    return inspection
+
+
+def item_dict(item: InspectionItem) -> dict:
+    """Build inspection item response dict."""
+    try:
+        photo_urls = json.loads(item.photo_urls) if item.photo_urls else []
+    except (json.JSONDecodeError, TypeError):
+        photo_urls = []
+
+    return {
+        "id": item.id,
+        "inspection_id": item.inspection_id,
+        "item_name": item.item_name,
+        "sort_order": item.sort_order,
+        "condition": item.condition,
+        "comments": item.comments,
+        "photo_urls": photo_urls,
+        "deduction_amount": float(item.deduction_amount) if item.deduction_amount else 0,
+        "updated_at": item.updated_at,
+    }
+
+
+def inspection_dict(inspection: LeaseInspection, db: Session) -> dict:
+    """Build full inspection response with items and notes."""
+    items = (
+        db.query(InspectionItem)
+        .filter(InspectionItem.inspection_id == inspection.id)
+        .order_by(InspectionItem.sort_order.asc())
+        .all()
+    )
+
+    notes = (
+        db.query(InspectionNote)
+        .filter(InspectionNote.inspection_id == inspection.id)
+        .order_by(InspectionNote.created_at.asc())
+        .all()
+    )
+
+    return {
+        "id": inspection.id,
+        "lease_id": inspection.lease_id,
+        "inspection_type": inspection.inspection_type,
+        "inspection_date": inspection.inspection_date,
+        "inspector_user_id": inspection.inspector_user_id,
+        "inspector_email": inspection.inspector.email if inspection.inspector else None,
+        "tenant_signature_data": inspection.tenant_signature_data,
+        "tenant_signed_name": inspection.tenant_signed_name,
+        "tenant_signed_at": inspection.tenant_signed_at,
+        "status": inspection.status,
+        "total_deduction_amount": float(inspection.total_deduction_amount) if inspection.total_deduction_amount else 0,
+        "created_at": inspection.created_at,
+        "updated_at": inspection.updated_at,
+        "items": [item_dict(i) for i in items],
+        "notes": [
+            {
+                "id": n.id,
+                "note": n.note,
+                "user_email": n.user.email if n.user else None,
+                "created_at": n.created_at,
+            }
+            for n in notes
+        ],
+    }
+
+
+# ─── Get Inspection ───
+
+@router.get("/{inspection_id}")
+def get_inspection(
+    inspection_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    membership = get_user_org(current_user, db)
+    inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
+    return inspection_dict(inspection, db)
+
+
+# ─── Update Inspection Item ───
+
+@router.put("/{inspection_id}/items/{item_id}")
+def update_inspection_item(
+    inspection_id: str,
+    item_id: str,
+    payload: InspectionItemUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update a single item's condition / comments / deduction.
+    Only allowed while the inspection is in 'draft' status.
+    """
+    membership = get_user_org(current_user, db)
+    inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
+
+    if inspection.status != "draft":
+        raise HTTPException(
+            status_code=400,
+            detail="Inspection is locked. Add a note instead."
+        )
+
+    item = (
+        db.query(InspectionItem)
+        .filter(
+            InspectionItem.id == item_id,
+            InspectionItem.inspection_id == inspection_id
+        )
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Inspection item not found")
+
+    # Validate condition value
+    valid_conditions = ["good", "fair", "poor", "damaged"]
+    if payload.condition is not None and payload.condition not in valid_conditions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"condition must be one of: {valid_conditions}"
+        )
+
+    # Apply updates
+    update_data = payload.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(item, key, value)
+
+    inspection.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(item)
+
+    return item_dict(item)
+
+
+# ─── Upload Photo for an Item ───
+
+@router.post("/{inspection_id}/items/{item_id}/photos")
+async def upload_item_photo(
+    inspection_id: str,
+    item_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload a photo for an inspection item. Limit of 5 photos per item."""
+    membership = get_user_org(current_user, db)
+    inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
+
+    if inspection.status != "draft":
+        raise HTTPException(
+            status_code=400,
+            detail="Inspection is locked. Cannot add photos."
+        )
+
+    item = (
+        db.query(InspectionItem)
+        .filter(
+            InspectionItem.id == item_id,
+            InspectionItem.inspection_id == inspection_id
+        )
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Inspection item not found")
+
+    # Parse existing photos
+    try:
+        existing_photos = json.loads(item.photo_urls) if item.photo_urls else []
+    except (json.JSONDecodeError, TypeError):
+        existing_photos = []
+
+    # Enforce 5-photo limit
+    if len(existing_photos) >= 5:
+        raise HTTPException(status_code=400, detail="Maximum 5 photos per item")
+
+    # Read file bytes
+    file_bytes = await file.read()
+
+    # Upload to storage
+    s3_key = f"inspection-photos/{inspection_id}/{item_id}/{uuid.uuid4()}-{file.filename}"
+    try:
+        file_url = upload_file(s3_key, file_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+    # Append to photo list
+    existing_photos.append(file_url)
+    item.photo_urls = json.dumps(existing_photos)
+
+    inspection.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(item)
+
+    return item_dict(item)
+
+
+# ─── Remove a Photo ───
+
+@router.delete("/{inspection_id}/items/{item_id}/photos")
+def remove_item_photo(
+    inspection_id: str,
+    item_id: str,
+    url: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove a specific photo URL from an item. Query param: ?url=..."""
+    membership = get_user_org(current_user, db)
+    inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
+
+    if inspection.status != "draft":
+        raise HTTPException(
+            status_code=400,
+            detail="Inspection is locked. Cannot remove photos."
+        )
+
+    item = (
+        db.query(InspectionItem)
+        .filter(
+            InspectionItem.id == item_id,
+            InspectionItem.inspection_id == inspection_id
+        )
+        .first()
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Inspection item not found")
+
+    try:
+        existing_photos = json.loads(item.photo_urls) if item.photo_urls else []
+    except (json.JSONDecodeError, TypeError):
+        existing_photos = []
+
+    # Filter out the URL
+    new_photos = [p for p in existing_photos if p != url]
+    item.photo_urls = json.dumps(new_photos)
+
+    inspection.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(item)
+
+    return item_dict(item)
+
+
+# ─── Sign Inspection ───
+
+@router.post("/{inspection_id}/sign")
+def sign_inspection(
+    inspection_id: str,
+    payload: SignInspectionPayload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Tenant signs the inspection. Locks all items from further edits.
+    Only notes can be added after signing.
+    """
+    membership = get_user_org(current_user, db)
+    inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
+
+    if inspection.status != "draft":
+        raise HTTPException(status_code=400, detail="Inspection is already signed")
+
+    if not payload.tenant_signed_name.strip():
+        raise HTTPException(status_code=400, detail="Tenant name is required")
+
+    if not payload.tenant_signature_data:
+        raise HTTPException(status_code=400, detail="Signature is required")
+
+    # Verify all items have at least a condition set
+    items = (
+        db.query(InspectionItem)
+        .filter(InspectionItem.inspection_id == inspection_id)
+        .all()
+    )
+    unset_items = [i for i in items if not i.condition]
+    if unset_items:
+        raise HTTPException(
+            status_code=400,
+            detail=f"All items must have a condition set. Missing: {len(unset_items)} item(s)"
+        )
+
+    # For move-out: calculate total deductions
+    if inspection.inspection_type == "move_out":
+        total = sum(float(i.deduction_amount or 0) for i in items)
+        inspection.total_deduction_amount = total
+
+    # Lock the inspection
+    inspection.status = "signed"
+    inspection.tenant_signed_name = payload.tenant_signed_name.strip()
+    inspection.tenant_signature_data = payload.tenant_signature_data
+    inspection.tenant_signed_at = datetime.utcnow()
+    inspection.inspection_date = date.today()
+    inspection.updated_at = datetime.utcnow()
+
+    # Audit log
+    log_action(
+        db=db,
+        organization_id=membership.organization_id,
+        user_id=current_user.id,
+        action="update",
+        entity_type="inspection",
+        entity_id=inspection.id,
+        description=f"Signed {inspection.inspection_type} inspection for lease {inspection.lease_id}",
+        new_values={
+            "tenant_signed_name": payload.tenant_signed_name,
+            "type": inspection.inspection_type,
+        },
+    )
+
+    db.commit()
+    db.refresh(inspection)
+
+    return inspection_dict(inspection, db)
+
+
+# ─── Add Note (post-signature) ───
+
+@router.post("/{inspection_id}/notes")
+def add_inspection_note(
+    inspection_id: str,
+    payload: AddNotePayload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Add a note to an inspection. Notes are additive only — they don't
+    modify the original record. Useful for disputes or clarifications
+    after the inspection has been signed.
+    """
+    membership = get_user_org(current_user, db)
+    inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
+
+    if not payload.note.strip():
+        raise HTTPException(status_code=400, detail="Note cannot be empty")
+
+    note = InspectionNote(
+        id=str(uuid.uuid4()),
+        inspection_id=inspection_id,
+        user_id=current_user.id,
+        note=payload.note.strip(),
+    )
+    db.add(note)
+
+    # Audit log
+    log_action(
+        db=db,
+        organization_id=membership.organization_id,
+        user_id=current_user.id,
+        action="create",
+        entity_type="inspection_note",
+        entity_id=note.id,
+        description=f"Added note to inspection {inspection_id}",
+        new_values={"note": payload.note[:200]},
+    )
+
+    db.commit()
+    db.refresh(note)
+
+    return {
+        "id": note.id,
+        "inspection_id": note.inspection_id,
+        "note": note.note,
+        "user_email": current_user.email,
+        "created_at": note.created_at,
+    }

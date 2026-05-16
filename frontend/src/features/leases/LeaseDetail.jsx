@@ -85,8 +85,8 @@ export default function LeaseDetail() {
       </div>
 
       {/* ─── Lease details card ─── */}
-      <div className="card" style={{ padding: "1.25rem", marginTop: "1rem" }}>
-        <h3 style={{ marginTop: 0 }}>Lease Details</h3>
+      <div className="card detail-card">
+        <h3>Lease Details</h3>
 
         <div className="two-col">
           <div>
@@ -180,14 +180,11 @@ export default function LeaseDetail() {
       </div>
 
       {/* ─── Inspections card ─── */}
-      <div className="card" style={{ padding: "1.25rem", marginTop: "1rem" }}>
-        <h3 style={{ marginTop: 0 }}>Inspections</h3>
+      <div className="card detail-card">
+        <h3>Inspections</h3>
 
         {/* Move-In Inspection */}
-        <div
-          className="doc-upload-row"
-          style={{ paddingTop: "12px", paddingBottom: "12px" }}
-        >
+        <div className="doc-upload-row inspection-status-row">
           <div className="doc-upload-row-info">
             <div className="text-bold">Move-In Inspection</div>
             <div className="text-sm text-muted">
@@ -213,10 +210,7 @@ export default function LeaseDetail() {
         </div>
 
         {/* Move-Out Inspection */}
-        <div
-          className="doc-upload-row"
-          style={{ paddingTop: "12px", paddingBottom: "12px" }}
-        >
+        <div className="doc-upload-row inspection-status-row">
           <div className="doc-upload-row-info">
             <div className="text-bold">Move-Out Inspection</div>
             <div className="text-sm text-muted">

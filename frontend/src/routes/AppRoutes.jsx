@@ -44,6 +44,9 @@ import History from "../features/history/History";
 import Settings from "../features/settings/Settings";
 import ChecklistTemplate from "../features/settings/ChecklistTemplate";
 
+/* Inspections */
+import ConductInspection from "../features/inspections/ConductInspection";
+
 /* PROPERTY MANAGER */
 import StaffLayout from "../features/dashboard/layout/StaffLayout";
 import StaffDashboard from "../features/dashboard/StaffDashboard";
@@ -111,6 +114,12 @@ export default function AppRoutes() {
         <Route path="leases/expired" element={<Leases />} />
         <Route path="leases/create" element={<CreateLease />} />
         <Route path="leases/:leaseId" element={<LeaseDetail />} />
+
+        {/* Inspections — under the lease */}
+        <Route
+          path="leases/:leaseId/inspections/:inspectionId"
+          element={<ConductInspection />}
+        />
 
         {/* Sprint 4 routes */}
         <Route path="billing" element={<Billing />} />

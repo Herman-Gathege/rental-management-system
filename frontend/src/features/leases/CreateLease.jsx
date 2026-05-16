@@ -108,7 +108,6 @@ export default function CreateLease() {
           await uploadSignedLease(lease.id, signedLeaseFile);
         } catch (err) {
           console.error("Signed lease upload failed:", err);
-          // Don't block — lease was created successfully
         }
       }
 
@@ -312,8 +311,8 @@ export default function CreateLease() {
         </CollapsibleSection>
 
         {/* ─── Info note about auto-inspection ─── */}
-        <div className="card mt-md" style={{ padding: "12px 16px", background: "#eff6ff", borderLeft: "4px solid #2563eb" }}>
-          <p className="text-sm" style={{ margin: 0 }}>
+        <div className="card info-banner mt-md">
+          <p className="text-sm">
             <strong>Note:</strong> A move-in inspection will be automatically created for this lease.
             You can conduct the inspection from the lease detail page after creation.
           </p>

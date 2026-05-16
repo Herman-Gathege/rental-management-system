@@ -913,3 +913,70 @@
   color: #6b7280;
   font-size: 0.85rem;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   INFO BANNER
+   Reusable card variant for informational notices
+   ───────────────────────────────────────────────────────────── */
+
+.info-banner {
+  padding: 12px 16px;
+  background: #eff6ff;
+  border-left: 4px solid #2563eb;
+}
+
+.info-banner p {
+  margin: 0;
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   DETAIL CARD
+   Standard padded card used on detail pages
+   ───────────────────────────────────────────────────────────── */
+
+.detail-card {
+  padding: 1.25rem;
+  margin-top: 1rem;
+}
+
+.detail-card h3 {
+  margin-top: 0;
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   INSPECTION CARD ROW
+   Inspection status rows on the lease detail page
+   ───────────────────────────────────────────────────────────── */
+
+.inspection-status-row {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+
+/* ─────────────────────────────────────────────────────────────
+   CONDITION COLORS
+   Used in ConductInspection radio buttons when selected
+   ───────────────────────────────────────────────────────────── */
+
+.inspection-condition-option.selected.condition-good {
+  border-color: #16a34a;
+  color: #16a34a;
+}
+
+.inspection-condition-option.selected.condition-fair {
+  border-color: #ca8a04;
+  color: #ca8a04;
+}
+
+.inspection-condition-option.selected.condition-poor {
+  border-color: #d97706;
+  color: #d97706;
+}
+
+.inspection-condition-option.selected.condition-damaged {
+  border-color: #dc2626;
+  color: #dc2626;
+}
