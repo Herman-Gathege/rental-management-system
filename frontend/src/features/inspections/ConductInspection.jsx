@@ -4,6 +4,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import SignatureCanvas from "react-signature-canvas";
 import {
   getInspection,
+  getMoveInComparison,
   updateInspectionItem,
   uploadInspectionPhoto,
   removeInspectionPhoto,
@@ -25,6 +26,7 @@ export default function ConductInspection() {
 
   const [inspection, setInspection] = useState(null);
   const [lease, setLease] = useState(null);
+  const [comparison, setComparison] = useState(null); // { signed_move_in, items_by_name }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingItem, setSavingItem] = useState(null);
@@ -38,7 +40,7 @@ export default function ConductInspection() {
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
 
-  /* Load inspection + lease */
+  /* Load inspection + lease + comparison */
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -48,6 +50,12 @@ export default function ConductInspection() {
       ]);
       setInspection(insp);
       setLease(lse);
+
+      // For move-out inspections, pull the move-in comparison data
+      if (insp.inspection_type === "move_out") {
+        const comp = await getMoveInComparison(inspectionId);
+        setComparison(comp);
+      }
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to load inspection");
     } finally {
@@ -61,6 +69,8 @@ export default function ConductInspection() {
 
   const isLocked = inspection?.status !== "draft";
   const isMoveOut = inspection?.inspection_type === "move_out";
+  const hasComparison = isMoveOut && comparison?.signed_move_in;
+  const isMoveOutWithoutComparison = isMoveOut && comparison && !comparison.signed_move_in;
 
   /* Update a single item field */
   const handleItemChange = async (itemId, updates) => {
@@ -127,12 +137,11 @@ export default function ConductInspection() {
       return;
     }
 
-    if (
-      !confirm(
-        "Sign and lock this inspection? After this, items cannot be edited. Only notes can be added."
-      )
-    )
-      return;
+    const confirmMessage = isMoveOut
+      ? "Sign and lock this move-out inspection? This will TERMINATE the lease and finalize deposit deductions."
+      : "Sign and lock this inspection? After this, items cannot be edited. Only notes can be added.";
+
+    if (!confirm(confirmMessage)) return;
 
     setSigning(true);
     try {
@@ -142,6 +151,12 @@ export default function ConductInspection() {
         tenant_signature_data: signatureData,
       });
       setInspection(updated);
+
+      // For move-out, refresh lease so we see the terminated status
+      if (isMoveOut) {
+        const updatedLease = await getLease(leaseId);
+        setLease(updatedLease);
+      }
     } catch (err) {
       alert(err.response?.data?.detail || "Failed to sign inspection");
     } finally {
@@ -197,6 +212,18 @@ export default function ConductInspection() {
         </span>
       </div>
 
+      {/* No-comparison warning */}
+      {isMoveOutWithoutComparison && (
+        <div className="card info-banner-warning mt-md">
+          <p>
+            <strong>No signed move-in inspection found.</strong> Side-by-side
+            comparison is not available. You can still conduct this move-out
+            inspection and record deductions, but there's no baseline to compare
+            against.
+          </p>
+        </div>
+      )}
+
       {/* Locked banner */}
       {isLocked && (
         <div className="inspection-locked-banner card mt-md">
@@ -212,25 +239,32 @@ export default function ConductInspection() {
 
       {/* Checklist items */}
       <div className="mt-md">
-        {inspection.items.map((item, idx) => (
-          <InspectionItemCard
-            key={item.id}
-            item={item}
-            index={idx}
-            isLocked={isLocked}
-            isMoveOut={isMoveOut}
-            saving={savingItem === item.id}
-            onChange={(updates) => handleItemChange(item.id, updates)}
-            onPhotoUpload={(file) => handlePhotoUpload(item.id, file)}
-            onPhotoRemove={(url) => handlePhotoRemove(item.id, url)}
-          />
-        ))}
+        {inspection.items.map((item, idx) => {
+          const moveInItem = hasComparison
+            ? comparison.items_by_name[item.item_name]
+            : null;
+
+          return (
+            <InspectionItemCard
+              key={item.id}
+              item={item}
+              index={idx}
+              isLocked={isLocked}
+              isMoveOut={isMoveOut}
+              moveInItem={moveInItem}
+              saving={savingItem === item.id}
+              onChange={(updates) => handleItemChange(item.id, updates)}
+              onPhotoUpload={(file) => handlePhotoUpload(item.id, file)}
+              onPhotoRemove={(url) => handlePhotoRemove(item.id, url)}
+            />
+          );
+        })}
       </div>
 
-      {/* Move-out deduction total */}
-      {isMoveOut && isLocked && (
+      {/* Move-out deduction summary (visible to inspector while drafting) */}
+      {isMoveOut && (
         <div className="card mt-md inspection-deduction-summary">
-          <h3>Deposit Reconciliation</h3>
+          <h3>Deposit Reconciliation {!isLocked && <span className="text-sm text-muted">(preview)</span>}</h3>
           <div className="two-col">
             <div>
               <div className="text-sm text-muted">Original Deposit</div>
@@ -241,7 +275,15 @@ export default function ConductInspection() {
             <div>
               <div className="text-sm text-muted">Total Deductions</div>
               <div className="text-bold">
-                KES {Number(inspection.total_deduction_amount).toLocaleString()}
+                KES{" "}
+                {Number(
+                  isLocked
+                    ? inspection.total_deduction_amount
+                    : inspection.items.reduce(
+                        (sum, i) => sum + (i.deduction_amount || 0),
+                        0
+                      )
+                ).toLocaleString()}
               </div>
             </div>
           </div>
@@ -251,9 +293,21 @@ export default function ConductInspection() {
               KES{" "}
               {Math.max(
                 0,
-                (lease?.deposit_amount || 0) - inspection.total_deduction_amount
+                (lease?.deposit_amount || 0) -
+                  (isLocked
+                    ? inspection.total_deduction_amount
+                    : inspection.items.reduce(
+                        (sum, i) => sum + (i.deduction_amount || 0),
+                        0
+                      ))
               ).toLocaleString()}
             </div>
+            {isLocked && (
+              <p className="text-sm text-muted mt-sm">
+                This is the informational refund amount. Settlement with the tenant
+                happens outside the system.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -263,8 +317,9 @@ export default function ConductInspection() {
         <div className="card mt-md inspection-signature-card">
           <h3>Tenant Signature</h3>
           <p className="text-sm text-muted">
-            The tenant must confirm the inspection results by signing below before
-            this can be locked.
+            {isMoveOut
+              ? "The tenant must confirm the move-out conditions and deductions by signing below. Signing will TERMINATE this lease."
+              : "The tenant must confirm the inspection results by signing below before this can be locked."}
           </p>
 
           <div className="form-group">
@@ -302,11 +357,15 @@ export default function ConductInspection() {
 
           <div className="flex gap-sm mt-md">
             <button
-              className="btn btn-primary"
+              className={isMoveOut ? "btn btn-danger" : "btn btn-primary"}
               onClick={handleSign}
               disabled={signing}
             >
-              {signing ? "Signing..." : "Sign & Lock Inspection"}
+              {signing
+                ? "Signing..."
+                : isMoveOut
+                ? "Sign, Lock & Terminate Lease"
+                : "Sign & Lock Inspection"}
             </button>
             <Link to={`/owner/leases/${leaseId}`} className="btn btn-secondary">
               Save Draft & Exit
@@ -373,6 +432,7 @@ export default function ConductInspection() {
 
 /* ─────────────────────────────────────────────────────────────
    InspectionItemCard — one row per checklist item
+   For move-out inspections, shows the move-in baseline alongside.
    ───────────────────────────────────────────────────────────── */
 
 function InspectionItemCard({
@@ -380,6 +440,7 @@ function InspectionItemCard({
   index,
   isLocked,
   isMoveOut,
+  moveInItem,
   saving,
   onChange,
   onPhotoUpload,
@@ -390,7 +451,6 @@ function InspectionItemCard({
     item.deduction_amount ? String(item.deduction_amount) : ""
   );
 
-  // Keep local state in sync with prop changes (after server save)
   useEffect(() => {
     setCommentsValue(item.comments || "");
     setDeductionValue(item.deduction_amount ? String(item.deduction_amount) : "");
@@ -428,7 +488,48 @@ function InspectionItemCard({
         {saving && <span className="text-sm text-muted">Saving...</span>}
       </div>
 
-      {/* Condition radio buttons */}
+      {/* Move-in baseline (only for move-out inspections with comparison) */}
+      {moveInItem && (
+        <div className="move-in-baseline">
+          <div className="text-sm text-muted move-in-baseline-label">
+            Move-in baseline:
+          </div>
+          <div className="move-in-baseline-content">
+            <span
+              className={`condition-badge condition-${moveInItem.condition || "good"}`}
+            >
+              {moveInItem.condition || "—"}
+            </span>
+            {moveInItem.comments && (
+              <span className="text-sm move-in-comments">
+                {moveInItem.comments}
+              </span>
+            )}
+            {moveInItem.photo_urls.length > 0 && (
+              <div className="move-in-photos">
+                {moveInItem.photo_urls.map((url) => (
+                  <a
+                    key={url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="move-in-photo-thumb"
+                  >
+                    <img src={url} alt="Move-in" />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Current condition radios */}
+      {isMoveOut && (
+        <div className="text-sm text-muted move-out-current-label">
+          Current condition:
+        </div>
+      )}
       <div className="inspection-condition-row">
         {CONDITIONS.map((c) => {
           const selected = item.condition === c.value;

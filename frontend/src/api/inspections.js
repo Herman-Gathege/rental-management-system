@@ -7,7 +7,16 @@ export const getInspection = async (inspectionId) => {
   return data;
 };
 
-/* UPDATE ITEM (condition, comments, deduction) */
+/* GET MOVE-IN COMPARISON
+   For move-out inspections, returns the matching signed move-in inspection's
+   items keyed by item_name for side-by-side display.
+   Returns { signed_move_in: null, items_by_name: {} } if no signed move-in exists. */
+export const getMoveInComparison = async (inspectionId) => {
+  const { data } = await API.get(`/inspections/${inspectionId}/move-in-comparison`);
+  return data;
+};
+
+/* UPDATE ITEM */
 export const updateInspectionItem = async (inspectionId, itemId, payload) => {
   const { data } = await API.put(
     `/inspections/${inspectionId}/items/${itemId}`,
@@ -38,13 +47,13 @@ export const removeInspectionPhoto = async (inspectionId, itemId, url) => {
   return data;
 };
 
-/* SIGN INSPECTION (locks it) */
+/* SIGN INSPECTION (locks it; terminates lease if move-out) */
 export const signInspection = async (inspectionId, payload) => {
   const { data } = await API.post(`/inspections/${inspectionId}/sign`, payload);
   return data;
 };
 
-/* ADD NOTE (post-signature) */
+/* ADD NOTE */
 export const addInspectionNote = async (inspectionId, note) => {
   const { data } = await API.post(`/inspections/${inspectionId}/notes`, { note });
   return data;

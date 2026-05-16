@@ -26,7 +26,15 @@ export const updateLease = async (leaseId, payload) => {
   return data;
 };
 
-/* TERMINATE LEASE */
+/* INITIATE MOVE-OUT
+   Creates a draft move-out inspection. Lease stays 'active' until
+   the move-out inspection is signed. */
+export const initiateMoveOut = async (leaseId) => {
+  const { data } = await API.post(`/leases/${leaseId}/initiate-move-out`);
+  return data;
+};
+
+/* TERMINATE LEASE — direct termination, requires signed move-out inspection */
 export const terminateLease = async (leaseId) => {
   const { data } = await API.post(`/leases/${leaseId}/terminate`);
   return data;

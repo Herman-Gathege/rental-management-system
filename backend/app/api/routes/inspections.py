@@ -24,14 +24,14 @@ router = APIRouter(prefix="/inspections", tags=["Inspections"])
 # ─── Schemas ───
 
 class InspectionItemUpdate(BaseModel):
-    condition: Optional[str] = None       # good / fair / poor / damaged
+    condition: Optional[str] = None
     comments: Optional[str] = None
-    deduction_amount: Optional[float] = None  # move-out only
+    deduction_amount: Optional[float] = None
 
 
 class SignInspectionPayload(BaseModel):
     tenant_signed_name: str
-    tenant_signature_data: str  # base64 PNG data URL
+    tenant_signature_data: str
 
 
 class AddNotePayload(BaseModel):
@@ -41,7 +41,6 @@ class AddNotePayload(BaseModel):
 # ─── Helpers ───
 
 def get_user_org(user: User, db: Session):
-    """Helper: get the current user's org membership or raise 403."""
     membership = (
         db.query(OrganizationMember)
         .filter(OrganizationMember.user_id == user.id)
@@ -53,10 +52,6 @@ def get_user_org(user: User, db: Session):
 
 
 def get_inspection_for_org(inspection_id: str, org_id: str, db: Session) -> LeaseInspection:
-    """
-    Load an inspection that belongs to the user's organization.
-    Walks via the lease to verify org ownership.
-    """
     inspection = (
         db.query(LeaseInspection)
         .join(Lease, LeaseInspection.lease_id == Lease.id)
@@ -72,7 +67,6 @@ def get_inspection_for_org(inspection_id: str, org_id: str, db: Session) -> Leas
 
 
 def item_dict(item: InspectionItem) -> dict:
-    """Build inspection item response dict."""
     try:
         photo_urls = json.loads(item.photo_urls) if item.photo_urls else []
     except (json.JSONDecodeError, TypeError):
@@ -92,7 +86,6 @@ def item_dict(item: InspectionItem) -> dict:
 
 
 def inspection_dict(inspection: LeaseInspection, db: Session) -> dict:
-    """Build full inspection response with items and notes."""
     items = (
         db.query(InspectionItem)
         .filter(InspectionItem.inspection_id == inspection.id)
@@ -147,6 +140,60 @@ def get_inspection(
     return inspection_dict(inspection, db)
 
 
+# ─── Get Move-In Comparison Data ───
+#
+# For a move-out inspection, this returns the matching SIGNED move-in
+# inspection's items so the frontend can display them side-by-side.
+# If no signed move-in inspection exists, returns null (frontend shows
+# a warning banner).
+
+@router.get("/{inspection_id}/move-in-comparison")
+def get_move_in_comparison(
+    inspection_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    membership = get_user_org(current_user, db)
+    inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
+
+    # Only meaningful for move-out inspections
+    if inspection.inspection_type != "move_out":
+        return {"signed_move_in": None, "items_by_name": {}}
+
+    # Find the signed move-in inspection for this lease
+    move_in = (
+        db.query(LeaseInspection)
+        .filter(
+            LeaseInspection.lease_id == inspection.lease_id,
+            LeaseInspection.inspection_type == "move_in",
+            LeaseInspection.status == "signed"
+        )
+        .first()
+    )
+
+    if not move_in:
+        return {"signed_move_in": None, "items_by_name": {}}
+
+    # Pull move-in items and key them by item_name (so they can be matched
+    # to move-out items by name — they share the same checklist template)
+    move_in_items = (
+        db.query(InspectionItem)
+        .filter(InspectionItem.inspection_id == move_in.id)
+        .all()
+    )
+
+    items_by_name = {item.item_name: item_dict(item) for item in move_in_items}
+
+    return {
+        "signed_move_in": {
+            "id": move_in.id,
+            "inspection_date": move_in.inspection_date,
+            "tenant_signed_name": move_in.tenant_signed_name,
+        },
+        "items_by_name": items_by_name,
+    }
+
+
 # ─── Update Inspection Item ───
 
 @router.put("/{inspection_id}/items/{item_id}")
@@ -157,10 +204,6 @@ def update_inspection_item(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Update a single item's condition / comments / deduction.
-    Only allowed while the inspection is in 'draft' status.
-    """
     membership = get_user_org(current_user, db)
     inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
 
@@ -181,7 +224,6 @@ def update_inspection_item(
     if not item:
         raise HTTPException(status_code=404, detail="Inspection item not found")
 
-    # Validate condition value
     valid_conditions = ["good", "fair", "poor", "damaged"]
     if payload.condition is not None and payload.condition not in valid_conditions:
         raise HTTPException(
@@ -189,7 +231,6 @@ def update_inspection_item(
             detail=f"condition must be one of: {valid_conditions}"
         )
 
-    # Apply updates
     update_data = payload.dict(exclude_unset=True)
     for key, value in update_data.items():
         setattr(item, key, value)
@@ -212,7 +253,6 @@ async def upload_item_photo(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Upload a photo for an inspection item. Limit of 5 photos per item."""
     membership = get_user_org(current_user, db)
     inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
 
@@ -233,30 +273,24 @@ async def upload_item_photo(
     if not item:
         raise HTTPException(status_code=404, detail="Inspection item not found")
 
-    # Parse existing photos
     try:
         existing_photos = json.loads(item.photo_urls) if item.photo_urls else []
     except (json.JSONDecodeError, TypeError):
         existing_photos = []
 
-    # Enforce 5-photo limit
     if len(existing_photos) >= 5:
         raise HTTPException(status_code=400, detail="Maximum 5 photos per item")
 
-    # Read file bytes
     file_bytes = await file.read()
-
-    # Upload to storage
     s3_key = f"inspection-photos/{inspection_id}/{item_id}/{uuid.uuid4()}-{file.filename}"
+
     try:
         file_url = upload_file(s3_key, file_bytes)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
-    # Append to photo list
     existing_photos.append(file_url)
     item.photo_urls = json.dumps(existing_photos)
-
     inspection.updated_at = datetime.utcnow()
 
     db.commit()
@@ -275,7 +309,6 @@ def remove_item_photo(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Remove a specific photo URL from an item. Query param: ?url=..."""
     membership = get_user_org(current_user, db)
     inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
 
@@ -301,10 +334,8 @@ def remove_item_photo(
     except (json.JSONDecodeError, TypeError):
         existing_photos = []
 
-    # Filter out the URL
     new_photos = [p for p in existing_photos if p != url]
     item.photo_urls = json.dumps(new_photos)
-
     inspection.updated_at = datetime.utcnow()
 
     db.commit()
@@ -314,6 +345,9 @@ def remove_item_photo(
 
 
 # ─── Sign Inspection ───
+#
+# Locks the inspection. For move-out inspections, ALSO terminates the lease
+# and computes the deposit reconciliation.
 
 @router.post("/{inspection_id}/sign")
 def sign_inspection(
@@ -322,10 +356,6 @@ def sign_inspection(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Tenant signs the inspection. Locks all items from further edits.
-    Only notes can be added after signing.
-    """
     membership = get_user_org(current_user, db)
     inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
 
@@ -338,7 +368,7 @@ def sign_inspection(
     if not payload.tenant_signature_data:
         raise HTTPException(status_code=400, detail="Signature is required")
 
-    # Verify all items have at least a condition set
+    # All items must have a condition set
     items = (
         db.query(InspectionItem)
         .filter(InspectionItem.inspection_id == inspection_id)
@@ -364,7 +394,26 @@ def sign_inspection(
     inspection.inspection_date = date.today()
     inspection.updated_at = datetime.utcnow()
 
-    # Audit log
+    # ─── If this is a move-out, also terminate the lease ───
+    lease_terminated = False
+    if inspection.inspection_type == "move_out":
+        lease = db.query(Lease).filter(Lease.id == inspection.lease_id).first()
+        if lease and lease.status == "active":
+            lease.status = "terminated"
+            lease_terminated = True
+
+            log_action(
+                db=db,
+                organization_id=membership.organization_id,
+                user_id=current_user.id,
+                action="terminate",
+                entity_type="lease",
+                entity_id=lease.id,
+                description=f"Lease terminated via signed move-out inspection",
+                old_values={"status": "active"},
+                new_values={"status": "terminated"},
+            )
+
     log_action(
         db=db,
         organization_id=membership.organization_id,
@@ -372,10 +421,12 @@ def sign_inspection(
         action="update",
         entity_type="inspection",
         entity_id=inspection.id,
-        description=f"Signed {inspection.inspection_type} inspection for lease {inspection.lease_id}",
+        description=f"Signed {inspection.inspection_type} inspection for lease {inspection.lease_id}"
+                    + (" — lease terminated" if lease_terminated else ""),
         new_values={
             "tenant_signed_name": payload.tenant_signed_name,
             "type": inspection.inspection_type,
+            "lease_terminated": lease_terminated,
         },
     )
 
@@ -394,11 +445,6 @@ def add_inspection_note(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Add a note to an inspection. Notes are additive only — they don't
-    modify the original record. Useful for disputes or clarifications
-    after the inspection has been signed.
-    """
     membership = get_user_org(current_user, db)
     inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
 
@@ -413,7 +459,6 @@ def add_inspection_note(
     )
     db.add(note)
 
-    # Audit log
     log_action(
         db=db,
         organization_id=membership.organization_id,

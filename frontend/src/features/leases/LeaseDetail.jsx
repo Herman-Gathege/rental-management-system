@@ -1,7 +1,7 @@
 //frontend\src\features\leases\LeaseDetail.jsx
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { getLease, terminateLease, uploadSignedLease } from "../../api/leases";
+import { getLease, initiateMoveOut, uploadSignedLease } from "../../api/leases";
 
 export default function LeaseDetail() {
   const { leaseId } = useParams();
@@ -11,6 +11,7 @@ export default function LeaseDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [uploadingSigned, setUploadingSigned] = useState(false);
+  const [initiating, setInitiating] = useState(false);
 
   const fetchLease = async () => {
     try {
@@ -28,14 +29,24 @@ export default function LeaseDetail() {
     fetchLease();
   }, [leaseId]);
 
-  /* Terminate lease */
-  const handleTerminate = async () => {
-    if (!confirm("Terminate this lease? This action will end the tenancy.")) return;
+  /* Initiate move-out → creates the move-out inspection, redirects to it */
+  const handleInitiateMoveOut = async () => {
+    if (
+      !confirm(
+        "Initiate move-out? This will create a move-out inspection that you must complete and sign with the tenant before the lease can be terminated."
+      )
+    )
+      return;
+
+    setInitiating(true);
     try {
-      await terminateLease(leaseId);
-      fetchLease();
+      const result = await initiateMoveOut(leaseId);
+      // Redirect straight to the move-out inspection page
+      navigate(`/owner/leases/${leaseId}/inspections/${result.inspection_id}`);
     } catch (err) {
-      alert(err.response?.data?.detail || "Failed to terminate lease");
+      alert(err.response?.data?.detail || "Failed to initiate move-out");
+    } finally {
+      setInitiating(false);
     }
   };
 
@@ -59,9 +70,12 @@ export default function LeaseDetail() {
   if (error) return <div className="error-text">{error}</div>;
   if (!lease) return <p>Lease not found</p>;
 
-  /* Inspection status helpers */
   const moveIn = lease.move_in_inspection;
   const moveOut = lease.move_out_inspection;
+
+  // Move-out states
+  const hasMoveOutDraft = moveOut?.status === "draft";
+  const hasMoveOutSigned = moveOut?.status === "signed";
 
   return (
     <section className="properties-page">
@@ -221,7 +235,7 @@ export default function LeaseDetail() {
                     ` · Conducted ${new Date(moveOut.inspection_date).toLocaleDateString()}`}
                 </>
               ) : lease.status === "active" ? (
-                "Will be created when lease termination is initiated"
+                "Click 'Initiate Move-Out' below to begin"
               ) : (
                 "Not applicable"
               )}
@@ -238,12 +252,41 @@ export default function LeaseDetail() {
         </div>
       </div>
 
-      {/* ─── Actions ─── */}
+      {/* ─── Move-out action ─── */}
       {lease.status === "active" && (
-        <div className="flex gap-sm mt-md">
-          <button className="btn btn-danger" onClick={handleTerminate}>
-            Terminate Lease
-          </button>
+        <div className="card detail-card info-banner-warning">
+          <h3>End This Tenancy</h3>
+          <p className="text-sm">
+            To terminate this lease, you must first conduct and sign a move-out
+            inspection with the tenant. This documents the unit's condition at
+            handover and determines any deposit deductions for damage.
+          </p>
+
+          <div className="flex gap-sm mt-md">
+            {!moveOut && (
+              <button
+                className="btn btn-primary"
+                onClick={handleInitiateMoveOut}
+                disabled={initiating}
+              >
+                {initiating ? "Creating inspection..." : "Initiate Move-Out"}
+              </button>
+            )}
+            {hasMoveOutDraft && (
+              <Link
+                to={`/owner/leases/${leaseId}/inspections/${moveOut.id}`}
+                className="btn btn-primary"
+              >
+                Continue Move-Out Inspection
+              </Link>
+            )}
+            {hasMoveOutSigned && (
+              <div className="text-sm text-muted">
+                Move-out inspection is signed but lease status is still active.
+                Refresh the page to see updated status.
+              </div>
+            )}
+          </div>
         </div>
       )}
     </section>

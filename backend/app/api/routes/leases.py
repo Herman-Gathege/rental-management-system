@@ -65,7 +65,6 @@ def enrich_lease(lease, db):
         "tenant_name": tenant.full_name if tenant else None,
         "unit_name": unit.name if unit else None,
         "property_name": prop.name if prop else None,
-        # Inspection summary
         "move_in_inspection": {
             "id": move_in_inspection.id,
             "status": move_in_inspection.status,
@@ -142,7 +141,7 @@ def create_lease(
     db.add(lease)
     db.flush()
 
-    # Auto-create draft move-in inspection with checklist items
+    # Auto-create draft move-in inspection
     inspection = create_inspection_for_lease(
         db=db,
         lease_id=lease.id,
@@ -257,7 +256,6 @@ def update_lease(
     if lease.status != "active":
         raise HTTPException(status_code=400, detail="Can only update active leases")
 
-    # Capture old values for audit
     old_values = {
         "rent_amount": float(lease.rent_amount),
         "end_date": str(lease.end_date),
@@ -266,12 +264,10 @@ def update_lease(
         "signed_on_behalf_of": lease.signed_on_behalf_of,
     }
 
-    # Apply updates
     update_data = payload.dict(exclude_unset=True)
     for key, value in update_data.items():
         setattr(lease, key, value)
 
-    # Audit log
     log_action(
         db=db,
         organization_id=membership.organization_id,
@@ -290,19 +286,26 @@ def update_lease(
     return enrich_lease(lease, db)
 
 
-# ─── Terminate Lease ───
+# ─── Initiate Move-Out ───
+#
+# This is the new entry point that replaces direct termination.
+# It creates a draft move-out inspection that must be completed
+# and signed before the lease can be terminated.
 
-@router.post("/{lease_id}/terminate")
-def terminate_lease(
+@router.post("/{lease_id}/initiate-move-out")
+def initiate_move_out(
     lease_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Terminate an active lease.
+    Start the move-out process by creating a draft move-out inspection.
 
-    NOTE: In C3 we will add a guard requiring a signed move-out inspection
-    before termination can proceed. For C1 this just marks the lease terminated.
+    The lease remains 'active' until the move-out inspection is signed.
+    Returns the inspection so the frontend can redirect to it.
+
+    If a draft move-out inspection already exists, returns that one
+    (idempotent — safe to call twice).
     """
     membership = get_user_org(current_user, db)
 
@@ -321,9 +324,112 @@ def terminate_lease(
     if lease.status != "active":
         raise HTTPException(status_code=400, detail="Lease is not active")
 
-    lease.status = "terminated"
+    # If a move-out inspection already exists, return it
+    existing_move_out = (
+        db.query(LeaseInspection)
+        .filter(
+            LeaseInspection.lease_id == lease_id,
+            LeaseInspection.inspection_type == "move_out"
+        )
+        .first()
+    )
+
+    if existing_move_out:
+        return {
+            "message": "Move-out inspection already exists",
+            "inspection_id": existing_move_out.id,
+            "status": existing_move_out.status,
+        }
+
+    # Create the move-out inspection (seeded with checklist items)
+    inspection = create_inspection_for_lease(
+        db=db,
+        lease_id=lease_id,
+        organization_id=membership.organization_id,
+        inspection_type="move_out",
+        inspector_user_id=current_user.id,
+    )
 
     # Audit log
+    log_action(
+        db=db,
+        organization_id=membership.organization_id,
+        user_id=current_user.id,
+        action="create",
+        entity_type="inspection",
+        entity_id=inspection.id,
+        description=f"Initiated move-out inspection for lease {lease_id}",
+    )
+
+    db.commit()
+    db.refresh(inspection)
+
+    return {
+        "message": "Move-out inspection created. Conduct and sign it to complete termination.",
+        "inspection_id": inspection.id,
+        "status": inspection.status,
+    }
+
+
+# ─── Terminate Lease ───
+#
+# This now requires a SIGNED move-out inspection.
+# If you want to terminate, call initiate-move-out first,
+# fill out the inspection, and sign it. The sign endpoint
+# will automatically terminate the lease.
+#
+# This endpoint remains as a safety check / direct call only
+# fires when the move-out is already signed.
+
+@router.post("/{lease_id}/terminate")
+def terminate_lease(
+    lease_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Mark a lease as terminated.
+
+    Guard: requires a SIGNED move-out inspection to exist.
+    Returns 400 if no signed move-out inspection is found.
+    """
+    membership = get_user_org(current_user, db)
+
+    lease = (
+        db.query(Lease)
+        .filter(
+            Lease.id == lease_id,
+            Lease.organization_id == membership.organization_id
+        )
+        .first()
+    )
+
+    if not lease:
+        raise HTTPException(status_code=404, detail="Lease not found")
+
+    if lease.status != "active":
+        raise HTTPException(status_code=400, detail="Lease is not active")
+
+    # Termination guard: require a signed move-out inspection
+    signed_move_out = (
+        db.query(LeaseInspection)
+        .filter(
+            LeaseInspection.lease_id == lease_id,
+            LeaseInspection.inspection_type == "move_out",
+            LeaseInspection.status == "signed"
+        )
+        .first()
+    )
+
+    if not signed_move_out:
+        raise HTTPException(
+            status_code=400,
+            detail="A signed move-out inspection is required before terminating this lease. "
+                   "Initiate move-out and complete the inspection first."
+        )
+
+    lease.status = "terminated"
+
     log_action(
         db=db,
         organization_id=membership.organization_id,
@@ -368,22 +474,16 @@ async def upload_signed_lease(
     if not lease:
         raise HTTPException(status_code=404, detail="Lease not found")
 
-    # Read file bytes
     file_bytes = await file.read()
-
-    # Build S3 key
     s3_key = f"signed-leases/{lease_id}/{uuid.uuid4()}-{file.filename}"
 
-    # Upload to storage
     try:
         file_url = upload_file(s3_key, file_bytes)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
-    # Update lease
     lease.signed_lease_url = file_url
 
-    # Audit log
     log_action(
         db=db,
         organization_id=membership.organization_id,

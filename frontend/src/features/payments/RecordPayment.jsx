@@ -25,7 +25,7 @@ export default function RecordPayment() {
     const fetch = async () => {
       try {
         const [leaseData, tenantData] = await Promise.all([
-          getLeases("active"),
+          getLeases({ status: "active" }),
           getTenants(),
         ]);
         setLeases(leaseData);
