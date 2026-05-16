@@ -105,7 +105,10 @@ export default function AppRoutes() {
         <Route path="tenants/add" element={<CreateTenant />} />
         <Route path="tenants/:tenantId" element={<EditTenant />} />
         <Route path="tenants/:tenantId/edit" element={<EditTenant />} />
+
+        {/* Leases */}
         <Route path="leases" element={<Leases />} />
+        <Route path="leases/expired" element={<Leases />} />
         <Route path="leases/create" element={<CreateLease />} />
         <Route path="leases/:leaseId" element={<LeaseDetail />} />
 

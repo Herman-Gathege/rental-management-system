@@ -38,7 +38,6 @@ class UnitOut(BaseModel):
     rent_amount: float
     is_active: bool
     created_at: datetime
-    # Computed fields added in the route
     occupancy_status: Optional[str] = None
     tenant_name: Optional[str] = None
 
@@ -49,7 +48,6 @@ class UnitOut(BaseModel):
 # ─── Tenant ───
 
 class TenantCreate(BaseModel):
-    # Personal
     full_name: str
     email: Optional[str] = None
     phone: str
@@ -57,14 +55,12 @@ class TenantCreate(BaseModel):
     id_number: Optional[str] = None
     emergency_contact: Optional[str] = None
 
-    # Next of kin
     next_of_kin_name: Optional[str] = None
     next_of_kin_relationship: Optional[str] = None
     next_of_kin_phone: Optional[str] = None
     next_of_kin_alt_phone: Optional[str] = None
     next_of_kin_email: Optional[str] = None
 
-    # Employer
     employer_name: Optional[str] = None
     employer_location: Optional[str] = None
     employer_phone: Optional[str] = None
@@ -72,7 +68,6 @@ class TenantCreate(BaseModel):
 
 
 class TenantUpdate(BaseModel):
-    # Personal
     full_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
@@ -80,14 +75,12 @@ class TenantUpdate(BaseModel):
     id_number: Optional[str] = None
     emergency_contact: Optional[str] = None
 
-    # Next of kin
     next_of_kin_name: Optional[str] = None
     next_of_kin_relationship: Optional[str] = None
     next_of_kin_phone: Optional[str] = None
     next_of_kin_alt_phone: Optional[str] = None
     next_of_kin_email: Optional[str] = None
 
-    # Employer
     employer_name: Optional[str] = None
     employer_location: Optional[str] = None
     employer_phone: Optional[str] = None
@@ -97,7 +90,6 @@ class TenantUpdate(BaseModel):
 class TenantOut(BaseModel):
     id: str
     organization_id: str
-
     full_name: str
     email: Optional[str] = None
     phone: str
@@ -121,8 +113,6 @@ class TenantOut(BaseModel):
     class Config:
         from_attributes = True
 
-
-# ─── Tenant Document ───
 
 class TenantDocumentOut(BaseModel):
     id: str
@@ -147,11 +137,17 @@ class LeaseCreate(BaseModel):
     deposit_amount: Optional[float] = 0
     billing_day: Optional[int] = 1
 
+    # New fields
+    move_in_date: Optional[date] = None
+    signed_on_behalf_of: Optional[str] = None
+
 
 class LeaseUpdate(BaseModel):
     end_date: Optional[date] = None
     rent_amount: Optional[float] = None
     billing_day: Optional[int] = None
+    move_in_date: Optional[date] = None
+    signed_on_behalf_of: Optional[str] = None
 
 
 class LeaseOut(BaseModel):
@@ -161,12 +157,15 @@ class LeaseOut(BaseModel):
     tenant_id: str
     start_date: date
     end_date: Optional[date] = None
+    move_in_date: Optional[date] = None
     rent_amount: float
     deposit_amount: Optional[float] = None
     billing_day: int
+    signed_on_behalf_of: Optional[str] = None
+    signed_lease_url: Optional[str] = None
     status: str
     created_at: datetime
-    # Enriched fields added in route
+    # Enriched fields
     tenant_name: Optional[str] = None
     unit_name: Optional[str] = None
     property_name: Optional[str] = None
