@@ -13,6 +13,7 @@ import "./styles/pos.css";
 import "./styles/home.css";
 import "./styles/properties.css";
 import "./styles/team.css";
+import "./styles/inspection.css";
 
 function App() {
   return (

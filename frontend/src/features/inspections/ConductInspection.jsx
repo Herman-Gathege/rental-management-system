@@ -13,11 +13,17 @@ import {
 } from "../../api/inspections";
 import { getLease } from "../../api/leases";
 
+// const CONDITIONS = [
+//   { value: "good", label: "Good" },
+//   { value: "fair", label: "Fair" },
+//   { value: "poor", label: "Poor" },
+//   { value: "damaged", label: "Damaged" },
+// ];
+
 const CONDITIONS = [
-  { value: "good", label: "Good" },
-  { value: "fair", label: "Fair" },
-  { value: "poor", label: "Poor" },
-  { value: "damaged", label: "Damaged" },
+  { value: "working", label: "Working" },
+  { value: "faulty", label: "Faulty" },
+  { value: "needs_repair", label: "Needs Repair" },
 ];
 
 export default function ConductInspection() {

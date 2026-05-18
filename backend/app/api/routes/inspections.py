@@ -224,12 +224,13 @@ def update_inspection_item(
     if not item:
         raise HTTPException(status_code=404, detail="Inspection item not found")
 
-    valid_conditions = ["good", "fair", "poor", "damaged"]
-    if payload.condition is not None and payload.condition not in valid_conditions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"condition must be one of: {valid_conditions}"
-        )
+        valid_conditions = ["working", "faulty", "needs_repair"]
+
+        if payload.condition is not None and payload.condition not in valid_conditions:
+            raise HTTPException(
+                status_code=400,
+                detail=f"condition must be one of: {valid_conditions}"
+            )
 
     update_data = payload.dict(exclude_unset=True)
     for key, value in update_data.items():

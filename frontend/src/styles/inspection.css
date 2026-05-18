@@ -1,0 +1,490 @@
+/* frontend/src/styles/inspection.css */
+
+/* =====================================================
+   GENERAL
+===================================================== */
+
+.checklist-back-link {
+  text-decoration: none;
+  color: #6b7280;
+}
+
+.checklist-back-link:hover {
+  text-decoration: underline;
+}
+
+/* =====================================================
+   STATUS / BADGES
+===================================================== */
+
+.inspection-status-draft,
+.inspection-badge-scheduled {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.inspection-status-signed,
+.inspection-status-completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.inspection-status-cancelled,
+.inspection-badge-cancelled {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.inspection-badge-progress {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.inspection-badge,
+.condition-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: capitalize;
+}
+
+/* =====================================================
+   BANNERS
+===================================================== */
+
+.info-banner-warning {
+  background: #fff7ed;
+  border-left: 4px solid #f59e0b;
+  color: #92400e;
+}
+
+.inspection-locked-banner {
+  background: #eff6ff;
+  border-left: 4px solid var(--primary);
+  color: #1e40af;
+}
+
+/* =====================================================
+   INSPECTION ITEM CARD
+===================================================== */
+
+.inspection-item-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  margin-bottom: 16px;
+  transition: all 0.2s ease;
+}
+
+.inspection-item-card:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+}
+
+.inspection-item-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.inspection-item-number {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.inspection-item-name {
+  flex: 1;
+  min-width: 180px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* =====================================================
+   MOVE-IN BASELINE
+===================================================== */
+
+.move-in-baseline {
+  padding: 14px;
+  margin-bottom: 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f9fafb;
+}
+
+.move-in-baseline-label,
+.move-out-current-label {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.move-in-baseline-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.move-in-comments {
+  color: #374151;
+  line-height: 1.5;
+}
+
+/* =====================================================
+   CONDITIONS
+===================================================== */
+
+.condition-working,
+.condition-good {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.condition-faulty {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.condition-needs_repair {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.inspection-condition-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.inspection-condition-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 130px;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: white;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.inspection-condition-option:hover {
+  border-color: var(--primary);
+  background: #f8fbff;
+}
+
+.inspection-condition-option.selected {
+  border-color: var(--primary);
+  background: #eff6ff;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.inspection-condition-option.disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.inspection-condition-option input {
+  margin: 0;
+}
+
+/* =====================================================
+   PHOTOS
+===================================================== */
+
+.inspection-photos-section {
+  margin-top: 20px;
+}
+
+.inspection-photos-grid,
+.move-in-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.inspection-photo-thumb,
+.move-in-photo-thumb {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #f9fafb;
+}
+
+.inspection-photo-thumb {
+  width: 130px;
+  height: 130px;
+}
+
+.move-in-photo-thumb {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+}
+
+.inspection-photo-thumb img,
+.move-in-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.inspection-photo-thumb a,
+.move-in-photo-thumb a {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.inspection-photo-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.inspection-photo-remove:hover {
+  background: #dc2626;
+}
+
+.inspection-photo-add {
+  width: 130px;
+  height: 130px;
+  padding: 12px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.inspection-photo-add:hover {
+  border-color: var(--primary);
+  background: #eff6ff;
+  color: var(--primary);
+}
+
+.doc-upload-hidden-input {
+  display: none;
+}
+
+/* =====================================================
+   SIGNATURE
+===================================================== */
+
+.signature-pad-wrapper {
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  background: white;
+}
+
+.signature-pad-canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: white;
+}
+
+.signed-signature-image {
+  width: 100%;
+  max-width: 420px;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: white;
+}
+
+/* =====================================================
+   DEDUCTION SUMMARY
+===================================================== */
+
+.inspection-deduction-summary {
+  border: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.inspection-deduction-summary h3 {
+  margin-top: 0;
+  margin-bottom: 18px;
+}
+
+.inspection-refundable {
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* =====================================================
+   NOTES
+===================================================== */
+
+.inspection-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inspection-note-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+/* =====================================================
+   FORM TWEAKS
+===================================================== */
+
+.inspection-item-card textarea.input {
+  min-height: 90px;
+  resize: vertical;
+  padding-top: 12px;
+}
+
+.inspection-item-card input[type="number"]::-webkit-inner-spin-button,
+.inspection-item-card input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+}
+
+/* =====================================================
+   CHECKLIST TEMPLATE PAGE
+===================================================== */
+
+.checklist-add-card {
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.checklist-add-card h3 {
+  margin-top: 0;
+  font-size: 1rem;
+}
+
+.checklist-items-card {
+  margin-top: 1.5rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+.checklist-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  background: white;
+}
+
+.checklist-row:last-child {
+  border-bottom: none;
+}
+
+.checklist-row.disabled {
+  opacity: 0.5;
+  background: #fafafa;
+}
+
+.checklist-row-number {
+  width: 36px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.checklist-row-name {
+  flex: 1;
+}
+
+.checklist-row-tag {
+  margin-left: 8px;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.checklist-row-tag.tag-disabled {
+  color: #dc2626;
+}
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 768px) {
+  .inspection-item-header {
+    align-items: flex-start;
+  }
+
+  .inspection-condition-row {
+    flex-direction: column;
+  }
+
+  .inspection-condition-option {
+    width: 100%;
+  }
+
+  .inspection-photo-thumb,
+  .inspection-photo-add {
+    width: calc(50% - 6px);
+    height: 120px;
+  }
+
+  .signature-pad-wrapper,
+  .signed-signature-image {
+    max-width: 100%;
+  }
+
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .inspection-item-card {
+    padding: 16px;
+  }
+
+  .inspection-photo-thumb,
+  .inspection-photo-add {
+    height: 110px;
+  }
+}

@@ -770,70 +770,7 @@
 }
 
 
-/* ─────────────────────────────────────────────────────────────
-   CHECKLIST TEMPLATE PAGE
-   Manage org-level inspection checklist items
-   ───────────────────────────────────────────────────────────── */
 
-.checklist-back-link {
-  text-decoration: none;
-  color: #6b7280;
-  margin-bottom: 1rem;
-}
-
-.checklist-add-card {
-  padding: 1rem;
-  margin-top: 1rem;
-}
-
-.checklist-add-card h3 {
-  margin-top: 0;
-  font-size: 1rem;
-}
-
-.checklist-items-card {
-  padding: 0;
-  overflow: hidden;
-  margin-top: 1.5rem;
-}
-
-.checklist-row {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  border-bottom: 1px solid #f3f4f6;
-  background: white;
-}
-
-.checklist-row:last-child {
-  border-bottom: none;
-}
-
-.checklist-row.disabled {
-  opacity: 0.5;
-  background: #fafafa;
-}
-
-.checklist-row-number {
-  width: 36px;
-  text-align: center;
-  color: #6b7280;
-  font-size: 0.85rem;
-}
-
-.checklist-row-name {
-  flex: 1;
-}
-
-.checklist-row-tag {
-  margin-left: 8px;
-  font-size: 0.75rem;
-  color: #6b7280;
-}
-
-.checklist-row-tag.tag-disabled {
-  color: #dc2626;
-}
 
 
 /* ─────────────────────────────────────────────────────────────
