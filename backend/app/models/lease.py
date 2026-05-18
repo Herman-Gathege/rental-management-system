@@ -1,7 +1,8 @@
 #backend\app\models\lease.py
 
 import uuid
-from sqlalchemy import Column, String, Date, Numeric, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, String, Date, Numeric, Integer, DateTime, ForeignKey, JSON
+from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.db.base import Base
@@ -35,8 +36,13 @@ class Lease(Base):
     signed_on_behalf_of = Column(String, nullable=True)
 
     # URL to the scanned signed lease document (uploaded after signing)
-    signed_lease_url = Column(String, nullable=True)
-
+    # signed_lease_url = Column(String, nullable=True)
+    # URLs to scanned signed lease documents
+    signed_lease_urls = Column(
+        MutableList.as_mutable(JSON),
+        nullable=True,
+        default=list
+    )
     # ─── Status ───
     # active / ended / terminated / pending_inspection
     status = Column(String, default="active")

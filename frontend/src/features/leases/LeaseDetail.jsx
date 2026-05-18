@@ -33,7 +33,7 @@ export default function LeaseDetail() {
   const handleInitiateMoveOut = async () => {
     if (
       !confirm(
-        "Initiate move-out? This will create a move-out inspection that you must complete and sign with the tenant before the lease can be terminated."
+        "Initiate move-out? This will create a move-out inspection that you must complete and sign with the tenant before the lease can be terminated.",
       )
     )
       return;
@@ -51,12 +51,41 @@ export default function LeaseDetail() {
   };
 
   /* Upload signed lease document */
+  // const handleSignedUpload = async (e) => {
+  //   const file = e.target.files[0];
+  //   if (!file) return;
+  //   setUploadingSigned(true);
+  //   try {
+  //     await uploadSignedLease(leaseId, file);
+  //     fetchLease();
+  //   } catch (err) {
+  //     alert(err.response?.data?.detail || "Upload failed");
+  //   } finally {
+  //     setUploadingSigned(false);
+  //     e.target.value = "";
+  //   }
+  // };
+
   const handleSignedUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files);
+
+    if (files.length === 0) return;
+
+    if (files.length > 3) {
+      alert("You can upload a maximum of 3 files.");
+      e.target.value = "";
+      return;
+    }
+
     setUploadingSigned(true);
+
     try {
-      await uploadSignedLease(leaseId, file);
+      // for (const file of files) {
+      //   await uploadSignedLease(leaseId, file);
+      // }
+
+      await uploadSignedLease(leaseId, files);
+
       fetchLease();
     } catch (err) {
       alert(err.response?.data?.detail || "Upload failed");
@@ -94,7 +123,9 @@ export default function LeaseDetail() {
           </p>
         </div>
         <div className="flex gap-sm">
-          <span className={`role-badge status-${lease.status}`}>{lease.status}</span>
+          <span className={`role-badge status-${lease.status}`}>
+            {lease.status}
+          </span>
         </div>
       </div>
 
@@ -112,7 +143,9 @@ export default function LeaseDetail() {
           <div>
             <div className="text-sm text-muted">End Date</div>
             <div className="text-bold">
-              {lease.end_date ? new Date(lease.end_date).toLocaleDateString() : "Open-ended"}
+              {lease.end_date
+                ? new Date(lease.end_date).toLocaleDateString()
+                : "Open-ended"}
             </div>
           </div>
         </div>
@@ -155,7 +188,7 @@ export default function LeaseDetail() {
         )}
 
         {/* Signed lease document */}
-        <div className="mt-md">
+        {/* <div className="mt-md">
           <div className="text-sm text-muted">Signed Lease Document</div>
           {lease.signed_lease_url ? (
             <div className="flex gap-sm items-center">
@@ -168,10 +201,13 @@ export default function LeaseDetail() {
                 View Document
               </a>
               <label className="btn btn-secondary btn-sm doc-upload-label">
-                {uploadingSigned ? "Uploading..." : "Replace"}
+                {uploadingSigned
+                  ? "Uploading..."
+                  : "Add / Replace Lease Documents (Max 3)"}
                 <input
                   type="file"
                   accept="application/pdf,image/*"
+                  multiple
                   onChange={handleSignedUpload}
                   disabled={uploadingSigned}
                   className="doc-upload-hidden-input"
@@ -179,16 +215,101 @@ export default function LeaseDetail() {
               </label>
             </div>
           ) : (
+            <div className="flex flex-col gap-xs">
+              <label className="btn btn-secondary btn-sm doc-upload-label">
+                {uploadingSigned
+                  ? "Uploading..."
+                  : "Upload Signed Lease Documents (Max 3)"}
+                <input
+                  type="file"
+                  accept="application/pdf,image/*"
+                  multiple
+                  onChange={handleSignedUpload}
+                  disabled={uploadingSigned}
+                  className="doc-upload-hidden-input"
+                />
+              </label>
+
+              <p className="text-xs text-muted">
+                You can upload up to 3 PDF or image files.
+              </p>
+            </div>
+          )}
+        </div> */}
+
+        {/* Signed lease documents */}
+        <div className="mt-md">
+          <div className="flex items-center justify-between mb-sm">
+            <div className="text-sm text-muted">Signed Lease Documents</div>
+
             <label className="btn btn-secondary btn-sm doc-upload-label">
-              {uploadingSigned ? "Uploading..." : "Upload Signed Lease"}
+              {uploadingSigned ? "Uploading..." : "Upload / Replace Documents"}
+
               <input
                 type="file"
                 accept="application/pdf,image/*"
+                multiple
                 onChange={handleSignedUpload}
                 disabled={uploadingSigned}
                 className="doc-upload-hidden-input"
               />
             </label>
+          </div>
+
+          {/* Uploaded documents list */}
+          {lease.signed_lease_urls?.length > 0 ? (
+            <div className="flex flex-col gap-sm">
+              {lease.signed_lease_urls.map((url, index) => {
+                const filename = decodeURIComponent(
+                  url.split("/").pop()?.split("?")[0] ||
+                    `Document ${index + 1}`,
+                );
+
+                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(filename);
+
+                return (
+                  <div key={index} className="doc-upload-row">
+                    <div className="doc-upload-row-info">
+                      <div className="text-bold">
+                        {isImage ? "Image Document" : "PDF Document"} #
+                        {index + 1}
+                      </div>
+
+                      <div className="text-xs text-muted file-name-ellipsis">
+                        {filename}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-sm">
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-secondary btn-sm"
+                      >
+                        View
+                      </a>
+
+                      <a
+                        href={url}
+                        download
+                        className="btn btn-secondary btn-sm"
+                      >
+                        Download
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="empty-state-sm">
+              <p className="text-sm">No signed lease documents uploaded yet.</p>
+
+              <p className="text-xs text-muted">
+                Upload up to 3 PDF or image files.
+              </p>
+            </div>
           )}
         </div>
       </div>

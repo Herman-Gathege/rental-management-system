@@ -41,14 +41,35 @@ export const terminateLease = async (leaseId) => {
 };
 
 /* UPLOAD SIGNED LEASE DOCUMENT */
-export const uploadSignedLease = async (leaseId, file) => {
+// export const uploadSignedLease = async (leaseId, file) => {
+//   const formData = new FormData();
+//   formData.append("file", file);
+
+//   const { data } = await API.post(
+//     `/leases/${leaseId}/signed-document`,
+//     formData,
+//     { headers: { "Content-Type": "multipart/form-data" } }
+//   );
+//   return data;
+// };
+
+/* UPLOAD SIGNED LEASE DOCUMENTS */
+export const uploadSignedLease = async (leaseId, files) => {
   const formData = new FormData();
-  formData.append("file", file);
+
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
 
   const { data } = await API.post(
     `/leases/${leaseId}/signed-document`,
     formData,
-    { headers: { "Content-Type": "multipart/form-data" } }
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
   );
+
   return data;
 };

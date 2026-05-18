@@ -59,7 +59,8 @@ def enrich_lease(lease, db):
         "deposit_amount": float(lease.deposit_amount) if lease.deposit_amount else 0,
         "billing_day": lease.billing_day,
         "signed_on_behalf_of": lease.signed_on_behalf_of,
-        "signed_lease_url": lease.signed_lease_url,
+        # "signed_lease_url": lease.signed_lease_url,
+        "signed_lease_urls": lease.signed_lease_urls or [],
         "status": lease.status,
         "created_at": lease.created_at,
         "tenant_name": tenant.full_name if tenant else None,
@@ -453,14 +454,66 @@ def terminate_lease(
 
 # ─── Upload Signed Lease Document ───
 
+# @router.post("/{lease_id}/signed-document")
+# async def upload_signed_lease(
+#     lease_id: str,
+#     file: UploadFile = File(...),
+#     current_user: User = Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+#     """Upload the scanned signed lease PDF for a lease."""
+#     membership = get_user_org(current_user, db)
+
+#     lease = (
+#         db.query(Lease)
+#         .filter(
+#             Lease.id == lease_id,
+#             Lease.organization_id == membership.organization_id
+#         )
+#         .first()
+#     )
+#     if not lease:
+#         raise HTTPException(status_code=404, detail="Lease not found")
+
+#     file_bytes = await file.read()
+#     s3_key = f"signed-leases/{lease_id}/{uuid.uuid4()}-{file.filename}"
+
+#     try:
+#         file_url = upload_file(s3_key, file_bytes)
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+#     lease.signed_lease_url = file_url
+
+#     log_action(
+#         db=db,
+#         organization_id=membership.organization_id,
+#         user_id=current_user.id,
+#         action="update",
+#         entity_type="lease",
+#         entity_id=lease.id,
+#         description=f"Uploaded signed lease document for lease {lease.id}",
+#         new_values={"signed_lease_url": file_url},
+#     )
+
+#     db.commit()
+#     db.refresh(lease)
+
+#     return {
+#         "message": "Signed lease uploaded",
+#         "lease_id": lease.id,
+#         "signed_lease_url": file_url,
+#     }
+
 @router.post("/{lease_id}/signed-document")
 async def upload_signed_lease(
     lease_id: str,
-    file: UploadFile = File(...),
+    files: list[UploadFile] = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Upload the scanned signed lease PDF for a lease."""
+    """Upload up to 3 signed lease documents."""
+    
     membership = get_user_org(current_user, db)
 
     lease = (
@@ -471,18 +524,46 @@ async def upload_signed_lease(
         )
         .first()
     )
+
     if not lease:
         raise HTTPException(status_code=404, detail="Lease not found")
 
-    file_bytes = await file.read()
-    s3_key = f"signed-leases/{lease_id}/{uuid.uuid4()}-{file.filename}"
+    if len(files) > 3:
+        raise HTTPException(
+            status_code=400,
+            detail="Maximum 3 files allowed"
+        )
+
+    uploaded_urls = lease.signed_lease_urls or []
+
+    remaining_slots = 3 - len(uploaded_urls)
+
+    if len(files) > remaining_slots:
+        raise HTTPException(
+            status_code=400,
+            detail=f"You can only upload {remaining_slots} more file(s)"
+        )
 
     try:
-        file_url = upload_file(s3_key, file_bytes)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+        for file in files:
+            file_bytes = await file.read()
 
-    lease.signed_lease_url = file_url
+            s3_key = (
+                f"signed-leases/{lease_id}/"
+                f"{uuid.uuid4()}-{file.filename}"
+            )
+
+            file_url = upload_file(s3_key, file_bytes)
+
+            uploaded_urls.append(file_url)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Upload failed: {str(e)}"
+        )
+
+    lease.signed_lease_urls = uploaded_urls
 
     log_action(
         db=db,
@@ -491,15 +572,15 @@ async def upload_signed_lease(
         action="update",
         entity_type="lease",
         entity_id=lease.id,
-        description=f"Uploaded signed lease document for lease {lease.id}",
-        new_values={"signed_lease_url": file_url},
+        description=f"Uploaded signed lease documents for lease {lease.id}",
+        new_values={"signed_lease_urls": uploaded_urls},
     )
 
     db.commit()
     db.refresh(lease)
 
     return {
-        "message": "Signed lease uploaded",
+        "message": "Signed lease documents uploaded",
         "lease_id": lease.id,
-        "signed_lease_url": file_url,
+        "signed_lease_urls": uploaded_urls,
     }
