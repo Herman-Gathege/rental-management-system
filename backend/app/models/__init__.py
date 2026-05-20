@@ -17,3 +17,4 @@ from app.models.checklist_item_template import ChecklistItemTemplate
 from app.models.lease_inspection import LeaseInspection
 from app.models.inspection_item import InspectionItem
 from app.models.inspection_note import InspectionNote
+from app.models.message import Message

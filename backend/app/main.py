@@ -87,6 +87,7 @@ from app.api.routes.finance import router as finance_router
 from app.api.routes.audit import router as audit_router
 from app.api.routes.checklist_template import router as checklist_template_router
 from app.api.routes.inspections import router as inspections_router
+from app.api.routes.messages import router as messages_router
 
 app = FastAPI(title="Rental Management API")
 
@@ -125,6 +126,7 @@ app.include_router(finance_router)
 app.include_router(audit_router)
 app.include_router(checklist_template_router)
 app.include_router(inspections_router)
+app.include_router(messages_router)
 
 @app.get("/")
 def root():
@@ -141,7 +143,7 @@ def startup_event():
         # Seed roles
         seed_roles(db)
 
-        # TEMPORARY: seed checklist defaults for any existing orgs that don't have them
+        # TEMPORARY: seed checklist defaults for any existing orgs
         created = seed_checklist_for_all_orgs(db)
         if created > 0:
             print(f"[Startup] Seeded {created} default checklist items across orgs")
