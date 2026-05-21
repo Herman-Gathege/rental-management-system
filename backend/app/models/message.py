@@ -70,6 +70,11 @@ class Message(Base):
     # Optional FK to the tenant the message is about (for filtering history)
     tenant_id = Column(String, ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True)
 
+    # Set when an inbound message creates a ticket (Phase 2).
+    # Nullable: outbound messages and inbound messages that didn't
+    # create a ticket (e.g. duplicate webhooks) leave this null.
+    ticket_id = Column(String, ForeignKey("tickets.id", ondelete="SET NULL"), nullable=True, index=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

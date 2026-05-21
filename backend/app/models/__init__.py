@@ -18,3 +18,4 @@ from app.models.lease_inspection import LeaseInspection
 from app.models.inspection_item import InspectionItem
 from app.models.inspection_note import InspectionNote
 from app.models.message import Message
+from app.models.ticket import Ticket
