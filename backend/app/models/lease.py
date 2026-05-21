@@ -43,6 +43,12 @@ class Lease(Base):
         nullable=True,
         default=list
     )
+    
+    custom_fields = Column(
+        MutableList.as_mutable(JSON),
+        nullable=True,
+        default=list
+    )
     # ─── Status ───
     # active / ended / terminated / pending_inspection
     status = Column(String, default="active")

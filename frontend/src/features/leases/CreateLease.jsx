@@ -22,6 +22,7 @@ export default function CreateLease() {
     deposit_amount: "",
     billing_day: "1",
     signed_on_behalf_of: "",
+    custom_fields: [],
   });
 
   // Optional signed lease PDF — uploaded after the lease is created
@@ -40,7 +41,9 @@ export default function CreateLease() {
         ]);
         // Only show vacant active units
         setUnits(
-          unitData.filter((u) => u.occupancy_status === "vacant" && u.is_active)
+          unitData.filter(
+            (u) => u.occupancy_status === "vacant" && u.is_active,
+          ),
         );
         setTenants(tenantData);
       } catch (err) {
@@ -82,6 +85,39 @@ export default function CreateLease() {
     setSignedLeaseFile(file || null);
   };
 
+  const addCustomField = (type) => {
+    const newField = {
+      id: crypto.randomUUID(),
+      type,
+      label: "",
+      placeholder: "",
+      required: false,
+      options: [],
+      value: "",
+    };
+
+    setForm((prev) => ({
+      ...prev,
+      custom_fields: [...prev.custom_fields, newField],
+    }));
+  };
+
+  const updateCustomField = (fieldId, key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      custom_fields: prev.custom_fields.map((field) =>
+        field.id === fieldId ? { ...field, [key]: value } : field,
+      ),
+    }));
+  };
+
+  const removeCustomField = (fieldId) => {
+    setForm((prev) => ({
+      ...prev,
+      custom_fields: prev.custom_fields.filter((field) => field.id !== fieldId),
+    }));
+  };
+
   const handleSubmit = async () => {
     setError("");
     setSubmitting(true);
@@ -94,9 +130,12 @@ export default function CreateLease() {
         end_date: form.end_date || null,
         move_in_date: form.move_in_date || form.start_date,
         rent_amount: parseFloat(form.rent_amount),
-        deposit_amount: form.deposit_amount ? parseFloat(form.deposit_amount) : 0,
+        deposit_amount: form.deposit_amount
+          ? parseFloat(form.deposit_amount)
+          : 0,
         billing_day: parseInt(form.billing_day),
         signed_on_behalf_of: form.signed_on_behalf_of || null,
+        custom_fields: form.custom_fields,
       };
 
       // Step 1: create the lease
@@ -140,7 +179,8 @@ export default function CreateLease() {
             <option value="">Select unit...</option>
             {units.map((u) => (
               <option key={u.id} value={u.id}>
-                {u.name} — {u.property_name} (KES {Number(u.rent_amount).toLocaleString()})
+                {u.name} — {u.property_name} (KES{" "}
+                {Number(u.rent_amount).toLocaleString()})
               </option>
             ))}
           </select>
@@ -180,7 +220,12 @@ export default function CreateLease() {
           </div>
           <div className="form-group">
             <label htmlFor="end_date">
-              End Date {termYears && <span className="text-sm text-muted">({termYears} year term)</span>}
+              End Date{" "}
+              {termYears && (
+                <span className="text-sm text-muted">
+                  ({termYears} year term)
+                </span>
+              )}
             </label>
             <input
               id="end_date"
@@ -237,12 +282,18 @@ export default function CreateLease() {
         {/* ─── Additional Details (collapsible) ─── */}
         <CollapsibleSection
           title="Additional Lease Details"
-          summary={form.signed_on_behalf_of || (signedLeaseFile ? "PDF attached" : null)}
+          summary={
+            form.signed_on_behalf_of ||
+            (signedLeaseFile ? "PDF attached" : null)
+          }
         >
           <div className="form-group">
             <label htmlFor="move_in_date">
               Move-in / Possession Date
-              <span className="text-sm text-muted"> (defaults to start date)</span>
+              <span className="text-sm text-muted">
+                {" "}
+                (defaults to start date)
+              </span>
             </label>
             <input
               id="move_in_date"
@@ -253,13 +304,15 @@ export default function CreateLease() {
               onChange={handleChange}
             />
             <p className="text-sm text-muted">
-              Date when keys are issued to the tenant. May be after the lease start date
-              if subject to payment of rent and deposit.
+              Date when keys are issued to the tenant. May be after the lease
+              start date if subject to payment of rent and deposit.
             </p>
           </div>
 
           <div className="form-group">
-            <label htmlFor="signed_on_behalf_of">Signed on behalf of (optional)</label>
+            <label htmlFor="signed_on_behalf_of">
+              Signed on behalf of (optional)
+            </label>
             <input
               id="signed_on_behalf_of"
               name="signed_on_behalf_of"
@@ -270,7 +323,8 @@ export default function CreateLease() {
               onChange={handleChange}
             />
             <p className="text-sm text-muted">
-              Use this if someone is signing the lease on behalf of the actual landlord.
+              Use this if someone is signing the lease on behalf of the actual
+              landlord.
             </p>
           </div>
 
@@ -310,11 +364,128 @@ export default function CreateLease() {
           </div>
         </CollapsibleSection>
 
+        {/* ─── Custom Fields ─── */}
+        <div className="card mt-md">
+          <div className="flex justify-between items-center mb-md">
+            <div>
+              <h3>Add Fields</h3>
+              <p className="text-sm text-muted">
+                Add extra lease-specific fields (optional).
+              </p>
+            </div>
+
+            <select
+              className="input"
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  addCustomField(e.target.value);
+                  e.target.value = "";
+                }
+              }}
+            >
+              <option value="">+ Add Field</option>
+              <option value="text">Text</option>
+              <option value="textarea">Textarea</option>
+              <option value="number">Number</option>
+              <option value="date">Date</option>
+              <option value="select">Select</option>
+            </select>
+          </div>
+
+          {form.custom_fields.length === 0 ? (
+            <p className="text-sm text-muted">No custom fields added yet.</p>
+          ) : (
+            form.custom_fields.map((field) => (
+              <div key={field.id} className="card mt-sm">
+                <div className="form-group">
+                  <label>Field Label</label>
+
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="e.g. Employer Name"
+                    value={field.label}
+                    onChange={(e) =>
+                      updateCustomField(field.id, "label", e.target.value)
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Placeholder</label>
+
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Optional placeholder"
+                    value={field.placeholder}
+                    onChange={(e) =>
+                      updateCustomField(field.id, "placeholder", e.target.value)
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="flex gap-sm items-center">
+                    <input
+                      type="checkbox"
+                      checked={field.required}
+                      onChange={(e) =>
+                        updateCustomField(
+                          field.id,
+                          "required",
+                          e.target.checked,
+                        )
+                      }
+                    />
+                    Required field
+                  </label>
+                </div>
+
+                {field.type === "select" && (
+                  <div className="form-group">
+                    <label>Options (comma separated)</label>
+
+                    <input
+                      type="text"
+                      className="input"
+                      placeholder="Monthly, Quarterly, Annual"
+                      value={field.options.join(", ")}
+                      onChange={(e) =>
+                        updateCustomField(
+                          field.id,
+                          "options",
+                          e.target.value
+                            .split(",")
+                            .map((o) => o.trim())
+                            .filter(Boolean),
+                        )
+                      }
+                    />
+                  </div>
+                )}
+
+                <div className="mt-sm">
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm"
+                    onClick={() => removeCustomField(field.id)}
+                  >
+                    Remove Field
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
         {/* ─── Info note about auto-inspection ─── */}
         <div className="card info-banner mt-md">
           <p className="text-sm">
-            <strong>Note:</strong> A move-in inspection will be automatically created for this lease.
-            You can conduct the inspection from the lease detail page after creation.
+            <strong>Note:</strong> A move-in inspection will be automatically
+            created for this lease. You can conduct the inspection from the
+            lease detail page after creation.
           </p>
         </div>
 

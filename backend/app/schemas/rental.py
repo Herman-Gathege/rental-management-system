@@ -136,6 +136,7 @@ class LeaseCreate(BaseModel):
     rent_amount: float
     deposit_amount: Optional[float] = 0
     billing_day: Optional[int] = 1
+    custom_fields: Optional[list] = []
 
     # New fields
     move_in_date: Optional[date] = None
@@ -148,6 +149,7 @@ class LeaseUpdate(BaseModel):
     billing_day: Optional[int] = None
     move_in_date: Optional[date] = None
     signed_on_behalf_of: Optional[str] = None
+    custom_fields: Optional[list] = []
 
 
 class LeaseOut(BaseModel):

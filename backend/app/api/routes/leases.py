@@ -76,6 +76,7 @@ def enrich_lease(lease, db):
             "status": move_out_inspection.status,
             "inspection_date": move_out_inspection.inspection_date,
         } if move_out_inspection else None,
+        "custom_fields": lease.custom_fields or [],
     }
 
 
@@ -138,6 +139,8 @@ def create_lease(
         billing_day=payload.billing_day or 1,
         signed_on_behalf_of=payload.signed_on_behalf_of,
         status="active",
+        custom_fields=payload.custom_fields or [],
+        
     )
     db.add(lease)
     db.flush()
