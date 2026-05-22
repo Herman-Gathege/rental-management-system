@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+#backend\app\api\routes\payments.py
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import uuid
@@ -14,6 +15,7 @@ from app.models.charge import Charge
 from app.models.payment import Payment
 from app.schemas.finance import PaymentCreate
 from app.services.audit_service import log_action
+from app.services.messaging import notify_payment_received
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -32,6 +34,7 @@ def get_user_org(user: User, db: Session):
 @router.post("/")
 def record_payment(
     payload: PaymentCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -112,6 +115,11 @@ def record_payment(
 
     db.commit()
     db.refresh(payment)
+
+    # Fire-and-forget WhatsApp receipt to the tenant. Decoupled from
+    # the HTTP response so a slow Meta API call doesn't slow down the
+    # admin recording a payment.
+    background_tasks.add_task(notify_payment_received, payment.id)
 
     return {
         "id": payment.id,

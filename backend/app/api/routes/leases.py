@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+#backend\app\api\routes\leases.py
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 import uuid
 
@@ -14,6 +15,7 @@ from app.models.lease_inspection import LeaseInspection
 from app.schemas.rental import LeaseCreate, LeaseUpdate
 from app.services.audit_service import log_action
 from app.services.inspection_service import create_inspection_for_lease
+from app.services.messaging import notify_lease_created
 from app.services.s3_service import upload_file
 
 router = APIRouter(prefix="/leases", tags=["Leases"])
@@ -85,9 +87,11 @@ def enrich_lease(lease, db):
 @router.post("/")
 def create_lease(
     payload: LeaseCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+
     membership = get_user_org(current_user, db)
     org_id = membership.organization_id
 
@@ -174,6 +178,11 @@ def create_lease(
 
     db.commit()
     db.refresh(lease)
+
+    # Fire-and-forget WhatsApp to the tenant. Runs after the response
+    # is sent so it never blocks the API. Failures are logged inside
+    # the notification helper.
+    background_tasks.add_task(notify_lease_created, lease.id)
 
     return enrich_lease(lease, db)
 

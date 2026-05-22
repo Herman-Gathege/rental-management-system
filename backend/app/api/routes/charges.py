@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+#backend\app\api\routes\charges.py
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 import uuid
 from datetime import date
@@ -13,6 +14,7 @@ from app.models.property import Property
 from app.models.tenant import Tenant
 from app.models.charge import Charge
 from app.services.audit_service import log_action
+from app.services.messaging import notify_rent_due_for_charges
 
 router = APIRouter(prefix="/charges", tags=["Charges"])
 
@@ -41,15 +43,24 @@ def enrich_charge(charge, db):
 
 
 @router.post("/generate-monthly")
-def generate_monthly_charges(billing_date: date = Query(None), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def generate_monthly_charges(
+    background_tasks: BackgroundTasks,
+    billing_date: date = Query(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     membership = get_user_org(current_user, db)
     org_id = membership.organization_id
     if not billing_date:
         billing_date = date.today()
     billing_month = billing_date.replace(day=1)
     active_leases = db.query(Lease).filter(Lease.organization_id == org_id, Lease.status == "active").all()
-    created = 0
+
+    # Collect the IDs of newly-created charges so we can fire one
+    # rent_due_reminder per tenant in a single background task batch.
+    new_charge_ids: list[str] = []
     skipped = 0
+
     for lease in active_leases:
         existing = db.query(Charge).filter(Charge.lease_id == lease.id, Charge.billing_month == billing_month).first()
         if existing:
@@ -61,10 +72,19 @@ def generate_monthly_charges(billing_date: date = Query(None), current_user: Use
             due = billing_date.replace(day=28)
         charge = Charge(id=str(uuid.uuid4()), organization_id=org_id, lease_id=lease.id, amount=lease.rent_amount, due_date=due, billing_month=billing_month, status="pending")
         db.add(charge)
-        created += 1
+        new_charge_ids.append(charge.id)
+
+    created = len(new_charge_ids)
     if created > 0:
         log_action(db, org_id, current_user.id, "billing", "charge", "batch", f"Generated {created} monthly charges for {billing_month}")
     db.commit()
+
+    # Send rent_due_reminder WhatsApp to each tenant whose lease just
+    # got a fresh charge. The helper opens its own DB session and
+    # commits each send individually so one failure doesn't poison the rest.
+    if new_charge_ids:
+        background_tasks.add_task(notify_rent_due_for_charges, new_charge_ids)
+
     return {"message": f"Billing complete: {created} charges created, {skipped} already existed", "created": created, "skipped": skipped}
 
 
