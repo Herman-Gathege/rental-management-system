@@ -1,6 +1,6 @@
 #backend\app\api\routes\organizations.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 import uuid
 
@@ -13,6 +13,7 @@ from app.models.organization_member import OrganizationMember
 from app.models.organization_invitation import OrganizationInvitation
 from app.schemas.organization import InviteRequest, InvitationOut
 from app.core.roles import LANDLORD, ALL_ROLES
+from app.services.messaging import notify_org_invite
 
 router = APIRouter(prefix="/organizations", tags=["Organizations"])
 
@@ -64,9 +65,11 @@ def get_my_organization(
 
 # ─── Invite User to Organization ───
 
+
 @router.post("/invite")
 def invite_user(
     invite: InviteRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -128,6 +131,7 @@ def invite_user(
     invitation = OrganizationInvitation(
         id=str(uuid.uuid4()),
         email=invite.email,
+        phone=invite.phone,                  # Phase 3 — optional WhatsApp delivery
         role_id=role.id,
         organization_id=org_id,
         token=str(uuid.uuid4()),
@@ -136,11 +140,22 @@ def invite_user(
     db.add(invitation)
     db.commit()
 
+    # Fire WhatsApp invite (best-effort, background). If phone is
+    # missing, the helper logs a warning and returns without sending.
+    if invite.phone:
+        background_tasks.add_task(
+            notify_org_invite,
+            invitation.id,
+            invite.phone,
+        )
+
     return {
         "message": f"Invitation sent to {invite.email}",
         "invitation_id": invitation.id,
-        "token": invitation.token
+        "token": invitation.token,
+        "whatsapp_queued": bool(invite.phone),
     }
+   
 
 
 # ─── Accept Invitation ───

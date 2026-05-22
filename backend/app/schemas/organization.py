@@ -1,5 +1,4 @@
-#backend\app\schemas\organization.py
-
+# backend\app\schemas\organization.py
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from datetime import datetime
@@ -28,10 +27,17 @@ class InviteRequest(BaseModel):
     email: EmailStr
     role: str  # e.g. "PROPERTY_MANAGER", "FINANCE"
 
+    # Phase 3: optional WhatsApp phone so the invite link can be
+    # delivered via WhatsApp Cloud API. If omitted, the invitation
+    # is still created with a token, but no notification fires —
+    # the admin must share the token manually.
+    phone: Optional[str] = None
+
 
 class InvitationOut(BaseModel):
     id: str
     email: str
+    phone: Optional[str] = None
     role: str
     status: str
     created_at: datetime
