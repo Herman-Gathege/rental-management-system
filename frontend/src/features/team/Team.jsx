@@ -21,6 +21,7 @@ export default function Team() {
 
   // Invite form
   const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
   const [inviteRole, setInviteRole] = useState("PROPERTY_MANAGER");
   const [inviting, setInviting] = useState(false);
 
@@ -53,9 +54,10 @@ export default function Team() {
     setInviting(true);
 
     try {
-      const data = await inviteUser(inviteEmail, inviteRole);
+      const data = await inviteUser(inviteEmail, invitePhone, inviteRole);
       setSuccess(data.message);
       setInviteEmail("");
+      setInvitePhone("");
       await fetchData();
       setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
@@ -79,6 +81,13 @@ export default function Team() {
         <div className="card invite-section">
           <h3>Invite Team Member</h3>
           <div className="invite-form">
+            <input
+              className="input"
+              type="tel"
+              placeholder="WhatsApp phone (optional)"
+              value={invitePhone}
+              onChange={(e) => setInvitePhone(e.target.value)}
+            />
             <input
               className="input"
               type="email"

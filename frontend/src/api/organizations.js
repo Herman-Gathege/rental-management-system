@@ -9,8 +9,8 @@ export const getMyOrganization = async () => {
 };
 
 /* INVITE a user to the organization */
-export const inviteUser = async (email, role) => {
-  const { data } = await API.post("/organizations/invite", { email, role });
+export const inviteUser = async (email, phone, role) => {
+  const { data } = await API.post("/organizations/invite", { email, phone, role });
   return data;
 };
 
