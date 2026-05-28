@@ -83,10 +83,11 @@ export default function Team() {
           <div className="invite-form">
             <input
               className="input"
-              type="tel"
-              placeholder="WhatsApp phone (optional)"
+              type="phone"
+              placeholder="WhatsApp phone number"
               value={invitePhone}
               onChange={(e) => setInvitePhone(e.target.value)}
+              required
             />
             <input
               className="input"
