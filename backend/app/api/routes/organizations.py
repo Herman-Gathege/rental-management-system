@@ -12,8 +12,12 @@ from app.models.organization import Organization
 from app.models.organization_member import OrganizationMember
 from app.models.organization_invitation import OrganizationInvitation
 from app.schemas.organization import InviteRequest, InvitationOut
+from app.schemas.auth import RegisterInviteSchema
 from app.core.roles import LANDLORD, ALL_ROLES
 from app.services.messaging import notify_org_invite
+from app.core.security import hash_password
+from app.core.jwt import create_access_token
+
 
 router = APIRouter(prefix="/organizations", tags=["Organizations"])
 
@@ -180,10 +184,10 @@ def accept_invitation(
     # Check if user exists
     user = db.query(User).filter(User.email == invitation.email).first()
     if not user:
-        raise HTTPException(
-            status_code=400,
-            detail="User must register first before accepting the invitation"
-        )
+        return {
+            "requires_registration": True,
+            "redirect": f"/register-invite/{token}"
+        }
 
     # Check if already a member
     existing = (
@@ -215,6 +219,79 @@ def accept_invitation(
         "message": f"Welcome to {org.name}!",
         "organization_id": org.id,
         "role": invitation.role.name
+    }
+
+
+@router.post("/register-invite/{token}")
+def register_invited_user(
+    token: str,
+    payload: RegisterInviteSchema,
+    db: Session = Depends(get_db)
+):
+    # 1. Validate invitation
+    invitation = (
+        db.query(OrganizationInvitation)
+        .filter(
+            OrganizationInvitation.token == token,
+            OrganizationInvitation.status == "pending"
+        )
+        .first()
+    )
+
+    if not invitation:
+        raise HTTPException(
+            status_code=404,
+            detail="Invalid or expired invitation"
+        )
+
+    # 2. Ensure user does NOT already exist
+    existing_user = (
+        db.query(User)
+        .filter(User.email == invitation.email)
+        .first()
+    )
+
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="User already exists"
+        )
+
+    # 3. Create user (FIXED PASSWORD BUG)
+    user = User(
+        email=invitation.email,
+        password_hash=hash_password(payload.password),  # IMPORTANT FIX
+        is_active=True,
+        role_id=invitation.role_id
+    )
+
+    db.add(user)
+    db.flush()  # ensures user.id is available
+
+    # 4. Create organization membership
+    membership = OrganizationMember(
+        user_id=user.id,
+        organization_id=invitation.organization_id,
+        role_id=invitation.role_id
+    )
+
+    db.add(membership)
+
+    # 5. Mark invitation as accepted
+    invitation.status = "accepted"
+
+    db.commit()
+
+    # 6. Create JWT
+    access_token = create_access_token({
+        "sub": user.id
+    })
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "role": invitation.role.name,
+        "organization_id": invitation.organization_id
     }
 
 

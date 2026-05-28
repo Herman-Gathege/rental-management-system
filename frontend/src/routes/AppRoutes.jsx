@@ -6,6 +6,8 @@ import Home from "../pages/Home";
 import Login from "../features/auth/Login";
 import Register from "../features/auth/Register";
 import DashboardDecision from "../features/dashboard/DashboardDecision";
+import AcceptInvitation from "../features/team/AcceptInvitation";
+import RegisterInvite from "../features/auth/RegisterInvite";
 
 /* LANDLORD LAYOUT */
 import DashboardLayout from "../features/dashboard/layout/DashboardLayout";
@@ -68,6 +70,8 @@ export default function AppRoutes() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/accept-invite/:token" element={<AcceptInvitation />} />
+      <Route path="/register-invite/:token" element={<RegisterInvite />} />
 
       {/* ROLE DECIDER AFTER LOGIN */}
       <Route
