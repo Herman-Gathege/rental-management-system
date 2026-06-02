@@ -1,4 +1,4 @@
-/*frontend\src\config\navigation.js */
+/* frontend\src\config\navigation.js */
 import {
   FiHome,
   FiUsers,
@@ -11,14 +11,12 @@ import {
 } from "react-icons/fi";
 
 /* ================= LANDLORD / PORTFOLIO OWNER ================= */
-
 export const ownerNavigation = [
   {
     label: "Dashboard",
     icon: FiHome,
     path: "/owner/dashboard",
   },
-
   /* PROPERTIES */
   {
     label: "Properties",
@@ -28,7 +26,6 @@ export const ownerNavigation = [
       { label: "Add Property", path: "/owner/properties/new" },
     ],
   },
-
   /* UNITS */
   {
     label: "Units",
@@ -39,7 +36,6 @@ export const ownerNavigation = [
       { label: "Add Unit", path: "/owner/units/add" },
     ],
   },
-
   /* TENANTS */
   {
     label: "Tenants",
@@ -50,7 +46,6 @@ export const ownerNavigation = [
       { label: "Notice & Evictions", path: "/owner/tenants/notices" },
     ],
   },
-
   /* LEASES */
   {
     label: "Leases",
@@ -61,7 +56,6 @@ export const ownerNavigation = [
       { label: "Expired Leases", path: "/owner/leases/expired" },
     ],
   },
-
   /* RENT & PAYMENTS */
   {
     label: "Rent & Payments",
@@ -72,7 +66,6 @@ export const ownerNavigation = [
       { label: "Late Payments", path: "/owner/payments/late" },
     ],
   },
-
   /* FINANCE TEAM */
   {
     label: "Finance",
@@ -83,8 +76,7 @@ export const ownerNavigation = [
       { label: "Reports", path: "/owner/reports" },
     ],
   },
-
-  /* TEAM — Sprint 2 */
+  /* TEAM - Sprint 2 */
   {
     label: "Team",
     icon: FiKey,
@@ -93,7 +85,6 @@ export const ownerNavigation = [
       { label: "Invite Member", path: "/owner/team" },
     ],
   },
-
   {
     label: "Settings",
     icon: FiSettings,
@@ -101,48 +92,83 @@ export const ownerNavigation = [
   },
 ];
 
-/* ================= PROPERTY MANAGER / STAFF ================= */
-
+/* ================= PROPERTY MANAGER / STAFF =================
+ * NOTE: paths use /manager/* to match AppRoutes.jsx which mounts
+ * the StaffLayout at /manager/*. Earlier these used /staff/* which
+ * 404'd silently.
+ */
 export const staffNavigation = [
   {
     label: "Dashboard",
     icon: FiHome,
-    path: "/staff",
+    path: "/manager/dashboard",
   },
   {
     label: "Properties",
     icon: FiBriefcase,
-    path: "/staff/properties",
+    path: "/manager/properties",
   },
   {
     label: "Tenants",
     icon: FiUsers,
-    path: "/staff/tenants",
+    path: "/manager/tenants",
   },
   {
     label: "Leases",
     icon: FiFileText,
-    path: "/staff/leases",
+    path: "/manager/leases",
   },
   {
     label: "Payments",
     icon: FiDollarSign,
-    path: "/staff/payments",
+    path: "/manager/payments",
   },
   {
     label: "My Profile",
     icon: FiUsers,
-    path: "/staff/profile",
+    path: "/manager/profile",
   },
   {
     label: "Change Password",
     icon: FiSettings,
-    path: "/staff/password",
+    path: "/manager/password",
+  },
+];
+
+/* ================= TENANT =================
+ * Minimal tenant nav. Most paths route to TenantDashboard via the
+ * /tenant/* index fallback today — real per-section pages can be
+ * built out without changing this nav (just add the routes).
+ */
+export const tenantNavigation = [
+  {
+    label: "Dashboard",
+    icon: FiHome,
+    path: "/tenant",
+  },
+  {
+    label: "My Lease",
+    icon: FiFileText,
+    path: "/tenant/lease",
+  },
+  {
+    label: "My Payments",
+    icon: FiDollarSign,
+    path: "/tenant/payments",
+  },
+  {
+    label: "My Profile",
+    icon: FiUsers,
+    path: "/tenant/profile",
+  },
+  {
+    label: "Change Password",
+    icon: FiSettings,
+    path: "/tenant/password",
   },
 ];
 
 /* ================= SYSTEM / SUPER ADMIN ================= */
-
 export const superAdminNavigation = [
   {
     label: "Dashboard",

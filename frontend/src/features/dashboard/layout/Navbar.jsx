@@ -5,10 +5,12 @@ import { FiMaximize, FiMinimize, FiChevronDown } from "react-icons/fi";
 import { NavLink } from "react-router-dom";
 import PropertySwitcher from "../../../components/PropertySwitcher/PropertySwitcher";
 import {
-  ownerNavigation,
-  staffNavigation,
-  superAdminNavigation,
-} from "../../../config/navigation";
+    ownerNavigation,
+    staffNavigation,
+    superAdminNavigation,
+    tenantNavigation,
+  } from "../../../config/navigation";
+
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -48,10 +50,18 @@ export default function Navbar() {
     switch (role) {
       case "landlord":
         return ownerNavigation;
+      case "tenant":
+        return tenantNavigation;
+      case "property_manager":
+      case "finance":
+        return staffNavigation;
       case "system":
         return superAdminNavigation;
       default:
-        return staffNavigation;
+          // Unknown role - safest fallback is the most-restricted nav.
+          // We pick tenant over staff because tenant nav is read-only and
+          // self-scoped, so an unknown role can't navigate to admin pages.
+        return tenantNavigation;
     }
   }, [role]);
 

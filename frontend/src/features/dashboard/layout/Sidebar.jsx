@@ -156,19 +156,19 @@ export default function Sidebar() {
         {/* ================= PROPERTY MANAGER ================= */}
         {(isManager || isFinance) && (
           <>
-            <NavLink to="/staff" className={linkClass}>
+            <NavLink to="/manager/dashboard" className={linkClass}>
               <FiHome /> {!collapsed && <span>Dashboard</span>}
             </NavLink>
 
-            <NavLink to="/staff/properties" className={linkClass}>
+            <NavLink to="/manager/properties" className={linkClass}>
               <FiBriefcase /> {!collapsed && <span>Properties</span>}
             </NavLink>
 
-            <NavLink to="/staff/tenants" className={linkClass}>
+            <NavLink to="/manager/tenants" className={linkClass}>
               <FiUsers /> {!collapsed && <span>Tenants</span>}
             </NavLink>
 
-            <NavLink to="/staff/payments" className={linkClass}>
+            <NavLink to="/manager/payments" className={linkClass}>
               <FiDollarSign /> {!collapsed && <span>Payments</span>}
             </NavLink>
           </>
@@ -177,7 +177,7 @@ export default function Sidebar() {
         {/* ================= TENANT ================= */}
         {isTenant && (
           <>
-            <NavLink to="/tenant/dashboard" className={linkClass}>
+            <NavLink to="/tenant" className={linkClass}>
               <FiHome /> {!collapsed && <span>My Home</span>}
             </NavLink>
 
