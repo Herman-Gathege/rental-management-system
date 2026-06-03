@@ -84,6 +84,7 @@ from app.api.routes.leases import router as leases_router
 from app.api.routes.charges import router as charges_router
 from app.api.routes.payments import router as payments_router
 from app.api.routes.finance import router as finance_router
+from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.audit import router as audit_router
 from app.api.routes.checklist_template import router as checklist_template_router
 from app.api.routes.inspections import router as inspections_router
@@ -124,6 +125,7 @@ app.include_router(leases_router)
 app.include_router(charges_router)
 app.include_router(payments_router)
 app.include_router(finance_router)
+app.include_router(dashboard_router)
 app.include_router(audit_router)
 app.include_router(checklist_template_router)
 app.include_router(inspections_router)

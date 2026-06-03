@@ -1,0 +1,35 @@
+# backend/app/schemas/dashboard.py
+"""
+Response schemas for the role-based dashboard endpoints (Sprint 4.5).
+
+These are intentionally thin. The dashboard service returns plain dicts of
+already-computed values, and FastAPI coerces those dicts into these models for
+the response -- so we never hand an ORM object to Pydantic and never need
+orm_mode / from_attributes here. Keeping the fields scalar also means they
+behave identically under Pydantic v1 and v2.
+"""
+from typing import Optional
+from pydantic import BaseModel
+
+
+class ManagerSummaryResponse(BaseModel):
+    properties: int
+    units: int
+    occupied_units: int
+    vacant_units: int
+    tenants: int
+    active_leases: int
+
+
+class FinanceSummaryResponse(BaseModel):
+    total_collected: float
+    expected_rent: float
+    outstanding_balance: float
+    overdue_charges: int
+
+
+class TenantDashboardResponse(BaseModel):
+    tenant: dict
+    unit: Optional[dict] = None
+    lease: Optional[dict] = None
+    balance: float

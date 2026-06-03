@@ -1031,3 +1031,62 @@
   background: #fee2e2;
   color: #991b1b;
 }
+
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.dash-stat {
+  background: #b3cfe557;
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.dash-stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.1;
+}
+
+.dash-stat-label {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+/* Money figures (finance / tenant) use a smaller value size so long
+   KES amounts don't overflow the card. */
+.dash-stat-value.dash-stat-money {
+  font-size: 1.4rem;
+}
+
+.dash-panel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 20px;
+}
+
+.dash-panel-title {
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.dash-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.dash-row:last-child {
+  border-bottom: none;
+}
