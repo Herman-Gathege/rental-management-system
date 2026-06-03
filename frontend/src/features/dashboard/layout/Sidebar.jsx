@@ -171,6 +171,10 @@ export default function Sidebar() {
             <NavLink to="/manager/payments" className={linkClass}>
               <FiDollarSign /> {!collapsed && <span>Payments</span>}
             </NavLink>
+
+            <NavLink to="/manager/leases" className={linkClass}>
+              <FiFileText /> {!collapsed && <span>Leases</span>}
+            </NavLink>
           </>
         )}
 
@@ -188,6 +192,7 @@ export default function Sidebar() {
             <NavLink to="/tenant/lease" className={linkClass}>
               <FiFileText /> {!collapsed && <span>My Lease</span>}
             </NavLink>
+            
           </>
         )}
 

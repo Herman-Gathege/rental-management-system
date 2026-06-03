@@ -153,6 +153,7 @@ export default function AppRoutes() {
       >
         <Route index element={<StaffDashboard />} />
         <Route path="dashboard" element={<StaffDashboard />} />
+        
       </Route>
 
       {/* ================= FINANCE ================= */}
