@@ -1,7 +1,6 @@
 #backend\app\api\routes\payments.py
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 import uuid
 from datetime import date
 
@@ -16,6 +15,7 @@ from app.models.payment import Payment
 from app.schemas.finance import PaymentCreate
 from app.services.audit_service import log_action
 from app.services.messaging import notify_payment_received
+from app.services.billing_service import recompute_lease_settlement
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -68,34 +68,12 @@ def record_payment(
         payment_date=payload.payment_date,
     )
     db.add(payment)
-    db.flush()
+    db.flush()  # make the new payment visible to the settlement sum
 
-    # --- FIXED: Cumulative partial payment settlement ---
-    total_paid_for_lease = (
-        db.query(func.coalesce(func.sum(Payment.amount), 0))
-        .filter(Payment.lease_id == payload.lease_id)
-        .scalar()
-    )
-    total_paid = float(total_paid_for_lease)
-
-    all_charges = (
-        db.query(Charge)
-        .filter(Charge.lease_id == payload.lease_id)
-        .order_by(Charge.due_date.asc())
-        .all()
-    )
-
-    cumulative_charged = 0
-    for charge in all_charges:
-        charge_amount = float(charge.amount)
-        cumulative_charged += charge_amount
-        if total_paid >= cumulative_charged:
-            charge.status = "paid"
-        else:
-            if charge.due_date < date.today():
-                charge.status = "overdue"
-            else:
-                charge.status = "pending"
+    # Re-settle this lease's charges against its cumulative payments,
+    # oldest-first. Sets each charge's amount_paid + status (paid / partial /
+    # pending / overdue). See billing_service for the rule.
+    recompute_lease_settlement(db, payload.lease_id)
 
     log_action(
         db=db,

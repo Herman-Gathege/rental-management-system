@@ -1,66 +1,65 @@
-/*frontend\src\features\dashboard\layout\Sidebar.jsx*/
+/*frontend/src/features/dashboard/layout/Sidebar.jsx*/
+//
+// Config-driven sidebar (Sprint 4.5, Chunk 5).
+// Picks the menu array for the current user's role from navigation.js and
+// renders it. No role-specific JSX blocks and no hardcoded menus — fixing a
+// role's menu now means editing navigation.js only. Replaces the old version
+// that hardcoded every role's tree (and gave FINANCE the manager menu).
 
-import { NavLink, useLocation } from "react-router-dom";
-import { useAuth } from "../../../context/AuthContext";
+import { NavLink } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { FiChevronDown } from "react-icons/fi";
+import { useAuth } from "../../../context/AuthContext";
 import {
-  FiChevronDown,
-  FiHome,
-  FiUsers,
-  FiFileText,
-  FiSettings,
-  FiBriefcase,
-  FiDollarSign,
-  FiKey,
-  FiLayers,
-} from "react-icons/fi";
+  ownerNavigation,
+  staffNavigation,
+  financeNavigation,
+  tenantNavigation,
+  superAdminNavigation,
+} from "../../../config/navigation";
+
+const NAV_BY_ROLE = {
+  LANDLORD: ownerNavigation,
+  PROPERTY_MANAGER: staffNavigation,
+  FINANCE: financeNavigation,
+  TENANT: tenantNavigation,
+  SYSTEM: superAdminNavigation,
+};
 
 export default function Sidebar() {
   const { user, organization } = useAuth();
-  const location = useLocation();
 
-  /* ================= COLLAPSE STATE ================= */
-  const [collapsed, setCollapsed] = useState(() => {
-    return localStorage.getItem("sidebarCollapsed") === "true";
-  });
-
+  /* ===== Collapse state (persisted) ===== */
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem("sidebarCollapsed") === "true"
+  );
   useEffect(() => {
     localStorage.setItem("sidebarCollapsed", collapsed);
   }, [collapsed]);
 
-  /* ================= ROLE FLAGS ================= */
-  const isLandlord = user?.role === "LANDLORD";
-  const isManager = user?.role === "PROPERTY_MANAGER";
-  const isFinance = user?.role === "FINANCE";
-  const isTenant = user?.role === "TENANT";
-  const isSystem = user?.role === "SYSTEM";
+  /* ===== Which groups are expanded (keyed by label) ===== */
+  const [openMenus, setOpenMenus] = useState({});
+  const toggleMenu = (label) =>
+    setOpenMenus((prev) => ({ ...prev, [label]: !prev[label] }));
 
   if (!user) return null;
+
+  // Unknown role falls back to the most-restricted menu (tenant) rather than
+  // exposing management links.
+  const navigation = NAV_BY_ROLE[user.role] || tenantNavigation;
 
   const linkClass = ({ isActive }) =>
     `sidebar-link ${isActive ? "active" : ""}`;
 
-  /* ================= DROPDOWN STATE ================= */
-  const [propertyOpen, setPropertyOpen] = useState(false);
-  const [unitsOpen, setUnitsOpen] = useState(false);
-  const [tenantsOpen, setTenantsOpen] = useState(false);
-  const [leasesOpen, setLeasesOpen] = useState(false);
-  const [paymentsOpen, setPaymentsOpen] = useState(false);
-  const [financeOpen, setFinanceOpen] = useState(false);
-
-  const toggle = (setter) => setter((prev) => !prev);
-
   return (
     <aside className={`sidebar hidden-mobile ${collapsed ? "sidebar-collapsed" : ""}`}>
-      
-      {/* ================= HEADER ================= */}
+      {/* ===== HEADER ===== */}
       <div className="sidebar-header">
         {!collapsed && (
           <h2 className="sidebar-logo text-lg font-bold company-blue">
             {organization?.name || "Rental Manager"}
           </h2>
         )}
-
         <button
           className="sidebar-collapse-btn mr-sm"
           onClick={() => setCollapsed(!collapsed)}
@@ -69,146 +68,51 @@ export default function Sidebar() {
         </button>
       </div>
 
+      {/* ===== NAV ===== */}
       <nav className="sidebar-nav flex flex-col gap-sm p-sm">
+        {navigation.map((item) => {
+          const Icon = item.icon;
 
-        {/* ================= LANDLORD ================= */}
-        {isLandlord && (
-          <>
-            <NavLink to="/owner/dashboard" className={linkClass}>
-              <FiHome /> {!collapsed && <span>Dashboard</span>}
-            </NavLink>
+          // Collapsible group (has children)
+          if (item.children) {
+            const open = !!openMenus[item.label];
+            return (
+              <div key={item.label}>
+                <button
+                  className="sidebar-link"
+                  onClick={() => toggleMenu(item.label)}
+                >
+                  {Icon && <Icon />} {!collapsed && <span>{item.label}</span>}
+                  {!collapsed && (
+                    <FiChevronDown className={`chevron ${open ? "rotated" : ""}`} />
+                  )}
+                </button>
 
-            {/* PROPERTIES */}
-            <button className="sidebar-link" onClick={() => toggle(setPropertyOpen)}>
-              <FiBriefcase /> {!collapsed && <span>Properties</span>}
-              {!collapsed && <FiChevronDown className={`chevron ${propertyOpen ? "rotated" : ""}`} />}
-            </button>
-            {propertyOpen && !collapsed && (
-              <div className="sidebar-submenu">
-                <NavLink to="/owner/properties" className={linkClass}>All Properties</NavLink>
-                <NavLink to="/owner/properties/new" className={linkClass}>Add Property</NavLink>
+                {open && !collapsed && (
+                  <div className="sidebar-submenu">
+                    {item.children.map((child) => (
+                      <NavLink
+                        key={child.path}
+                        to={child.path}
+                        className={linkClass}
+                        end
+                      >
+                        {child.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            );
+          }
 
-            {/* UNITS */}
-            <button className="sidebar-link" onClick={() => toggle(setUnitsOpen)}>
-              <FiLayers /> {!collapsed && <span>Units</span>}
-              {!collapsed && <FiChevronDown className={`chevron ${unitsOpen ? "rotated" : ""}`} />}
-            </button>
-            {unitsOpen && !collapsed && (
-              <div className="sidebar-submenu">
-                <NavLink to="/owner/units" className={linkClass}>All Units</NavLink>
-                <NavLink to="/owner/units/vacant" className={linkClass}>Vacant Units</NavLink>
-                <NavLink to="/owner/units/add" className={linkClass}>Add Unit</NavLink>
-              </div>
-            )}
-
-            {/* TENANTS */}
-            <button className="sidebar-link" onClick={() => toggle(setTenantsOpen)}>
-              <FiUsers /> {!collapsed && <span>Tenants</span>}
-              {!collapsed && <FiChevronDown className={`chevron ${tenantsOpen ? "rotated" : ""}`} />}
-            </button>
-            {tenantsOpen && !collapsed && (
-              <div className="sidebar-submenu">
-                <NavLink to="/owner/tenants" className={linkClass}>All Tenants</NavLink>
-                <NavLink to="/owner/tenants/add" className={linkClass}>Add Tenant</NavLink>
-                <NavLink to="/owner/tenants/notices" className={linkClass}>Notices & Evictions</NavLink>
-              </div>
-            )}
-
-            {/* LEASES */}
-            <button className="sidebar-link" onClick={() => toggle(setLeasesOpen)}>
-              <FiFileText /> {!collapsed && <span>Leases</span>}
-              {!collapsed && <FiChevronDown className={`chevron ${leasesOpen ? "rotated" : ""}`} />}
-            </button>
-            {leasesOpen && !collapsed && (
-              <div className="sidebar-submenu">
-                <NavLink to="/owner/leases" className={linkClass}>Active Leases</NavLink>
-                <NavLink to="/owner/leases/create" className={linkClass}>Create Lease</NavLink>
-                <NavLink to="/owner/leases/expired" className={linkClass}>Expired Leases</NavLink>
-              </div>
-            )}
-
-            {/* PAYMENTS */}
-            <button className="sidebar-link" onClick={() => toggle(setPaymentsOpen)}>
-              <FiDollarSign /> {!collapsed && <span>Rent & Payments</span>}
-              {!collapsed && <FiChevronDown className={`chevron ${paymentsOpen ? "rotated" : ""}`} />}
-            </button>
-            {paymentsOpen && !collapsed && (
-              <div className="sidebar-submenu">
-                <NavLink to="/owner/billing" className={linkClass}>Rent Dashboard</NavLink>
-                <NavLink to="/owner/payments/history" className={linkClass}>Payment History</NavLink>
-                <NavLink to="/owner/payments/late" className={linkClass}>Late Payments</NavLink>
-              </div>
-            )}
-
-            {/* TEAM — Sprint 2 */}
-            <NavLink to="/owner/team" className={linkClass}>
-              <FiKey /> {!collapsed && <span>Team</span>}
+          // Simple link
+          return (
+            <NavLink key={item.path} to={item.path} className={linkClass} end>
+              {Icon && <Icon />} {!collapsed && <span>{item.label}</span>}
             </NavLink>
-
-            <NavLink to="/owner/settings" className={linkClass}>
-              <FiSettings /> {!collapsed && <span>Settings</span>}
-            </NavLink>
-          </>
-        )}
-
-        {/* ================= PROPERTY MANAGER ================= */}
-        {(isManager || isFinance) && (
-          <>
-            <NavLink to="/manager/dashboard" className={linkClass}>
-              <FiHome /> {!collapsed && <span>Dashboard</span>}
-            </NavLink>
-
-            <NavLink to="/manager/properties" className={linkClass}>
-              <FiBriefcase /> {!collapsed && <span>Properties</span>}
-            </NavLink>
-
-            <NavLink to="/manager/tenants" className={linkClass}>
-              <FiUsers /> {!collapsed && <span>Tenants</span>}
-            </NavLink>
-
-            <NavLink to="/manager/payments" className={linkClass}>
-              <FiDollarSign /> {!collapsed && <span>Payments</span>}
-            </NavLink>
-
-            <NavLink to="/manager/leases" className={linkClass}>
-              <FiFileText /> {!collapsed && <span>Leases</span>}
-            </NavLink>
-          </>
-        )}
-
-        {/* ================= TENANT ================= */}
-        {isTenant && (
-          <>
-            <NavLink to="/tenant" className={linkClass}>
-              <FiHome /> {!collapsed && <span>My Home</span>}
-            </NavLink>
-
-            <NavLink to="/tenant/payments" className={linkClass}>
-              <FiDollarSign /> {!collapsed && <span>My Payments</span>}
-            </NavLink>
-
-            <NavLink to="/tenant/lease" className={linkClass}>
-              <FiFileText /> {!collapsed && <span>My Lease</span>}
-            </NavLink>
-            
-          </>
-        )}
-
-        {/* ================= SYSTEM ADMIN ================= */}
-        {isSystem && (
-          <>
-            <NavLink to="/super-admin/dashboard" className={linkClass}>
-              <FiHome /> {!collapsed && <span>System Dashboard</span>}
-            </NavLink>
-
-            <NavLink to="/super-admin/organizations" className={linkClass}>
-              <FiUsers /> {!collapsed && <span>Organizations</span>}
-            </NavLink>
-          </>
-        )}
-
+          );
+        })}
       </nav>
     </aside>
   );

@@ -57,7 +57,9 @@ class TenantBalance(BaseModel):
     tenant_name: str
     total_charges: float
     total_payments: float
-    balance: float
+    balance: float        # signed: positive = owes, negative = in credit
+    amount_owed: float    # max(0, balance)
+    credit: float         # max(0, -balance)
 
 
 class DashboardSummary(BaseModel):

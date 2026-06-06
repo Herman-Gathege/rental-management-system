@@ -3,6 +3,26 @@ import { useEffect, useState } from "react";
 import { generateMonthlyCharges, getCharges } from "../../api/charges";
 import { useProperty } from "../../context/PropertyContext";
 
+const money = (n) => Number(n || 0).toLocaleString();
+
+// A charge is "late" for display purposes if it still owes a balance and its
+// due date is strictly before today (a charge due *today* is not yet late).
+const startOfToday = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+const isLate = (c) => Number(c.balance) > 0 && new Date(c.due_date) < startOfToday();
+
+const pillClass = (status) =>
+  status === "paid"
+    ? "status-ok"
+    : status === "overdue"
+    ? "status-owed"
+    : status === "partial"
+    ? "status-partial"
+    : "status-paid"; // pending
+
 export default function Billing() {
   const { activeProperty } = useProperty();
   const [charges, setCharges] = useState([]);
@@ -60,7 +80,7 @@ export default function Billing() {
       {error && <div className="error-text">{error}</div>}
 
       <div className="flex gap-sm flex-wrap">
-        {["", "pending", "paid", "overdue"].map((s) => (
+        {["", "pending", "partial", "paid", "overdue"].map((s) => (
           <button
             key={s}
             className={`btn btn-sm ${statusFilter === s ? "btn-primary" : "btn-secondary"}`}
@@ -88,6 +108,8 @@ export default function Billing() {
                   <th>Unit</th>
                   <th>Property</th>
                   <th>Amount (KES)</th>
+                  <th>Paid (KES)</th>
+                  <th>Balance (KES)</th>
                   <th>Due Date</th>
                   <th>Status</th>
                 </tr>
@@ -98,12 +120,12 @@ export default function Billing() {
                     <td className="prop-name">{c.tenant_name}</td>
                     <td>{c.unit_name}</td>
                     <td>{c.property_name}</td>
-                    <td>{Number(c.amount).toLocaleString()}</td>
+                    <td>{money(c.amount)}</td>
+                    <td>{money(c.amount_paid)}</td>
+                    <td className={isLate(c) ? "balance-late" : ""}>{money(c.balance)}</td>
                     <td>{new Date(c.due_date).toLocaleDateString()}</td>
                     <td>
-                      <span className={`status-pill ${c.status === "paid" ? "status-ok" : c.status === "overdue" ? "status-owed" : "status-paid"}`}>
-                        {c.status}
-                      </span>
+                      <span className={`status-pill ${pillClass(c.status)}`}>{c.status}</span>
                     </td>
                   </tr>
                 ))}
@@ -116,12 +138,14 @@ export default function Billing() {
               <div key={c.id} className="property-card card">
                 <div className="property-card-header">
                   <strong>{c.tenant_name}</strong>
-                  <span className={`status-pill ${c.status === "paid" ? "status-ok" : c.status === "overdue" ? "status-owed" : "status-paid"}`}>
-                    {c.status}
-                  </span>
+                  <span className={`status-pill ${pillClass(c.status)}`}>{c.status}</span>
                 </div>
                 <div className="text-sm">{c.unit_name} — {c.property_name}</div>
-                <div className="text-sm">KES {Number(c.amount).toLocaleString()}</div>
+                <div className="text-sm">Amount: KES {money(c.amount)}</div>
+                <div className="text-sm">Paid: KES {money(c.amount_paid)}</div>
+                <div className={`text-sm ${isLate(c) ? "balance-late" : ""}`}>
+                  Balance: KES {money(c.balance)}
+                </div>
                 <div className="text-sm text-muted">Due: {new Date(c.due_date).toLocaleDateString()}</div>
               </div>
             ))}

@@ -1090,3 +1090,19 @@
 .dash-row:last-child {
   border-bottom: none;
 }
+
+.status-partial {
+  background: #fef3c7;
+  color: #92400e;
+}
+ 
+.balance-late {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+/* Tenant portal — positive account standing (overpaid / credit) */
+.balance-credit {
+  color: #16a34a;
+  font-weight: 600;
+}

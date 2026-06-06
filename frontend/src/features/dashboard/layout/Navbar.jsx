@@ -1,20 +1,24 @@
 // frontend/src/features/dashboard/layout/Navbar.jsx
+//
+// Sprint 4.5, Chunk 5: the mobile dropdown nav now maps FINANCE to its own
+// financeNavigation (it used to share the manager menu). Everything else is
+// unchanged.
+
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { FiMaximize, FiMinimize, FiChevronDown } from "react-icons/fi";
 import { NavLink } from "react-router-dom";
 import PropertySwitcher from "../../../components/PropertySwitcher/PropertySwitcher";
 import {
-    ownerNavigation,
-    staffNavigation,
-    superAdminNavigation,
-    tenantNavigation,
-  } from "../../../config/navigation";
-
+  ownerNavigation,
+  staffNavigation,
+  financeNavigation,
+  superAdminNavigation,
+  tenantNavigation,
+} from "../../../config/navigation";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
-
   const [open, setOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(
@@ -34,7 +38,6 @@ export default function Navbar() {
   // ----------------------------
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
-
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
@@ -42,7 +45,7 @@ export default function Navbar() {
   if (!user) return <header className="navbar" />;
 
   // ----------------------------
-  // NORMALIZE ROLE (IMPORTANT FIX)
+  // NORMALIZE ROLE
   // ----------------------------
   const role = user.role?.toLowerCase();
 
@@ -53,14 +56,13 @@ export default function Navbar() {
       case "tenant":
         return tenantNavigation;
       case "property_manager":
-      case "finance":
         return staffNavigation;
+      case "finance":
+        return financeNavigation;
       case "system":
         return superAdminNavigation;
       default:
-          // Unknown role - safest fallback is the most-restricted nav.
-          // We pick tenant over staff because tenant nav is read-only and
-          // self-scoped, so an unknown role can't navigate to admin pages.
+        // Unknown role - safest fallback is the most-restricted nav.
         return tenantNavigation;
     }
   }, [role]);
@@ -69,7 +71,6 @@ export default function Navbar() {
   // SAFE USER DISPLAY HELPERS
   // ----------------------------
   const displayName = user.full_name || user.email || "User";
-
   const avatarLetter = (user.full_name || user.email || "U")
     .charAt(0)
     .toUpperCase();
@@ -129,10 +130,7 @@ export default function Navbar() {
       {/* RIGHT */}
       <div className="relative flex items-center gap-xs">
         {/* Avatar */}
-        <div
-          className="avatar cursor-pointer"
-          onClick={() => setOpen((o) => !o)}
-        >
+        <div className="avatar cursor-pointer" onClick={() => setOpen((o) => !o)}>
           {avatarLetter}
         </div>
 
@@ -150,7 +148,6 @@ export default function Navbar() {
             {/* USER HEADER */}
             <div className="dropdown-header">
               <div className="avatar avatar-sm">{avatarLetter}</div>
-
               <div className="dropdown-user-info">
                 <div className="dropdown-name">{displayName}</div>
                 <div className="dropdown-role">{user.role}</div>

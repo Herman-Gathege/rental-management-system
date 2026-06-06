@@ -62,6 +62,8 @@ def get_tenant_balance(
             "total_charges": 0,
             "total_payments": 0,
             "balance": 0,
+            "amount_owed": 0,
+            "credit": 0,
         }
 
     # Sum charges
@@ -78,14 +80,22 @@ def get_tenant_balance(
         .scalar()
     )
 
-    balance = float(total_charges) - float(total_payments)
+    # Signed balance: positive = tenant owes money, negative = tenant is in
+    # credit (overpaid). Rounded to cents so float subtraction doesn't leak
+    # noise like -4999.9999999. The two derived fields below let the frontend
+    # render owed/credit without doing any sign math itself.
+    balance = round(float(total_charges) - float(total_payments), 2)
+    amount_owed = balance if balance > 0 else 0.0
+    credit = -balance if balance < 0 else 0.0
 
     return {
         "tenant_id": tenant.id,
         "tenant_name": tenant.full_name,
         "total_charges": float(total_charges),
         "total_payments": float(total_payments),
-        "balance": balance,
+        "balance": balance,          # signed (owes > 0, credit < 0)
+        "amount_owed": amount_owed,  # max(0, balance)
+        "credit": credit,            # max(0, -balance)
     }
 
 

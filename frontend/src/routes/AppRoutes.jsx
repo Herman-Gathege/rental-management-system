@@ -1,7 +1,6 @@
 //frontend\src\routes\AppRoutes.jsx
 import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
-
 import Home from "../pages/Home";
 import Login from "../features/auth/Login";
 import Register from "../features/auth/Register";
@@ -58,10 +57,16 @@ import FinanceDashboard from "../features/dashboard/FinanceDashboard";
 
 /* TENANT */
 import TenantDashboard from "../features/dashboard/TenantDashboard";
+import TenantPayments from "../features/dashboard/TenantPayments";
+import TenantCharges from "../features/dashboard/TenantCharges";
+import TenantLease from "../features/dashboard/TenantLease";
 
 /* SUPER ADMIN (future SaaS owner) */
 import SuperAdminLayout from "../features/dashboard/layout/SuperAdminLayout";
 import SuperAdminDashboard from "../features/dashboard/SuperAdminDashboard";
+
+/* Sprint 4.5 Chunk 5 — placeholder for not-yet-built role-scoped pages */
+import ComingSoon from "../components/ComingSoon";
 
 export default function AppRoutes() {
   return (
@@ -153,7 +158,14 @@ export default function AppRoutes() {
       >
         <Route index element={<StaffDashboard />} />
         <Route path="dashboard" element={<StaffDashboard />} />
-        
+
+        {/* Sprint 4.5 Chunk 5 — menu targets.
+            These open placeholders for now; the real role-scoped pages
+            (assigned properties only, etc.) come in Layer 2. */}
+        <Route path="properties" element={<ComingSoon title="Properties" />} />
+        <Route path="units" element={<ComingSoon title="Units" />} />
+        <Route path="tenants" element={<ComingSoon title="Tenants" />} />
+        <Route path="leases" element={<ComingSoon title="Leases" />} />
       </Route>
 
       {/* ================= FINANCE ================= */}
@@ -166,6 +178,13 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<FinanceDashboard />} />
+        <Route path="dashboard" element={<FinanceDashboard />} />
+
+        {/* Sprint 4.5 Chunk 5 — finance reuses the org-wide financial pages
+            (finance is permitted to see all org money). */}
+        <Route path="billing" element={<Billing />} />
+        <Route path="payments" element={<PaymentsList />} />
+        <Route path="finance" element={<FinancialDashboard />} />
       </Route>
 
       {/* ================= TENANT ================= */}
@@ -178,6 +197,11 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<TenantDashboard />} />
+
+        {/* Sprint 4.5 tenant portal — all three sub-pages now live. */}
+        <Route path="lease" element={<TenantLease />} />
+        <Route path="payments" element={<TenantPayments />} />
+        <Route path="charges" element={<TenantCharges />} />
       </Route>
 
       {/* ================= SUPER ADMIN ================= */}
