@@ -1,14 +1,14 @@
 //frontend/src/features/dashboard/TenantCharges.jsx
 //
-// Tenant "My Charges" page (Sprint 4.5 tenant portal).
-// Reuses the already-scoped /dashboard/tenant/charges endpoint via
-// getTenantCharges(). Each charge carries amount / amount_paid / balance /
-// status / due_date. A charge that still owes money past its due date shows
-// its balance in red (same isLate rule as the dashboard). Styling reuses
-// existing dashboard classes; no new CSS.
+// Tenant "My Charges" page (Sprint 4.5 tenant portal, multi-lease + switcher).
+// Charges come back tagged with property_id; this page filters them to the
+// property chosen in the tenant property switcher (or shows all). A "Property"
+// column appears only in All mode when more than one property is present, so
+// mixed rows stay readable without cluttering single-property views.
 
 import { useEffect, useState } from "react";
 import { getTenantCharges } from "../../api/dashboard";
+import { useTenantProperty } from "../../context/TenantPropertyContext";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -31,18 +31,20 @@ const startOfToday = () => {
   return d;
 };
 
-// A charge is "late" if it still owes a balance and its due date has passed.
 const isLate = (c) =>
   Number(c.balance) > 0 && c.due_date && new Date(c.due_date) < startOfToday();
 
 export default function TenantCharges() {
+  const tp = useTenantProperty() || {};
+  const activePropertyId = tp.activePropertyId || null;
+  const activeProperty = tp.activeProperty || null;
+
   const [charges, setCharges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
-
     const load = async () => {
       try {
         const c = await getTenantCharges();
@@ -55,7 +57,6 @@ export default function TenantCharges() {
         if (active) setLoading(false);
       }
     };
-
     load();
     return () => {
       active = false;
@@ -80,25 +81,31 @@ export default function TenantCharges() {
     );
   }
 
-  const totalOutstanding = charges.reduce(
-    (sum, c) => sum + Number(c.balance || 0),
-    0
+  const visible = charges.filter(
+    (c) => !activePropertyId || c.property_id === activePropertyId
   );
+  const totalOutstanding = visible.reduce((sum, c) => sum + Number(c.balance || 0), 0);
+
+  const distinctProps = new Set(visible.map((c) => c.property_id).filter(Boolean));
+  const showProperty = !activeProperty && distinctProps.size > 1;
 
   return (
     <div className="p-6">
-      <div className="text-lg font-bold mb-md">My Charges</div>
+      <div className="text-lg font-bold mb-md">
+        My Charges{activeProperty ? ` — ${activeProperty.name}` : ""}
+      </div>
 
       <div className="dash-panel">
         <div className="dash-panel-title">Rent Charges</div>
 
-        {charges.length === 0 ? (
+        {visible.length === 0 ? (
           <div className="text-muted">No charges yet.</div>
         ) : (
           <>
             <table className="staff-table">
               <thead>
                 <tr>
+                  {showProperty && <th>Property</th>}
                   <th>Month</th>
                   <th>Due</th>
                   <th>Amount</th>
@@ -108,8 +115,9 @@ export default function TenantCharges() {
                 </tr>
               </thead>
               <tbody>
-                {charges.map((c, i) => (
+                {visible.map((c, i) => (
                   <tr key={i}>
+                    {showProperty && <td>{c.property_name || "—"}</td>}
                     <td>{fmtMonth(c.month)}</td>
                     <td>{fmtDate(c.due_date)}</td>
                     <td>{money(c.amount)}</td>

@@ -1,12 +1,13 @@
 //frontend/src/features/dashboard/TenantDashboard.jsx
 //
-// Tenant self-service dashboard (Sprint 4.5, Chunk 4 + PP-2).
-// Resolves the logged-in tenant via tenants.user_id and shows their unit,
-// lease, balance, charges and payments. The Charges table now shows Paid /
-// Balance per charge and flags a past-due balance in red.
+// Tenant self-service dashboard (Sprint 4.5, multi-lease + property switcher).
+// Summary cards + charges/payments tables, all filtered to the property chosen
+// in the tenant property switcher (or all). Cards summarise the in-view leases:
+// property label, lease count, total monthly rent, and account balance.
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useTenantProperty } from "../../context/TenantPropertyContext";
 import {
   getTenantDashboard,
   getTenantCharges,
@@ -33,11 +34,21 @@ const startOfToday = () => {
   d.setHours(0, 0, 0, 0);
   return d;
 };
-// A charge is "late" if it still owes a balance and its due date has passed.
-const isLate = (c) => Number(c.balance) > 0 && c.due_date && new Date(c.due_date) < startOfToday();
+
+const isLate = (c) =>
+  Number(c.balance) > 0 && c.due_date && new Date(c.due_date) < startOfToday();
+
+const fmtBalance = (balance) => {
+  if (balance < 0) return { text: money(-balance) + " credit", cls: "balance-credit" };
+  if (balance > 0) return { text: money(balance) + " due", cls: "balance-late" };
+  return { text: money(0), cls: "" };
+};
 
 export default function TenantDashboard() {
   const { user } = useAuth();
+  const tp = useTenantProperty() || {};
+  const activePropertyId = tp.activePropertyId || null;
+  const activeProperty = tp.activeProperty || null;
 
   const [data, setData] = useState(null);
   const [charges, setCharges] = useState([]);
@@ -61,9 +72,7 @@ export default function TenantDashboard() {
         setPayments(p);
       } catch (err) {
         if (!active) return;
-        setError(
-          err?.response?.data?.detail || "Could not load your dashboard."
-        );
+        setError(err?.response?.data?.detail || "Could not load your dashboard.");
       } finally {
         if (active) setLoading(false);
       }
@@ -94,15 +103,28 @@ export default function TenantDashboard() {
   }
 
   const tenant = data?.tenant || {};
-  const unit = data?.unit;
-  const lease = data?.lease;
-  const balance = data?.balance ?? 0;
+  const allLeases = Array.isArray(data?.leases) ? data.leases : [];
+
+  const matches = (row) => !activePropertyId || row.property_id === activePropertyId;
+
+  const focusLeases = allLeases.filter(matches);
+  const visibleCharges = charges.filter(matches);
+  const visiblePayments = payments.filter(matches);
+
+  const monthlyRent = focusLeases.reduce((s, l) => s + Number(l.rent_amount || 0), 0);
+  const balanceSum = focusLeases.reduce((s, l) => s + Number(l.balance || 0), 0);
+  const standing = fmtBalance(balanceSum);
+
+  const distinctChargeProps = new Set(visibleCharges.map((c) => c.property_id).filter(Boolean));
+  const showChargeProp = !activeProperty && distinctChargeProps.size > 1;
+  const distinctPayProps = new Set(visiblePayments.map((p) => p.property_id).filter(Boolean));
+  const showPayProp = !activeProperty && distinctPayProps.size > 1;
 
   const cards = [
-    { label: "Unit", value: unit?.name || "—" },
-    { label: "Lease Status", value: lease?.status || "—" },
-    { label: "Monthly Rent", value: money(lease?.rent_amount), money: true },
-    { label: "Balance", value: money(balance), money: true },
+    { label: "Property", value: activeProperty ? activeProperty.name : "All Properties" },
+    { label: focusLeases.length === 1 ? "Lease" : "Leases", value: focusLeases.length },
+    { label: "Monthly Rent", value: money(monthlyRent), money: true },
+    { label: "Account Balance", value: standing.text, money: true, cls: standing.cls },
   ];
 
   return (
@@ -118,7 +140,13 @@ export default function TenantDashboard() {
       <div className="dash-grid mb-md">
         {cards.map((c) => (
           <div className="dash-stat" key={c.label}>
-            <div className={`dash-stat-value${c.money ? " dash-stat-money" : ""}`}>
+            <div
+              className={
+                "dash-stat-value" +
+                (c.money ? " dash-stat-money" : "") +
+                (c.cls ? " " + c.cls : "")
+              }
+            >
               {c.value}
             </div>
             <div className="dash-stat-label">{c.label}</div>
@@ -129,12 +157,13 @@ export default function TenantDashboard() {
       {/* ===== Charges ===== */}
       <div className="dash-panel mb-md">
         <div className="dash-panel-title">Charges</div>
-        {charges.length === 0 ? (
+        {visibleCharges.length === 0 ? (
           <div className="text-muted">No charges yet.</div>
         ) : (
           <table className="staff-table">
             <thead>
               <tr>
+                {showChargeProp && <th>Property</th>}
                 <th>Month</th>
                 <th>Amount</th>
                 <th>Paid</th>
@@ -143,8 +172,9 @@ export default function TenantDashboard() {
               </tr>
             </thead>
             <tbody>
-              {charges.map((c, i) => (
+              {visibleCharges.map((c, i) => (
                 <tr key={i}>
+                  {showChargeProp && <td>{c.property_name || "—"}</td>}
                   <td>{fmtMonth(c.month)}</td>
                   <td>{money(c.amount)}</td>
                   <td>{money(c.amount_paid)}</td>
@@ -160,20 +190,22 @@ export default function TenantDashboard() {
       {/* ===== Payments ===== */}
       <div className="dash-panel">
         <div className="dash-panel-title">Payments</div>
-        {payments.length === 0 ? (
+        {visiblePayments.length === 0 ? (
           <div className="text-muted">No payments yet.</div>
         ) : (
           <table className="staff-table">
             <thead>
               <tr>
+                {showPayProp && <th>Property</th>}
                 <th>Date</th>
                 <th>Reference</th>
                 <th>Amount</th>
               </tr>
             </thead>
             <tbody>
-              {payments.map((p, i) => (
+              {visiblePayments.map((p, i) => (
                 <tr key={i}>
+                  {showPayProp && <td>{p.property_name || "—"}</td>}
                   <td>{fmtDate(p.date)}</td>
                   <td>{p.reference || "—"}</td>
                   <td>{money(p.amount)}</td>

@@ -30,6 +30,14 @@ class FinanceSummaryResponse(BaseModel):
 
 class TenantDashboardResponse(BaseModel):
     tenant: dict
+    # Scalar unit/lease are the "primary" (newest active) lease, kept for
+    # backward compatibility with the existing Dashboard page.
     unit: Optional[dict] = None
     lease: Optional[dict] = None
+    # Aggregate account standing across ALL of the tenant's leases.
     balance: float
+    amount_owed: float = 0
+    credit: float = 0
+    # Multi-lease: every lease this tenant holds, each with its own
+    # property_name / unit_name / status / rent / balance.
+    leases: list = []

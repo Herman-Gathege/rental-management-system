@@ -3,12 +3,16 @@
 // Sprint 4.5, Chunk 5: the mobile dropdown nav now maps FINANCE to its own
 // financeNavigation (it used to share the manager menu). Everything else is
 // unchanged.
+//
+// Sprint 4.5 tenant portal: tenants now get their own property switcher
+// (TenantPropertySwitcher), sourced from their leases rather than the org.
 
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { FiMaximize, FiMinimize, FiChevronDown } from "react-icons/fi";
 import { NavLink } from "react-router-dom";
 import PropertySwitcher from "../../../components/PropertySwitcher/PropertySwitcher";
+import TenantPropertySwitcher from "../../../components/PropertySwitcher/TenantPropertySwitcher";
 import {
   ownerNavigation,
   staffNavigation,
@@ -115,10 +119,13 @@ export default function Navbar() {
           {isFullscreen ? <FiMinimize size={20} /> : <FiMaximize size={20} />}
         </button>
 
-        {/* Property Switcher — Sprint 2 */}
+        {/* Property Switcher — Sprint 2 (landlord / manager: org properties) */}
         {(role === "landlord" || role === "property_manager") && (
           <PropertySwitcher />
         )}
+
+        {/* Property Switcher — Sprint 4.5 (tenant: their own leased properties) */}
+        {role === "tenant" && <TenantPropertySwitcher />}
       </div>
 
       {/* CENTER */}

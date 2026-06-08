@@ -20,6 +20,10 @@ Overdue note (Sprint 4.5 partial-payment fix, Option A): "overdue" means a
 charge that is past its due date and still has a balance (amount_paid < amount).
 This matches the Billing page's Overdue tab and catches partially-paid-but-late
 charges too.
+
+Tenant rows (charges / payments) carry property_id + property_name + unit_name
++ lease_id so the tenant portal can group / filter by property (multi-lease
+tenants rent across more than one property).
 """
 from datetime import date
 from fastapi import HTTPException
@@ -210,36 +214,81 @@ def _tenant_lease_ids(db: Session, tenant_id: str) -> list:
 def get_tenant_dashboard(db: Session, user_id: str, org_id: str) -> dict:
     tenant = _resolve_tenant(db, user_id, org_id)
 
-    lease = (
-        db.query(Lease)
-        .filter(Lease.tenant_id == tenant.id, Lease.status == "active")
-        .order_by(Lease.start_date.desc())
-        .first()
+    # All of this tenant's leases, each joined to its unit + property so the
+    # portal can show "Property · Unit" per lease. Multi-lease is supported:
+    # a tenant may hold leases across several properties.
+    rows = (
+        db.query(Lease, Unit, Property)
+        .outerjoin(Unit, Unit.id == Lease.unit_id)
+        .outerjoin(Property, Property.id == Unit.property_id)
+        .filter(Lease.tenant_id == tenant.id)
+        .all()
     )
-    if not lease:
-        lease = (
-            db.query(Lease)
-            .filter(Lease.tenant_id == tenant.id)
-            .order_by(Lease.start_date.desc())
-            .first()
-        )
 
-    unit = db.query(Unit).filter(Unit.id == lease.unit_id).first() if lease else None
+    # Order: active leases first, newest start date first within each group.
+    def _rank(row):
+        lease = row[0]
+        active_first = 0 if lease.status == "active" else 1
+        start_ord = lease.start_date.toordinal() if lease.start_date else 0
+        return (active_first, -start_ord)
 
-    lease_ids = _tenant_lease_ids(db, tenant.id)
-    total_charges = 0.0
+    rows = sorted(rows, key=_rank)
+
+    lease_ids = [lease.id for lease, _unit, _prop in rows]
+
+    # Per-lease sums in two grouped queries (no N+1). Each lease shows its own
+    # balance, and the aggregate is simply the sum of the parts.
+    charge_sums: dict = {}
+    payment_sums: dict = {}
     if lease_ids:
-        total_charges = float(
-            db.query(func.coalesce(func.sum(Charge.amount), 0))
-            .filter(Charge.lease_id.in_(lease_ids))
-            .scalar()
-        )
-    total_payments = float(
-        db.query(func.coalesce(func.sum(Payment.amount), 0))
-        .filter(Payment.tenant_id == tenant.id)
-        .scalar()
-    )
-    balance = total_charges - total_payments
+        charge_sums = {
+            lid: float(total)
+            for lid, total in (
+                db.query(Charge.lease_id, func.coalesce(func.sum(Charge.amount), 0))
+                .filter(Charge.lease_id.in_(lease_ids))
+                .group_by(Charge.lease_id)
+                .all()
+            )
+        }
+        payment_sums = {
+            lid: float(total)
+            for lid, total in (
+                db.query(Payment.lease_id, func.coalesce(func.sum(Payment.amount), 0))
+                .filter(Payment.lease_id.in_(lease_ids))
+                .group_by(Payment.lease_id)
+                .all()
+            )
+        }
+
+    leases = []
+    for lease, unit, prop in rows:
+        l_charges = charge_sums.get(lease.id, 0.0)
+        l_payments = payment_sums.get(lease.id, 0.0)
+        l_balance = round(l_charges - l_payments, 2)
+        leases.append({
+            "id": lease.id,
+            "status": lease.status,
+            "start_date": lease.start_date.isoformat() if lease.start_date else None,
+            "end_date": lease.end_date.isoformat() if lease.end_date else None,
+            "rent_amount": float(lease.rent_amount) if lease.rent_amount is not None else None,
+            "property_id": prop.id if prop else None,
+            "property_name": prop.name if prop else None,
+            "unit_name": unit.name if unit else None,
+            "balance": l_balance,
+            "amount_owed": l_balance if l_balance > 0 else 0.0,
+            "credit": -l_balance if l_balance < 0 else 0.0,
+        })
+
+    # Aggregate account standing across every lease (the top-line figure).
+    total_charges = round(sum(charge_sums.values()), 2)
+    total_payments = round(sum(payment_sums.values()), 2)
+    balance = round(total_charges - total_payments, 2)
+    amount_owed = balance if balance > 0 else 0.0
+    credit = -balance if balance < 0 else 0.0
+
+    # Primary lease/unit = first after sorting (newest active). Kept as scalar
+    # fields for backward compatibility with the existing Dashboard page.
+    primary_lease, primary_unit, _primary_prop = rows[0] if rows else (None, None, None)
 
     return {
         "tenant": {
@@ -250,30 +299,36 @@ def get_tenant_dashboard(db: Session, user_id: str, org_id: str) -> dict:
         },
         "unit": (
             {
-                "id": unit.id,
-                "name": unit.name,
-                "rent_amount": float(unit.rent_amount) if unit.rent_amount is not None else None,
+                "id": primary_unit.id,
+                "name": primary_unit.name,
+                "rent_amount": float(primary_unit.rent_amount) if primary_unit.rent_amount is not None else None,
             }
-            if unit else None
+            if primary_unit else None
         ),
         "lease": (
             {
-                "id": lease.id,
-                "status": lease.status,
-                "start_date": lease.start_date.isoformat() if lease.start_date else None,
-                "end_date": lease.end_date.isoformat() if lease.end_date else None,
-                "rent_amount": float(lease.rent_amount) if lease.rent_amount is not None else None,
+                "id": primary_lease.id,
+                "status": primary_lease.status,
+                "start_date": primary_lease.start_date.isoformat() if primary_lease.start_date else None,
+                "end_date": primary_lease.end_date.isoformat() if primary_lease.end_date else None,
+                "rent_amount": float(primary_lease.rent_amount) if primary_lease.rent_amount is not None else None,
             }
-            if lease else None
+            if primary_lease else None
         ),
         "balance": balance,
+        "amount_owed": amount_owed,
+        "credit": credit,
+        "leases": leases,
     }
 
 
 def get_tenant_payments(db: Session, user_id: str, org_id: str) -> list:
     tenant = _resolve_tenant(db, user_id, org_id)
-    payments = (
-        db.query(Payment)
+    rows = (
+        db.query(Payment, Property.id, Property.name, Unit.name)
+        .join(Lease, Lease.id == Payment.lease_id)
+        .outerjoin(Unit, Unit.id == Lease.unit_id)
+        .outerjoin(Property, Property.id == Unit.property_id)
         .filter(Payment.tenant_id == tenant.id)
         .order_by(Payment.payment_date.desc())
         .all()
@@ -284,8 +339,12 @@ def get_tenant_payments(db: Session, user_id: str, org_id: str) -> list:
             "reference": p.reference,
             "amount": float(p.amount),
             "method": p.payment_method,
+            "lease_id": p.lease_id,
+            "property_id": pid,
+            "property_name": pname,
+            "unit_name": uname,
         }
-        for p in payments
+        for p, pid, pname, uname in rows
     ]
 
 
@@ -294,8 +353,11 @@ def get_tenant_charges(db: Session, user_id: str, org_id: str) -> list:
     lease_ids = _tenant_lease_ids(db, tenant.id)
     if not lease_ids:
         return []
-    charges = (
-        db.query(Charge)
+    rows = (
+        db.query(Charge, Property.id, Property.name, Unit.name)
+        .join(Lease, Lease.id == Charge.lease_id)
+        .outerjoin(Unit, Unit.id == Lease.unit_id)
+        .outerjoin(Property, Property.id == Unit.property_id)
         .filter(Charge.lease_id.in_(lease_ids))
         .order_by(Charge.billing_month.desc())
         .all()
@@ -308,6 +370,10 @@ def get_tenant_charges(db: Session, user_id: str, org_id: str) -> list:
             "balance": float(c.amount) - float(c.amount_paid or 0),
             "status": c.status,
             "due_date": c.due_date.isoformat() if c.due_date else None,
+            "lease_id": c.lease_id,
+            "property_id": pid,
+            "property_name": pname,
+            "unit_name": uname,
         }
-        for c in charges
+        for c, pid, pname, uname in rows
     ]

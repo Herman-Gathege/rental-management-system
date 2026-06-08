@@ -1,19 +1,13 @@
 //frontend/src/features/dashboard/TenantLease.jsx
 //
-// Tenant "My Lease" page (Sprint 4.5 tenant portal).
-// Reuses the already-scoped /dashboard/tenant/me endpoint via
-// getTenantDashboard() — same call the dashboard uses — and shows the
-// tenant's unit, lease terms, and account standing.
-//
-// Account standing: the backend returns a signed `balance`
-// (positive = owes, negative = overpaid). We derive owed/credit from it here,
-// so an overpaid tenant sees "KES X credit" in green rather than a bare
-// negative number. (If the backend later exposes amount_owed/credit directly
-// we read those instead — the fallbacks below keep this page working either
-// way.) Styling reuses existing dashboard classes; only .balance-credit is new.
+// Tenant "My Lease" page (Sprint 4.5 tenant portal, multi-lease + switcher).
+// Renders one card per lease, filtered to the property chosen in the tenant
+// property switcher (or all). The top section shows the account standing for
+// whatever is in view (a single property, or everything).
 
 import { useEffect, useState } from "react";
 import { getTenantDashboard } from "../../api/dashboard";
+import { useTenantProperty } from "../../context/TenantPropertyContext";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -27,14 +21,24 @@ const fmtDate = (d) =>
       })
     : "—";
 
+// Turn a signed balance into display text + a colour class.
+const fmtBalance = (balance) => {
+  if (balance < 0) return { text: money(-balance) + " credit", cls: "balance-credit" };
+  if (balance > 0) return { text: money(balance) + " due", cls: "balance-late" };
+  return { text: money(0), cls: "" };
+};
+
 export default function TenantLease() {
+  const tp = useTenantProperty() || {};
+  const activePropertyId = tp.activePropertyId || null;
+  const activeProperty = tp.activeProperty || null;
+
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
-
     const load = async () => {
       try {
         const d = await getTenantDashboard();
@@ -42,12 +46,11 @@ export default function TenantLease() {
         setData(d);
       } catch (err) {
         if (!active) return;
-        setError(err?.response?.data?.detail || "Could not load your lease.");
+        setError(err?.response?.data?.detail || "Could not load your leases.");
       } finally {
         if (active) setLoading(false);
       }
     };
-
     load();
     return () => {
       active = false;
@@ -57,7 +60,7 @@ export default function TenantLease() {
   if (loading) {
     return (
       <div className="p-6">
-        <div className="dash-panel">Loading your lease…</div>
+        <div className="dash-panel">Loading your leases…</div>
       </div>
     );
   }
@@ -72,92 +75,102 @@ export default function TenantLease() {
     );
   }
 
-  const unit = data?.unit;
-  const lease = data?.lease;
+  const allLeases = Array.isArray(data?.leases) ? data.leases : [];
 
-  // Derive owed / credit from the signed balance the backend already returns.
-  const balance = Number(data?.balance ?? 0);
-  const credit =
-    data?.credit != null ? Number(data.credit) : balance < 0 ? -balance : 0;
-  const owed =
-    data?.amount_owed != null ? Number(data.amount_owed) : balance > 0 ? balance : 0;
+  // Fallback to the single primary lease if `leases` isn't present.
+  const sourceLeases =
+    allLeases.length > 0
+      ? allLeases
+      : data?.lease
+      ? [
+          {
+            ...data.lease,
+            unit_name: data?.unit?.name || null,
+            property_name: null,
+            property_id: null,
+            balance: data?.balance,
+          },
+        ]
+      : [];
 
-  let balanceText = money(0);
-  let balanceClass = "";
-  if (credit > 0) {
-    balanceText = money(credit) + " credit";
-    balanceClass = "balance-credit";
-  } else if (owed > 0) {
-    balanceText = money(owed) + " due";
-    balanceClass = "balance-late";
-  }
+  // Filter to the chosen property (or all).
+  const leases = sourceLeases.filter(
+    (l) => !activePropertyId || l.property_id === activePropertyId
+  );
 
-  if (!lease) {
-    return (
-      <div className="p-6">
-        <div className="text-lg font-bold mb-md">My Lease</div>
-        <div className="dash-panel">
-          <div className="text-muted">No lease on file yet.</div>
-        </div>
-      </div>
-    );
-  }
-
-  const cards = [
-    { label: "Unit", value: unit?.name || "—" },
-    { label: "Lease Status", value: lease.status || "—" },
-    { label: "Monthly Rent", value: money(lease.rent_amount), money: true },
-    { label: "Account Balance", value: balanceText, money: true, cls: balanceClass },
-  ];
+  const balanceSum = leases.reduce((sum, l) => sum + Number(l.balance || 0), 0);
+  const overall = fmtBalance(balanceSum);
 
   return (
     <div className="p-6">
-      <div className="text-lg font-bold mb-md">My Lease</div>
+      <div className="text-lg font-bold mb-md">
+        {leases.length > 1 ? "My Leases" : "My Lease"}
+        {activeProperty ? ` — ${activeProperty.name}` : ""}
+      </div>
 
+      {/* Account standing for whatever is in view */}
       <div className="dash-grid mb-md">
-        {cards.map((c) => (
-          <div className="dash-stat" key={c.label}>
-            <div
-              className={
-                "dash-stat-value" +
-                (c.money ? " dash-stat-money" : "") +
-                (c.cls ? " " + c.cls : "")
-              }
-            >
-              {c.value}
-            </div>
-            <div className="dash-stat-label">{c.label}</div>
+        <div className="dash-stat">
+          <div className="dash-stat-value">{leases.length}</div>
+          <div className="dash-stat-label">
+            {leases.length === 1 ? "Lease" : "Leases"}
           </div>
-        ))}
+        </div>
+        <div className="dash-stat">
+          <div
+            className={
+              "dash-stat-value dash-stat-money" +
+              (overall.cls ? " " + overall.cls : "")
+            }
+          >
+            {overall.text}
+          </div>
+          <div className="dash-stat-label">
+            {activeProperty ? "Account Balance" : "Account Balance (all leases)"}
+          </div>
+        </div>
       </div>
 
-      <div className="dash-panel">
-        <div className="dash-panel-title">Lease Details</div>
-        <table className="staff-table">
-          <tbody>
-            <tr>
-              <td className="text-muted">Unit</td>
-              <td>{unit?.name || "—"}</td>
-            </tr>
-            <tr>
-              <td className="text-muted">Monthly Rent</td>
-              <td>{money(lease.rent_amount)}</td>
-            </tr>
-            <tr>
-              <td className="text-muted">Status</td>
-              <td>{lease.status || "—"}</td>
-            </tr>
-            <tr>
-              <td className="text-muted">Start Date</td>
-              <td>{fmtDate(lease.start_date)}</td>
-            </tr>
-            <tr>
-              <td className="text-muted">End Date</td>
-              <td>{fmtDate(lease.end_date)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      {leases.length === 0 ? (
+        <div className="dash-panel">
+          <div className="text-muted">No lease on file for this view.</div>
+        </div>
+      ) : (
+        leases.map((l, i) => {
+          const standing = fmtBalance(Number(l.balance || 0));
+          const title =
+            [l.property_name, l.unit_name].filter(Boolean).join(" · ") || "Lease";
+          return (
+            <div className="dash-panel mb-md" key={l.id || i}>
+              <div className="dash-panel-title">{title}</div>
+              <table className="staff-table">
+                <tbody>
+                  <tr>
+                    <td className="text-muted">Status</td>
+                    <td>{l.status || "—"}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-muted">Monthly Rent</td>
+                    <td>{money(l.rent_amount)}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-muted">Start Date</td>
+                    <td>{fmtDate(l.start_date)}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-muted">End Date</td>
+                    <td>{fmtDate(l.end_date)}</td>
+                  </tr>
+                  <tr>
+                    <td className="text-muted">Balance</td>
+                    <td className={standing.cls}>{standing.text}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }

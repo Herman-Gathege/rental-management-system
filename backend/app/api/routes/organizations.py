@@ -11,11 +11,11 @@ from app.models.role import Role
 from app.models.organization import Organization
 from app.models.organization_member import OrganizationMember
 from app.models.organization_invitation import OrganizationInvitation
-from app.models.tenant import Tenant
 from app.schemas.organization import InviteRequest, InvitationOut
 from app.schemas.auth import RegisterInviteSchema
 from app.core.roles import LANDLORD, ALL_ROLES, TENANT
 from app.services.messaging import notify_org_invite
+from app.services.tenant_linking import link_tenant_to_user
 from app.core.security import hash_password
 from app.core.jwt import create_access_token
 
@@ -212,20 +212,16 @@ def accept_invitation(
     # ─── Sprint 4.5: link the tenant record to this login ───
     # If this invite is for a TENANT, connect the matching Tenant row
     # (same org + same email, not already linked) so the tenant dashboard
-    # can resolve their lease / charges / payments. Best-effort: if no
-    # tenant row matches, we simply skip -- the membership still succeeds.
+    # can resolve their lease / charges / payments. Email is matched
+    # case-insensitively + trimmed inside the helper, so casing/whitespace
+    # can't silently break linking. Best-effort: skipped if no tenant matches.
     if invitation.role and invitation.role.name == TENANT:
-        tenant = (
-            db.query(Tenant)
-            .filter(
-                Tenant.organization_id == invitation.organization_id,
-                Tenant.email == invitation.email,
-                Tenant.user_id.is_(None),
-            )
-            .first()
+        link_tenant_to_user(
+            db,
+            organization_id=invitation.organization_id,
+            email=invitation.email,
+            user_id=user.id,
         )
-        if tenant:
-            tenant.user_id = user.id
 
     # Mark invitation as accepted
     invitation.status = "accepted"
@@ -298,20 +294,16 @@ def register_invited_user(
     # ─── Sprint 4.5: link the tenant record to this new login ───
     # New tenant accounts are created here (WhatsApp invite -> register).
     # Connect the matching Tenant row (same org + same email, not already
-    # linked) so the dashboard resolves their data. user.id is available
+    # linked) so the dashboard resolves their data. Email is matched
+    # case-insensitively + trimmed inside the helper. user.id is available
     # because db.flush() was already called above.
     if invitation.role and invitation.role.name == TENANT:
-        tenant = (
-            db.query(Tenant)
-            .filter(
-                Tenant.organization_id == invitation.organization_id,
-                Tenant.email == invitation.email,
-                Tenant.user_id.is_(None),
-            )
-            .first()
+        link_tenant_to_user(
+            db,
+            organization_id=invitation.organization_id,
+            email=invitation.email,
+            user_id=user.id,
         )
-        if tenant:
-            tenant.user_id = user.id
 
     # 5. Mark invitation as accepted
     invitation.status = "accepted"

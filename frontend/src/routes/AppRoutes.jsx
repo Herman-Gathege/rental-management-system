@@ -56,6 +56,7 @@ import StaffDashboard from "../features/dashboard/StaffDashboard";
 import FinanceDashboard from "../features/dashboard/FinanceDashboard";
 
 /* TENANT */
+import { TenantPropertyProvider } from "../context/TenantPropertyContext";
 import TenantDashboard from "../features/dashboard/TenantDashboard";
 import TenantPayments from "../features/dashboard/TenantPayments";
 import TenantCharges from "../features/dashboard/TenantCharges";
@@ -192,7 +193,9 @@ export default function AppRoutes() {
         path="/tenant/*"
         element={
           <ProtectedRoute allowedRoles={["TENANT"]}>
-            <DashboardLayout />
+            <TenantPropertyProvider>
+              <DashboardLayout />
+            </TenantPropertyProvider>
           </ProtectedRoute>
         }
       >

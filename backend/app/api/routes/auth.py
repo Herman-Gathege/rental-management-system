@@ -15,7 +15,9 @@ from app.services.email_service import send_email
 import uuid
 from datetime import datetime, timedelta
 from app.models.role import Role
-from app.core.roles import LANDLORD
+from app.core.roles import LANDLORD, TENANT
+from app.models.organization_member import OrganizationMember
+from app.services.tenant_linking import link_tenant_to_user
 
 
 
@@ -128,9 +130,37 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     access_token = create_access_token({"sub": db_user.id})
     refresh_token = create_refresh_token({"sub": db_user.id})
 
-    # store refresh token
+    # store refresh token (critical login path — commit this first)
     db_user.refresh_token = refresh_token
     db.commit()
+
+    # ─── Sprint 4.5 safety net: self-heal tenant linking on login ───
+    # If this account is a TENANT in an org but its Tenant row was never
+    # linked (e.g. created outside the invite flow, like a hand-added tenant),
+    # connect it now via the shared helper (same-org, same-email after
+    # trim+lower, not already linked). Idempotent: a no-op once linked.
+    # Fully isolated and best-effort — login already succeeded above, so a
+    # linking hiccup must never turn into a failed login.
+    try:
+        memberships = (
+            db.query(OrganizationMember)
+            .filter(OrganizationMember.user_id == db_user.id)
+            .all()
+        )
+        linked_any = False
+        for m in memberships:
+            if m.role and m.role.name == TENANT:
+                if link_tenant_to_user(
+                    db,
+                    organization_id=m.organization_id,
+                    email=db_user.email,
+                    user_id=db_user.id,
+                ):
+                    linked_any = True
+        if linked_any:
+            db.commit()
+    except Exception:
+        db.rollback()
 
     return {
         "access_token": access_token,

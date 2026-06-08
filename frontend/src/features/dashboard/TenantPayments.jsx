@@ -1,13 +1,13 @@
 //frontend/src/features/dashboard/TenantPayments.jsx
 //
-// Tenant "My Payments" page (Sprint 4.5 tenant portal).
-// Reuses the already-scoped /dashboard/tenant/payments endpoint via
-// getTenantPayments() — the backend resolves the tenant from tenants.user_id,
-// so this only ever returns the logged-in tenant's own payments. Styling
-// reuses the existing dashboard classes; no new CSS.
+// Tenant "My Payments" page (Sprint 4.5 tenant portal, multi-lease + switcher).
+// Payments come back tagged with property_id; this page filters them to the
+// property chosen in the tenant property switcher (or shows all). A "Property"
+// column appears only in All mode when more than one property is present.
 
 import { useEffect, useState } from "react";
 import { getTenantPayments } from "../../api/dashboard";
+import { useTenantProperty } from "../../context/TenantPropertyContext";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -22,13 +22,16 @@ const fmtDate = (d) =>
     : "—";
 
 export default function TenantPayments() {
+  const tp = useTenantProperty() || {};
+  const activePropertyId = tp.activePropertyId || null;
+  const activeProperty = tp.activeProperty || null;
+
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
-
     const load = async () => {
       try {
         const p = await getTenantPayments();
@@ -41,7 +44,6 @@ export default function TenantPayments() {
         if (active) setLoading(false);
       }
     };
-
     load();
     return () => {
       active = false;
@@ -66,22 +68,31 @@ export default function TenantPayments() {
     );
   }
 
-  const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const visible = payments.filter(
+    (p) => !activePropertyId || p.property_id === activePropertyId
+  );
+  const totalPaid = visible.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  const distinctProps = new Set(visible.map((p) => p.property_id).filter(Boolean));
+  const showProperty = !activeProperty && distinctProps.size > 1;
 
   return (
     <div className="p-6">
-      <div className="text-lg font-bold mb-md">My Payments</div>
+      <div className="text-lg font-bold mb-md">
+        My Payments{activeProperty ? ` — ${activeProperty.name}` : ""}
+      </div>
 
       <div className="dash-panel">
         <div className="dash-panel-title">Payment History</div>
 
-        {payments.length === 0 ? (
+        {visible.length === 0 ? (
           <div className="text-muted">No payments yet.</div>
         ) : (
           <>
             <table className="staff-table">
               <thead>
                 <tr>
+                  {showProperty && <th>Property</th>}
                   <th>Date</th>
                   <th>Reference</th>
                   <th>Method</th>
@@ -89,8 +100,9 @@ export default function TenantPayments() {
                 </tr>
               </thead>
               <tbody>
-                {payments.map((p, i) => (
+                {visible.map((p, i) => (
                   <tr key={i}>
+                    {showProperty && <td>{p.property_name || "—"}</td>}
                     <td>{fmtDate(p.date)}</td>
                     <td>{p.reference || "—"}</td>
                     <td>{p.method ? p.method.toUpperCase() : "—"}</td>
