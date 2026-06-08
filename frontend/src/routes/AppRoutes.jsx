@@ -51,6 +51,10 @@ import ConductInspection from "../features/inspections/ConductInspection";
 /* PROPERTY MANAGER */
 import StaffLayout from "../features/dashboard/layout/StaffLayout";
 import StaffDashboard from "../features/dashboard/StaffDashboard";
+import ManagerProperties from "../features/dashboard/ManagerProperties";
+import ManagerUnits from "../features/dashboard/ManagerUnits";
+import ManagerTenants from "../features/dashboard/ManagerTenants";
+import ManagerLeases from "../features/dashboard/ManagerLeases";
 
 /* FINANCE */
 import FinanceDashboard from "../features/dashboard/FinanceDashboard";
@@ -65,9 +69,6 @@ import TenantLease from "../features/dashboard/TenantLease";
 /* SUPER ADMIN (future SaaS owner) */
 import SuperAdminLayout from "../features/dashboard/layout/SuperAdminLayout";
 import SuperAdminDashboard from "../features/dashboard/SuperAdminDashboard";
-
-/* Sprint 4.5 Chunk 5 — placeholder for not-yet-built role-scoped pages */
-import ComingSoon from "../components/ComingSoon";
 
 export default function AppRoutes() {
   return (
@@ -160,13 +161,11 @@ export default function AppRoutes() {
         <Route index element={<StaffDashboard />} />
         <Route path="dashboard" element={<StaffDashboard />} />
 
-        {/* Sprint 4.5 Chunk 5 — menu targets.
-            These open placeholders for now; the real role-scoped pages
-            (assigned properties only, etc.) come in Layer 2. */}
-        <Route path="properties" element={<ComingSoon title="Properties" />} />
-        <Route path="units" element={<ComingSoon title="Units" />} />
-        <Route path="tenants" element={<ComingSoon title="Tenants" />} />
-        <Route path="leases" element={<ComingSoon title="Leases" />} />
+        {/* Sprint 4.5 — read-only role-scoped pages (assigned properties only) */}
+        <Route path="properties" element={<ManagerProperties />} />
+        <Route path="units" element={<ManagerUnits />} />
+        <Route path="tenants" element={<ManagerTenants />} />
+        <Route path="leases" element={<ManagerLeases />} />
       </Route>
 
       {/* ================= FINANCE ================= */}

@@ -8,7 +8,8 @@ and return plain dicts.
 
 Scoping rules enforced here:
   - Manager: only properties assigned to them in property_managers, and only
-    within their own organization.
+    within their own organization. Units / tenants / leases are all derived
+    from those assigned properties.
   - Finance: organization-wide financial records.
   - Tenant: only the tenant row linked to their user account (tenants.user_id),
     and that tenant's own leases / charges / payments.
@@ -116,6 +117,107 @@ def get_manager_properties(db: Session, user_id: str, org_id: str) -> list:
     return [
         {"id": p.id, "name": p.name, "address": p.address, "city": p.city}
         for p in props
+    ]
+
+
+def get_manager_units(db: Session, user_id: str, org_id: str) -> list:
+    """Units in the manager's assigned properties, with occupancy + tenant."""
+    property_ids = _assigned_property_ids(db, user_id, org_id)
+    if not property_ids:
+        return []
+
+    rows = (
+        db.query(Unit, Property.name)
+        .join(Property, Property.id == Unit.property_id)
+        .filter(Unit.property_id.in_(property_ids), Unit.is_active == True)  # noqa: E712
+        .order_by(Property.name.asc(), Unit.name.asc())
+        .all()
+    )
+
+    # Active lease per unit -> occupancy + current tenant.
+    unit_ids = [u.id for u, _pname in rows]
+    active_by_unit: dict = {}
+    if unit_ids:
+        lease_rows = (
+            db.query(Lease, Tenant.full_name)
+            .outerjoin(Tenant, Tenant.id == Lease.tenant_id)
+            .filter(Lease.unit_id.in_(unit_ids), Lease.status == "active")
+            .all()
+        )
+        for lease, tenant_name in lease_rows:
+            active_by_unit[lease.unit_id] = tenant_name
+
+    result = []
+    for u, pname in rows:
+        tenant_name = active_by_unit.get(u.id)
+        result.append({
+            "id": u.id,
+            "name": u.name,
+            "property_name": pname,
+            "rent_amount": float(u.rent_amount) if u.rent_amount is not None else None,
+            "status": "occupied" if u.id in active_by_unit else "vacant",
+            "tenant_name": tenant_name,
+        })
+    return result
+
+
+def get_manager_tenants(db: Session, user_id: str, org_id: str) -> list:
+    """Active tenancies in the manager's assigned properties (one row per
+    active lease, so a tenant renting in two assigned properties shows twice,
+    each with the relevant property/unit)."""
+    property_ids = _assigned_property_ids(db, user_id, org_id)
+    if not property_ids:
+        return []
+
+    rows = (
+        db.query(Tenant, Property.name, Unit.name)
+        .join(Lease, Lease.tenant_id == Tenant.id)
+        .join(Unit, Unit.id == Lease.unit_id)
+        .join(Property, Property.id == Unit.property_id)
+        .filter(Unit.property_id.in_(property_ids), Lease.status == "active")
+        .order_by(Tenant.full_name.asc())
+        .all()
+    )
+    return [
+        {
+            "id": t.id,
+            "full_name": t.full_name,
+            "phone": t.phone,
+            "email": t.email,
+            "property_name": pname,
+            "unit_name": uname,
+        }
+        for t, pname, uname in rows
+    ]
+
+
+def get_manager_leases(db: Session, user_id: str, org_id: str) -> list:
+    """All leases (any status) in the manager's assigned properties."""
+    property_ids = _assigned_property_ids(db, user_id, org_id)
+    if not property_ids:
+        return []
+
+    rows = (
+        db.query(Lease, Tenant.full_name, Property.name, Unit.name)
+        .outerjoin(Tenant, Tenant.id == Lease.tenant_id)
+        .join(Unit, Unit.id == Lease.unit_id)
+        .join(Property, Property.id == Unit.property_id)
+        .filter(Unit.property_id.in_(property_ids))
+        .order_by(Lease.start_date.desc())
+        .all()
+    )
+    return [
+        {
+            "id": l.id,
+            "tenant_name": tname,
+            "property_name": pname,
+            "unit_name": uname,
+            "status": l.status,
+            "start_date": l.start_date.isoformat() if l.start_date else None,
+            "end_date": l.end_date.isoformat() if l.end_date else None,
+            "rent_amount": float(l.rent_amount) if l.rent_amount is not None else None,
+        }
+        for l, tname, pname, uname in rows
     ]
 
 

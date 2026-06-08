@@ -73,6 +73,42 @@ def manager_properties(
     )
 
 
+@router.get("/manager/units")
+def manager_units(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    membership = _membership(db, current_user)
+    _require(membership, PROPERTY_MANAGER)
+    return dashboard_service.get_manager_units(
+        db, current_user.id, membership.organization_id
+    )
+
+
+@router.get("/manager/tenants")
+def manager_tenants(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    membership = _membership(db, current_user)
+    _require(membership, PROPERTY_MANAGER)
+    return dashboard_service.get_manager_tenants(
+        db, current_user.id, membership.organization_id
+    )
+
+
+@router.get("/manager/leases")
+def manager_leases(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    membership = _membership(db, current_user)
+    _require(membership, PROPERTY_MANAGER)
+    return dashboard_service.get_manager_leases(
+        db, current_user.id, membership.organization_id
+    )
+
+
 # ─── Finance (and Landlord, who can see everything) ───
 
 @router.get("/finance/summary", response_model=FinanceSummaryResponse)
