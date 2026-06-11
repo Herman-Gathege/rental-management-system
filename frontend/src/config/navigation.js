@@ -71,7 +71,6 @@ export const ownerNavigation = [
       { label: "Rent Dashboard", path: "/owner/billing" },
       { label: "Payment History", path: "/owner/payments/history" },
       { label: "Batch Upload", path: "/owner/payments/batch" },
-      { label: "Late Payments", path: "/owner/payments/late" },
     ],
   },
 
@@ -111,13 +110,53 @@ export const financeNavigation = [
 export const tenantNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/tenant" },
   { label: "My Lease", icon: FiFileText, path: "/tenant/lease" },
+  { label: "Lease Checklist", icon: FiCheckSquare, path: "/tenant/inspections" },
   { label: "My Payments", icon: FiDollarSign, path: "/tenant/payments" },
   { label: "My Charges", icon: FiDollarSign, path: "/tenant/charges" },
-  { label: "Lease Checklist", icon: FiCheckSquare, path: "/tenant/inspections" },
 ];
 
 /* ================= SYSTEM / SUPER ADMIN ================= */
 export const superAdminNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/super-admin/dashboard" },
   { label: "Organizations", icon: FiUsers, path: "/super-admin/organizations" },
+];
+
+/* ================= MOBILE BOTTOM NAV =================
+ * Per-role quick links for the mobile bottom bar (rendered by
+ * components/BottomNav.jsx). Keep to 3–4 high-traffic destinations; the full
+ * menu stays reachable via the navbar. Paths must match the role's mount in
+ * AppRoutes. `end: true` is for index paths that are a prefix of their siblings
+ * (e.g. "/tenant" is a prefix of "/tenant/lease"), so they only highlight on an
+ * exact match.
+ */
+export const ownerBottomNav = [
+  { label: "Home", icon: FiHome, path: "/owner/dashboard" },
+  { label: "Properties", icon: FiBriefcase, path: "/owner/properties" },
+  { label: "Tenants", icon: FiUsers, path: "/owner/tenants" },
+  { label: "Payments", icon: FiDollarSign, path: "/owner/payments/history" },
+];
+
+export const staffBottomNav = [
+  { label: "Home", icon: FiHome, path: "/manager/dashboard" },
+  { label: "Properties", icon: FiBriefcase, path: "/manager/properties" },
+  { label: "Tenants", icon: FiUsers, path: "/manager/tenants" },
+];
+
+export const tenantBottomNav = [
+  { label: "Home", icon: FiHome, path: "/tenant", end: true },
+  { label: "Lease", icon: FiFileText, path: "/tenant/lease" },
+  { label: "Payments", icon: FiDollarSign, path: "/tenant/payments" },
+  { label: "Charges", icon: FiDollarSign, path: "/tenant/charges" },
+];
+
+export const financeBottomNav = [
+  { label: "Home", icon: FiHome, path: "/finance", end: true },
+  { label: "Billing", icon: FiDollarSign, path: "/finance/billing" },
+  { label: "Payments", icon: FiDollarSign, path: "/finance/payments" },
+  { label: "Finance", icon: FiDollarSign, path: "/finance/finance" },
+];
+
+export const superAdminBottomNav = [
+  { label: "Home", icon: FiHome, path: "/super-admin/dashboard" },
+  { label: "Orgs", icon: FiUsers, path: "/super-admin/organizations" },
 ];

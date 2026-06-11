@@ -1,14 +1,15 @@
 // frontend/src/features/dashboard/layout/StaffLayout.jsx
 //
 // Layout shell for the /manager/* routes.
-// Fixed (Sprint 4.5): was rendering {children}, which meant nested routes
-// (the index StaffDashboard) never appeared because react-router renders
-// nested routes through <Outlet/>, not children. Now matches DashboardLayout.
+// Uses <Outlet/> so nested routes (the index StaffDashboard) render, and the
+// shared config-driven <BottomNav/> (responsiveness pass) so the PM mobile bar
+// shows the right items pointing at real /manager/* routes — replacing the old
+// StaffBottomNav, which linked to dead /staff/* paths.
 
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
-import StaffBottomNav from "../../../components/StaffBottomNav";
+import BottomNav from "../../../components/BottomNav";
 
 export default function StaffLayout() {
   return (
@@ -21,7 +22,7 @@ export default function StaffLayout() {
           <Outlet />
         </main>
 
-        <StaffBottomNav />
+        <BottomNav />
       </div>
     </div>
   );
