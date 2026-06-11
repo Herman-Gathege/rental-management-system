@@ -1,5 +1,6 @@
 #backend\app\api\routes\charges.py
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 import uuid
 from datetime import date
@@ -13,6 +14,7 @@ from app.models.unit import Unit
 from app.models.property import Property
 from app.models.tenant import Tenant
 from app.models.charge import Charge
+from app.models.payment import Payment
 from app.services.audit_service import log_action
 from app.services.messaging import notify_rent_due_for_charges
 from app.services.billing_service import recompute_lease_settlement
@@ -27,7 +29,38 @@ def get_user_org(user, db):
     return membership
 
 
-def enrich_charge(charge, db):
+def lease_account_credit(db, lease_id, cache=None):
+    """Lease-level credit (overpayment): total payments minus total charges for
+    the lease, when positive. This is the money that isn't attached to any
+    single charge -- a charge settles at most to balance 0, so overpayment lives
+    on the lease. Returns 0.0 when the lease is square or owing.
+
+    `cache` (a dict keyed by lease_id) lets list_charges compute this once per
+    lease instead of once per charge row.
+    """
+    if cache is not None and lease_id in cache:
+        return cache[lease_id]
+
+    paid = (
+        db.query(func.coalesce(func.sum(Payment.amount), 0))
+        .filter(Payment.lease_id == lease_id)
+        .scalar()
+    ) or 0
+    charged = (
+        db.query(func.coalesce(func.sum(Charge.amount), 0))
+        .filter(Charge.lease_id == lease_id)
+        .scalar()
+    ) or 0
+
+    credit = float(paid) - float(charged)
+    credit = credit if credit > 0 else 0.0
+
+    if cache is not None:
+        cache[lease_id] = credit
+    return credit
+
+
+def enrich_charge(charge, db, credit_cache=None):
     lease = db.query(Lease).filter(Lease.id == charge.lease_id).first()
     tenant = db.query(Tenant).filter(Tenant.id == lease.tenant_id).first() if lease else None
     unit = db.query(Unit).filter(Unit.id == lease.unit_id).first() if lease else None
@@ -41,6 +74,9 @@ def enrich_charge(charge, db):
         "lease_id": charge.lease_id, "amount": amount,
         "amount_paid": amount_paid,
         "balance": amount - amount_paid,
+        # Lease-level overpayment (0 unless the tenant has paid beyond their
+        # total charges). The rent dashboard shows this in green.
+        "account_credit": lease_account_credit(db, charge.lease_id, credit_cache),
         "due_date": charge.due_date, "billing_month": charge.billing_month,
         "status": charge.status, "created_at": charge.created_at,
         "tenant_name": tenant.full_name if tenant else None,
@@ -134,7 +170,10 @@ def list_charges(status: str = Query(None), lease_id: str = Query(None), propert
         if c.status == "pending" and c.due_date < today:
             c.status = "overdue"
     db.commit()
-    return [enrich_charge(c, db) for c in charges]
+
+    # Compute each lease's credit once, not once per charge row.
+    credit_cache: dict = {}
+    return [enrich_charge(c, db, credit_cache) for c in charges]
 
 
 @router.get("/{charge_id}")

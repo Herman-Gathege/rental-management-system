@@ -14,6 +14,21 @@ const startOfToday = () => {
 };
 const isLate = (c) => Number(c.balance) > 0 && new Date(c.due_date) < startOfToday();
 
+// A tenant is "in credit" when they've overpaid against their total charges.
+// That overpayment is lease-level (it isn't on any single charge), so the
+// backend sends it as account_credit. When it exists, every (settled) charge
+// row for that lease shows the credit instead of a 0 balance.
+const hasCredit = (c) => Number(c.account_credit) > 0;
+
+// Balance colour: green when in credit, red when past-due, plain otherwise.
+const balanceClass = (c) =>
+  hasCredit(c) ? "balance-credit" : isLate(c) ? "balance-late" : "";
+
+// What to print in the Balance column: the credit (as a negative, e.g.
+// "-27,500") when overpaid, otherwise the charge's own balance.
+const balanceText = (c) =>
+  hasCredit(c) ? `-${money(c.account_credit)}` : money(c.balance);
+
 const pillClass = (status) =>
   status === "paid"
     ? "status-ok"
@@ -79,8 +94,10 @@ export default function Billing() {
       {success && <div className="success-banner">{success}</div>}
       {error && <div className="error-text">{error}</div>}
 
+      {/* "pending" filter removed: it duplicated "overdue" in practice.
+          Pending charges still appear under "All". */}
       <div className="flex gap-sm flex-wrap">
-        {["", "pending", "partial", "paid", "overdue"].map((s) => (
+        {["", "partial", "paid", "overdue"].map((s) => (
           <button
             key={s}
             className={`btn btn-sm ${statusFilter === s ? "btn-primary" : "btn-secondary"}`}
@@ -122,7 +139,7 @@ export default function Billing() {
                     <td>{c.property_name}</td>
                     <td>{money(c.amount)}</td>
                     <td>{money(c.amount_paid)}</td>
-                    <td className={isLate(c) ? "balance-late" : ""}>{money(c.balance)}</td>
+                    <td className={balanceClass(c)}>{balanceText(c)}</td>
                     <td>{new Date(c.due_date).toLocaleDateString()}</td>
                     <td>
                       <span className={`status-pill ${pillClass(c.status)}`}>{c.status}</span>
@@ -143,8 +160,8 @@ export default function Billing() {
                 <div className="text-sm">{c.unit_name} — {c.property_name}</div>
                 <div className="text-sm">Amount: KES {money(c.amount)}</div>
                 <div className="text-sm">Paid: KES {money(c.amount_paid)}</div>
-                <div className={`text-sm ${isLate(c) ? "balance-late" : ""}`}>
-                  Balance: KES {money(c.balance)}
+                <div className={`text-sm ${balanceClass(c)}`}>
+                  Balance: KES {balanceText(c)}
                 </div>
                 <div className="text-sm text-muted">Due: {new Date(c.due_date).toLocaleDateString()}</div>
               </div>
