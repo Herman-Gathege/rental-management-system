@@ -1106,3 +1106,18 @@
   color: #16a34a;
   font-weight: 600;
 }
+
+/* ============================================================
+   MOBILE — let page-header action buttons keep their full width
+   and wrap below the title instead of squeezing/overflowing.
+   Fixes the long "Generate Monthly Charges" button on Billing.
+   ============================================================ */
+@media (max-width: 768px) {
+  .properties-page .properties-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .properties-page .properties-header .btn {
+    flex-shrink: 0;
+  }
+}
