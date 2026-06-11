@@ -69,6 +69,8 @@ export default function Team() {
 
   if (loading) return <p>Loading team...</p>;
 
+  const pending = invitations.filter((i) => i.status === "pending");
+
   return (
     <section className="team-page">
       <h2>{org?.name} — Team</h2>
@@ -161,21 +163,50 @@ export default function Team() {
       </div>
 
       {/* ─── Pending Invitations ─── */}
-      {invitations.filter((i) => i.status === "pending").length > 0 && (
+      {pending.length > 0 && (
         <div className="card">
           <h3>Pending Invitations</h3>
-          <div className="invitations-list">
-            {invitations
-              .filter((i) => i.status === "pending")
-              .map((inv) => (
-                <div key={inv.id} className="invitation-row">
-                  <span>{inv.email}</span>
-                  <span className={`role-badge role-${inv.role.toLowerCase()}`}>
-                    {inv.role.replace("_", " ")}
-                  </span>
-                  <span className="badge-pending">Pending</span>
-                </div>
-              ))}
+
+          {/* Desktop — same table structure as Members so the role pills
+              line up in a real column instead of floating per-row. */}
+          <div className="hidden-mobile">
+            <table className="team-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pending.map((inv) => (
+                  <tr key={inv.id}>
+                    <td>{inv.email}</td>
+                    <td>
+                      <span className={`role-badge role-${inv.role.toLowerCase()}`}>
+                        {inv.role.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge-pending">Pending</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile */}
+          <div className="hidden-desktop team-cards">
+            {pending.map((inv) => (
+              <div key={inv.id} className="team-card">
+                <strong>{inv.email}</strong>
+                <span className={`role-badge role-${inv.role.toLowerCase()}`}>
+                  {inv.role.replace("_", " ")}
+                </span>
+                <span className="badge-pending">Pending</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
