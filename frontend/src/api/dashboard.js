@@ -3,7 +3,7 @@
 // API client for the role-based dashboard endpoints (Sprint 4.5).
 // Mirrors the other api/*.js modules: import the shared axios instance
 // (which attaches the bearer token automatically) and expose one function
-// per endpoint. Covers manager / finance / tenant.
+// per endpoint. Covers manager / owner / finance / tenant.
 
 import API from "./client";
 
@@ -31,6 +31,13 @@ export const getManagerTenants = async () => {
 
 export const getManagerLeases = async () => {
   const res = await API.get("/dashboard/manager/leases");
+  return res.data;
+};
+
+/* ─── Owner / Landlord ─── */
+
+export const getOwnerSummary = async () => {
+  const res = await API.get("/dashboard/owner/summary");
   return res.data;
 };
 

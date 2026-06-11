@@ -4,6 +4,7 @@ Role-based dashboard endpoints (Sprint 4.5).
 
 Each role gets its own slice of data:
   - PROPERTY_MANAGER   -> /dashboard/manager/*   (their assigned properties)
+  - LANDLORD           -> /dashboard/owner/*     (org-wide portfolio + money)
   - FINANCE / LANDLORD -> /dashboard/finance/*   (org-wide money)
   - TENANT             -> /dashboard/tenant/*    (their own records)
 
@@ -107,6 +108,18 @@ def manager_leases(
     return dashboard_service.get_manager_leases(
         db, current_user.id, membership.organization_id
     )
+
+
+# ─── Owner / Landlord (organization-wide) ───
+
+@router.get("/owner/summary")
+def owner_summary(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    membership = _membership(db, current_user)
+    _require(membership, LANDLORD)
+    return dashboard_service.get_owner_summary(db, membership.organization_id)
 
 
 # ─── Finance (and Landlord, who can see everything) ───

@@ -10,6 +10,7 @@ Scoping rules enforced here:
   - Manager: only properties assigned to them in property_managers, and only
     within their own organization. Units / tenants / leases are all derived
     from those assigned properties.
+  - Owner/Landlord: organization-wide portfolio + money (every property).
   - Finance: organization-wide financial records.
   - Tenant: only the tenant row linked to their user account (tenants.user_id),
     and that tenant's own leases / charges / payments.
@@ -288,6 +289,69 @@ def get_finance_recent_payments(db: Session, org_id: str, limit: int = 10) -> li
         }
         for p, full_name in rows
     ]
+
+
+# ---------------------------------------------------------------------
+# Owner / Landlord (organization-wide)
+# ---------------------------------------------------------------------
+
+def get_owner_summary(db: Session, org_id: str) -> dict:
+    """Organization-wide snapshot for the landlord dashboard: portfolio counts
+    + money. The portfolio counts mirror the manager summary but span EVERY
+    property in the org (not just assigned ones); the money block reuses
+    get_finance_summary so the figures match the finance dashboard exactly."""
+    property_ids = [
+        r[0]
+        for r in db.query(Property.id)
+        .filter(Property.organization_id == org_id)
+        .all()
+    ]
+
+    properties = len(property_ids)
+    units = occupied_units = active_leases = tenants = 0
+
+    if property_ids:
+        units = (
+            db.query(func.count(Unit.id))
+            .filter(Unit.property_id.in_(property_ids), Unit.is_active == True)  # noqa: E712
+            .scalar()
+        ) or 0
+
+        occupied_units = (
+            db.query(func.count(func.distinct(Lease.unit_id)))
+            .join(Unit, Unit.id == Lease.unit_id)
+            .filter(Unit.property_id.in_(property_ids), Lease.status == "active")
+            .scalar()
+        ) or 0
+
+        active_leases = (
+            db.query(func.count(Lease.id))
+            .join(Unit, Unit.id == Lease.unit_id)
+            .filter(Unit.property_id.in_(property_ids), Lease.status == "active")
+            .scalar()
+        ) or 0
+
+        tenants = (
+            db.query(func.count(func.distinct(Lease.tenant_id)))
+            .join(Unit, Unit.id == Lease.unit_id)
+            .filter(Unit.property_id.in_(property_ids), Lease.status == "active")
+            .scalar()
+        ) or 0
+
+    money = get_finance_summary(db, org_id)
+
+    return {
+        "properties": properties,
+        "units": units,
+        "occupied_units": occupied_units,
+        "vacant_units": max(units - occupied_units, 0),
+        "active_leases": active_leases,
+        "tenants": tenants,
+        "expected_rent": money["expected_rent"],
+        "total_collected": money["total_collected"],
+        "outstanding_balance": money["outstanding_balance"],
+        "overdue_charges": money["overdue_charges"],
+    }
 
 
 # ---------------------------------------------------------------------
