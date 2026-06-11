@@ -62,3 +62,8 @@ export const getTenantCharges = async () => {
   const res = await API.get("/dashboard/tenant/charges");
   return res.data;
 };
+
+export const getTenantInspections = async () => {
+  const res = await API.get("/dashboard/tenant/inspections");
+  return res.data;
+};

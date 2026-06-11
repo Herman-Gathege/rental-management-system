@@ -169,3 +169,15 @@ def tenant_charges(
     return dashboard_service.get_tenant_charges(
         db, current_user.id, membership.organization_id
     )
+
+
+@router.get("/tenant/inspections")
+def tenant_inspections(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    membership = _membership(db, current_user)
+    _require(membership, TENANT)
+    return dashboard_service.get_tenant_inspections(
+        db, current_user.id, membership.organization_id
+    )

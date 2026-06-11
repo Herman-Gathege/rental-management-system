@@ -15,6 +15,7 @@ import {
   FiDollarSign,
   FiKey,
   FiLayers,
+  FiCheckSquare,
 } from "react-icons/fi";
 
 /* ================= LANDLORD / PORTFOLIO OWNER =================
@@ -69,6 +70,7 @@ export const ownerNavigation = [
     children: [
       { label: "Rent Dashboard", path: "/owner/billing" },
       { label: "Payment History", path: "/owner/payments/history" },
+      { label: "Batch Upload", path: "/owner/payments/batch" },
       { label: "Late Payments", path: "/owner/payments/late" },
     ],
   },
@@ -97,17 +99,21 @@ export const financeNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/finance" },
   { label: "Billing", icon: FiDollarSign, path: "/finance/billing" },
   { label: "Payments", icon: FiDollarSign, path: "/finance/payments" },
+  { label: "Batch Upload", icon: FiDollarSign, path: "/finance/payments/batch" },
   { label: "Finance", icon: FiDollarSign, path: "/finance/finance" },
 ];
 
 /* ================= TENANT =================
  * Guide Phase 8: Dashboard, My Lease, My Payments, My Charges.
+ * Lease Checklist (Sprint 4.5 spinoff): read-only move-in / move-out
+ * inspection records for the tenant.
  */
 export const tenantNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/tenant" },
   { label: "My Lease", icon: FiFileText, path: "/tenant/lease" },
   { label: "My Payments", icon: FiDollarSign, path: "/tenant/payments" },
   { label: "My Charges", icon: FiDollarSign, path: "/tenant/charges" },
+  { label: "Lease Checklist", icon: FiCheckSquare, path: "/tenant/inspections" },
 ];
 
 /* ================= SYSTEM / SUPER ADMIN ================= */

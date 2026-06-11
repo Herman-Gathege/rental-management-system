@@ -90,6 +90,8 @@ from app.api.routes.checklist_template import router as checklist_template_route
 from app.api.routes.inspections import router as inspections_router
 from app.api.routes.messages import router as messages_router
 from app.api.routes.webhooks import router as webhooks_router
+from app.api.routes import payment_batch
+
 
 app = FastAPI(title="Rental Management API")
 
@@ -131,6 +133,8 @@ app.include_router(checklist_template_router)
 app.include_router(inspections_router)
 app.include_router(messages_router)
 app.include_router(webhooks_router)
+app.include_router(payment_batch.router)
+
 
 @app.get("/")
 def root():

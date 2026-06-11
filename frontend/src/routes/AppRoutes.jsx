@@ -31,6 +31,7 @@ import LeaseDetail from "../features/leases/LeaseDetail";
 import Billing from "../features/billing/Billing";
 import PaymentsList from "../features/payments/Payments";
 import RecordPayment from "../features/payments/RecordPayment";
+import BatchPayments from "../features/payments/BatchPayments";
 import FinancialDashboard from "../features/finance/FinancialDashboard";
 
 /* Edit Pages */
@@ -65,6 +66,7 @@ import TenantDashboard from "../features/dashboard/TenantDashboard";
 import TenantPayments from "../features/dashboard/TenantPayments";
 import TenantCharges from "../features/dashboard/TenantCharges";
 import TenantLease from "../features/dashboard/TenantLease";
+import TenantInspections from "../features/dashboard/TenantInspections";
 
 /* SUPER ADMIN (future SaaS owner) */
 import SuperAdminLayout from "../features/dashboard/layout/SuperAdminLayout";
@@ -136,6 +138,7 @@ export default function AppRoutes() {
         <Route path="billing" element={<Billing />} />
         <Route path="payments" element={<PaymentsList />} />
         <Route path="payments/record" element={<RecordPayment />} />
+        <Route path="payments/batch" element={<BatchPayments />} />
         <Route path="payments/history" element={<PaymentsList />} />
         <Route path="payments/late" element={<Billing />} />
         <Route path="finance" element={<FinancialDashboard />} />
@@ -184,6 +187,7 @@ export default function AppRoutes() {
             (finance is permitted to see all org money). */}
         <Route path="billing" element={<Billing />} />
         <Route path="payments" element={<PaymentsList />} />
+        <Route path="payments/batch" element={<BatchPayments />} />
         <Route path="finance" element={<FinancialDashboard />} />
       </Route>
 
@@ -204,6 +208,7 @@ export default function AppRoutes() {
         <Route path="lease" element={<TenantLease />} />
         <Route path="payments" element={<TenantPayments />} />
         <Route path="charges" element={<TenantCharges />} />
+        <Route path="inspections" element={<TenantInspections />} />
       </Route>
 
       {/* ================= SUPER ADMIN ================= */}

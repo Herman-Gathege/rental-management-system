@@ -26,6 +26,7 @@ Tenant rows (charges / payments) carry property_id + property_name + unit_name
 + lease_id so the tenant portal can group / filter by property (multi-lease
 tenants rent across more than one property).
 """
+import json
 from datetime import date
 from fastapi import HTTPException
 from sqlalchemy import func
@@ -38,6 +39,8 @@ from app.models.tenant import Tenant
 from app.models.lease import Lease
 from app.models.charge import Charge
 from app.models.payment import Payment
+from app.models.lease_inspection import LeaseInspection
+from app.models.inspection_item import InspectionItem
 
 
 # ---------------------------------------------------------------------
@@ -479,3 +482,66 @@ def get_tenant_charges(db: Session, user_id: str, org_id: str) -> list:
         }
         for c, pid, pname, uname in rows
     ]
+
+
+def _parse_photo_urls(raw):
+    """Inspection photo URLs are stored as a JSON string array."""
+    try:
+        return json.loads(raw) if raw else []
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+def get_tenant_inspections(db: Session, user_id: str, org_id: str) -> list:
+    """Read-only move-in / move-out inspection records for the tenant's own
+    leases (multi-lease aware). Excludes internal notes and inspector identity:
+    the tenant sees the checklist items, conditions, comments, photos, and (for
+    move-out) any deposit deductions."""
+    tenant = _resolve_tenant(db, user_id, org_id)
+    lease_ids = _tenant_lease_ids(db, tenant.id)
+    if not lease_ids:
+        return []
+
+    rows = (
+        db.query(LeaseInspection, Unit, Property)
+        .join(Lease, Lease.id == LeaseInspection.lease_id)
+        .outerjoin(Unit, Unit.id == Lease.unit_id)
+        .outerjoin(Property, Property.id == Unit.property_id)
+        .filter(LeaseInspection.lease_id.in_(lease_ids))
+        .order_by(LeaseInspection.created_at.desc())
+        .all()
+    )
+
+    result = []
+    for insp, unit, prop in rows:
+        items = (
+            db.query(InspectionItem)
+            .filter(InspectionItem.inspection_id == insp.id)
+            .order_by(InspectionItem.sort_order.asc())
+            .all()
+        )
+        result.append({
+            "id": insp.id,
+            "lease_id": insp.lease_id,
+            "inspection_type": insp.inspection_type,
+            "inspection_date": insp.inspection_date.isoformat() if insp.inspection_date else None,
+            "status": insp.status,
+            "property_id": prop.id if prop else None,
+            "property_name": prop.name if prop else None,
+            "unit_name": unit.name if unit else None,
+            "tenant_signed_name": insp.tenant_signed_name,
+            "tenant_signed_at": insp.tenant_signed_at.isoformat() if insp.tenant_signed_at else None,
+            "total_deduction_amount": float(insp.total_deduction_amount) if insp.total_deduction_amount else 0,
+            "items": [
+                {
+                    "id": it.id,
+                    "item_name": it.item_name,
+                    "condition": it.condition,
+                    "comments": it.comments,
+                    "photo_urls": _parse_photo_urls(it.photo_urls),
+                    "deduction_amount": float(it.deduction_amount) if it.deduction_amount else 0,
+                }
+                for it in items
+            ],
+        })
+    return result
