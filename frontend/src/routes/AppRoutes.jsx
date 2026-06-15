@@ -67,6 +67,7 @@ import TenantDashboard from "../features/dashboard/TenantDashboard";
 import TenantPayments from "../features/dashboard/TenantPayments";
 import TenantCharges from "../features/dashboard/TenantCharges";
 import TenantLease from "../features/dashboard/TenantLease";
+import TenantInspections from "../features/dashboard/TenantInspections";
 
 /* SUPER ADMIN (future SaaS owner) */
 import SuperAdminLayout from "../features/dashboard/layout/SuperAdminLayout";
@@ -205,8 +206,9 @@ export default function AppRoutes() {
       >
         <Route index element={<TenantDashboard />} />
 
-        {/* Sprint 4.5 tenant portal — all three sub-pages now live. */}
+        {/* Sprint 4.5 tenant portal — all sub-pages now live. */}
         <Route path="lease" element={<TenantLease />} />
+        <Route path="inspections" element={<TenantInspections />} />
         <Route path="payments" element={<TenantPayments />} />
         <Route path="charges" element={<TenantCharges />} />
       </Route>
