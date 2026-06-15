@@ -32,6 +32,7 @@ import LeaseDetail from "../features/leases/LeaseDetail";
 import Billing from "../features/billing/Billing";
 import PaymentsList from "../features/payments/Payments";
 import RecordPayment from "../features/payments/RecordPayment";
+import BatchPayments from "../features/payments/BatchPayments";
 import FinancialDashboard from "../features/finance/FinancialDashboard";
 
 /* Edit Pages */
@@ -138,6 +139,7 @@ export default function AppRoutes() {
         <Route path="billing" element={<Billing />} />
         <Route path="payments" element={<PaymentsList />} />
         <Route path="payments/record" element={<RecordPayment />} />
+        <Route path="payments/batch" element={<BatchPayments />} />
         <Route path="payments/history" element={<PaymentsList />} />
         <Route path="payments/late" element={<Billing />} />
         <Route path="finance" element={<FinancialDashboard />} />
@@ -186,6 +188,7 @@ export default function AppRoutes() {
             (finance is permitted to see all org money). */}
         <Route path="billing" element={<Billing />} />
         <Route path="payments" element={<PaymentsList />} />
+        <Route path="payments/batch" element={<BatchPayments />} />
         <Route path="finance" element={<FinancialDashboard />} />
       </Route>
 
