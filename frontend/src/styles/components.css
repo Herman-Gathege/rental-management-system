@@ -1143,3 +1143,15 @@
 .batch-cards { display: flex; flex-direction: column; gap: 0.75rem; }
 .batch-card { display: flex; flex-direction: column; gap: 0.5rem; }
 .batch-card .input { width: 100%; }
+
+/* ============================================================
+   PROFILE PAGE — form field spacing/labels + full-width inputs.
+   ============================================================ */
+.profile-field { margin-bottom: 0.75rem; }
+.profile-field label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-muted, #6b7280);
+  margin-bottom: 0.25rem;
+}
+.profile-field .input { width: 100%; }

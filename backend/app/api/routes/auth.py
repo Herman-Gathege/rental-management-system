@@ -1,6 +1,8 @@
 #backend/app/api/routes/auth.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import Optional
 
 from app.db.deps import get_db
 from app.models.users import User
@@ -22,6 +24,34 @@ from app.services.tenant_linking import link_tenant_to_user
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+
+# ─── Profile request bodies (Sprint 4.5 profile menu) ───
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
+def _me_payload(user: User, db: Session) -> dict:
+    """Shared shape for GET /me and PUT /me so the frontend always gets the
+    same fields (now including full_name)."""
+    membership = (
+        db.query(OrganizationMember)
+        .filter(OrganizationMember.user_id == user.id)
+        .first()
+    )
+    return {
+        "id": user.id,
+        "email": user.email,
+        "full_name": user.full_name,
+        "organization_id": membership.organization_id if membership else None,
+        "role": membership.role.name.upper() if membership and membership.role else None,
+    }
+
 
 @router.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
@@ -77,45 +107,6 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         db.rollback()
         raise e
 
-# @router.post("/register")
-# def register(user: UserRegister, db: Session = Depends(get_db)):
-
-#     # 1️⃣ Check if user already exists
-#     existing = db.query(User).filter(User.email == user.email).first()
-#     if existing:
-#         raise HTTPException(status_code=400, detail="Email already registered")
-
-#     # 2️⃣ Create organization (first user becomes landlord)
-#     org = Organization(name=user.organization_name)
-#     db.add(org)
-#     db.commit()
-#     db.refresh(org)
-
-#     # 3️⃣ Fetch LANDLORD role from DB (seeded at startup)
-#     landlord_role = db.query(Role).filter(Role.name == LANDLORD).first()
-#     if not landlord_role:
-#         raise HTTPException(status_code=500, detail="Roles not seeded")
-
-#     # 4️⃣ Create user and attach role
-#     new_user = User(
-#         email=user.email,
-#         password_hash=hash_password(user.password),
-#         organization_id=org.id,
-#         role_id=landlord_role.id
-#     )
-
-#     db.add(new_user)
-#     db.commit()
-#     db.refresh(new_user)
-
-#     return {
-#         "message": "User registered successfully",
-#         "user_id": new_user.id,
-#         "organization_id": org.id,
-#         "role": LANDLORD
-#     }
-
-
 
 @router.post("/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
@@ -169,37 +160,45 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     }
 
 
-# @router.get("/me")
-# def get_me(current_user: User = Depends(get_current_user)):
-    
-#     return {
-#         "id": current_user.id,
-#         "email": current_user.email,
-#         "organization_id": current_user.organization_id,
-#         "role": current_user.role.name.upper() if current_user.role else None
-#     }
-
 @router.get("/me")
 def get_me(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    from app.models.organization_member import OrganizationMember
-
-    membership = (
-        db.query(OrganizationMember)
-        .filter(OrganizationMember.user_id == current_user.id)
-        .first()
-    )
-
-    return {
-        "id": current_user.id,
-        "email": current_user.email,
-        "organization_id": membership.organization_id if membership else None,
-        "role": membership.role.name.upper() if membership and membership.role else None
-    }
+    return _me_payload(current_user, db)
 
 
+@router.put("/me")
+def update_me(
+    payload: ProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update the signed-in user's profile (currently just their name)."""
+    if payload.full_name is not None:
+        # Trim; store NULL rather than an empty string.
+        current_user.full_name = payload.full_name.strip() or None
+    db.commit()
+    db.refresh(current_user)
+    return _me_payload(current_user, db)
+
+
+@router.post("/change-password")
+def change_password(
+    payload: PasswordChange,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Change the signed-in user's password. Requires the current password."""
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    if len(payload.new_password) < 8:
+        raise HTTPException(
+            status_code=400, detail="New password must be at least 8 characters"
+        )
+    current_user.password_hash = hash_password(payload.new_password)
+    db.commit()
+    return {"message": "Password updated successfully"}
 
 
 @router.post("/refresh")
@@ -218,7 +217,6 @@ def refresh_token(token: str, db: Session = Depends(get_db)):
     return {
         "access_token": new_access_token
     }
-
 
 
 @router.post("/forgot-password")
@@ -250,20 +248,6 @@ def forgot_password(email: str, db: Session = Depends(get_db)):
 
     return {"message": "Reset email sent"}
 
-
-
-# @router.post("/reset-password")
-# def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
-#     user = db.query(User).filter(User.reset_token == token).first()
-
-#     if not user:
-#         raise HTTPException(status_code=400, detail="Invalid token")
-
-#     user.password_hash = hash_password(new_password)
-#     user.reset_token = None
-#     db.commit()
-
-#     return {"message": "Password updated"}
 
 @router.post("/reset-password")
 def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):

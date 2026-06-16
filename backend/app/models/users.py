@@ -11,6 +11,7 @@ class User(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     # organization_id = Column(String, ForeignKey("organizations.id"))
     email = Column(String, unique=True, nullable=False)
+    full_name = Column(String, nullable=True)  # Profile name (Sprint 4.5 profile menu)
     password_hash = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     refresh_token = Column(String, nullable=True)

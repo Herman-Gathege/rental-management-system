@@ -47,6 +47,9 @@ import History from "../features/history/History";
 import Settings from "../features/settings/Settings";
 import ChecklistTemplate from "../features/settings/ChecklistTemplate";
 
+/* Profile (Sprint 4.5 profile menu — role-agnostic) */
+import Profile from "../features/profile/Profile";
+
 /* Inspections */
 import ConductInspection from "../features/inspections/ConductInspection";
 
@@ -152,6 +155,9 @@ export default function AppRoutes() {
         {/* Settings */}
         <Route path="settings" element={<Settings />} />
         <Route path="settings/checklist" element={<ChecklistTemplate />} />
+
+        {/* Profile */}
+        <Route path="profile" element={<Profile />} />
       </Route>
 
       {/* ================= PROPERTY MANAGER ================= */}
@@ -171,6 +177,9 @@ export default function AppRoutes() {
         <Route path="units" element={<ManagerUnits />} />
         <Route path="tenants" element={<ManagerTenants />} />
         <Route path="leases" element={<ManagerLeases />} />
+
+        {/* Profile */}
+        <Route path="profile" element={<Profile />} />
       </Route>
 
       {/* ================= FINANCE ================= */}
@@ -191,6 +200,9 @@ export default function AppRoutes() {
         <Route path="payments" element={<PaymentsList />} />
         <Route path="payments/batch" element={<BatchPayments />} />
         <Route path="finance" element={<FinancialDashboard />} />
+
+        {/* Profile */}
+        <Route path="profile" element={<Profile />} />
       </Route>
 
       {/* ================= TENANT ================= */}
@@ -211,6 +223,9 @@ export default function AppRoutes() {
         <Route path="inspections" element={<TenantInspections />} />
         <Route path="payments" element={<TenantPayments />} />
         <Route path="charges" element={<TenantCharges />} />
+
+        {/* Profile */}
+        <Route path="profile" element={<Profile />} />
       </Route>
 
       {/* ================= SUPER ADMIN ================= */}
@@ -223,6 +238,9 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<SuperAdminDashboard />} />
+
+        {/* Profile */}
+        <Route path="profile" element={<Profile />} />
       </Route>
     </Routes>
   );

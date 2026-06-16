@@ -21,3 +21,15 @@ export const getMe = async () => {
   const { data } = await API.get("/auth/me");
   return data;
 };
+
+/* UPDATE PROFILE (currently just full_name) — returns the updated /me payload */
+export const updateProfile = async (payload) => {
+  const { data } = await API.put("/auth/me", payload);
+  return data;
+};
+
+/* CHANGE PASSWORD — payload: { current_password, new_password } */
+export const changePassword = async (payload) => {
+  const { data } = await API.post("/auth/change-password", payload);
+  return data;
+};

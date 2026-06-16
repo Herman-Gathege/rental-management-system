@@ -16,6 +16,7 @@ import {
   FiKey,
   FiLayers,
   FiCheckSquare,
+  FiUser,
 } from "react-icons/fi";
 
 /* ================= LANDLORD / PORTFOLIO OWNER =================
@@ -76,6 +77,7 @@ export const ownerNavigation = [
 
   { label: "Team", icon: FiKey, path: "/owner/team" },
   { label: "Settings", icon: FiSettings, path: "/owner/settings" },
+  { label: "Profile", icon: FiUser, path: "/owner/profile" },
 ];
 
 /* ================= PROPERTY MANAGER =================
@@ -88,6 +90,7 @@ export const staffNavigation = [
   { label: "Units", icon: FiLayers, path: "/manager/units" },
   { label: "Tenants", icon: FiUsers, path: "/manager/tenants" },
   { label: "Leases", icon: FiFileText, path: "/manager/leases" },
+  { label: "Profile", icon: FiUser, path: "/manager/profile" },
 ];
 
 /* ================= FINANCE =================
@@ -100,6 +103,7 @@ export const financeNavigation = [
   { label: "Payments", icon: FiDollarSign, path: "/finance/payments" },
   { label: "Batch Upload", icon: FiDollarSign, path: "/finance/payments/batch" },
   { label: "Finance", icon: FiDollarSign, path: "/finance/finance" },
+  { label: "Profile", icon: FiUser, path: "/finance/profile" },
 ];
 
 /* ================= TENANT =================
@@ -113,12 +117,14 @@ export const tenantNavigation = [
   { label: "Lease Checklist", icon: FiCheckSquare, path: "/tenant/inspections" },
   { label: "My Payments", icon: FiDollarSign, path: "/tenant/payments" },
   { label: "My Charges", icon: FiDollarSign, path: "/tenant/charges" },
+  { label: "Profile", icon: FiUser, path: "/tenant/profile" },
 ];
 
 /* ================= SYSTEM / SUPER ADMIN ================= */
 export const superAdminNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/super-admin/dashboard" },
   { label: "Organizations", icon: FiUsers, path: "/super-admin/organizations" },
+  { label: "Profile", icon: FiUser, path: "/super-admin/profile" },
 ];
 
 /* ================= MOBILE BOTTOM NAV =================
