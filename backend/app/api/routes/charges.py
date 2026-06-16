@@ -104,6 +104,7 @@ def generate_monthly_charges(
     new_charge_ids: list[str] = []
     affected_lease_ids: set[str] = set()
     skipped = 0
+    
 
     for lease in active_leases:
         existing = db.query(Charge).filter(Charge.lease_id == lease.id, Charge.billing_month == billing_month).first()

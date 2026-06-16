@@ -189,20 +189,23 @@
   display: flex;
   align-items: center;
   gap: 12px;
-
   padding: 12px 14px;
   border-radius: 10px;
-
   font-size: 15px;
   color: #374151;
   background: none;
   border: none;
   cursor: pointer;
   text-decoration: none;
-
   min-height: 44px;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
 
-  flex-shrink: 0; /* prevents compression bug */
+button.sidebar-link {
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 .sidebar-link:hover {
@@ -298,9 +301,24 @@
 }
 
 .sidebar-collapsed .sidebar-link {
+  display: flex;
+  align-items: center;
   justify-content: center;
+  width: 100%;
   padding: 12px 0;
+  gap: 0;
 }
+
+.sidebar-collapsed .sidebar-link svg {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+
 
 
 /* Hide sidebar on smaller screens */
