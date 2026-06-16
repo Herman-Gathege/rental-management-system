@@ -4,6 +4,9 @@
 // Upload a bank/M-Pesa statement CSV -> preview (matched/flagged, no writes) ->
 // pick leases for multi-lease rows, tick which to record -> commit. Re-previews
 // after commit so newly-recorded rows show as duplicates.
+//
+// Responsive: desktop shows the full review table; mobile (<=768px) shows a
+// stacked card per row with the same checkbox + lease selector controls.
 
 import { useState } from "react";
 import { previewBatch, commitBatch } from "../../api/paymentBatch";
@@ -95,6 +98,41 @@ export default function BatchPayments() {
     }
   };
 
+  // Shared row controls so the table and the mobile cards stay in sync.
+  const renderCheckbox = (r, canCommit) => (
+    <input
+      type="checkbox"
+      disabled={!canCommit}
+      checked={!!selected[r.row] && canCommit}
+      onChange={(e) =>
+        setSelected((prev) => ({ ...prev, [r.row]: e.target.checked }))
+      }
+    />
+  );
+
+  const renderLeaseControl = (r) => {
+    if (r.status === "matched") return "✓";
+    if (r.status === "multiple_leases") {
+      return (
+        <select
+          className="input"
+          value={leaseChoice[r.row] || ""}
+          onChange={(e) =>
+            setLeaseChoice((prev) => ({ ...prev, [r.row]: e.target.value }))
+          }
+        >
+          <option value="">Select lease…</option>
+          {r.lease_options.map((o) => (
+            <option key={o.lease_id} value={o.lease_id}>
+              {money(o.rent_amount)} / mo
+            </option>
+          ))}
+        </select>
+      );
+    }
+    return "—";
+  };
+
   return (
     <div className="p-6">
       <div className="text-lg font-bold mb-md">Batch Payment Upload</div>
@@ -106,7 +144,7 @@ export default function BatchPayments() {
           tenant by phone number. Nothing is recorded until you review and
           confirm below.
         </p>
-        <div className="flex items-center gap-sm mt-sm">
+        <div className="flex items-center gap-sm mt-sm flex-wrap">
           <input type="file" accept=".csv" onChange={handleFile} />
           <button
             className="btn btn-primary"
@@ -160,77 +198,94 @@ export default function BatchPayments() {
             ))}
           </div>
 
-          <table className="staff-table">
-            <thead>
-              <tr>
-                <th></th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Phone</th>
-                <th>Reference</th>
-                <th>Tenant</th>
-                <th>Lease</th>
-              </tr>
-            </thead>
-            <tbody>
-              {preview.rows.map((r) => {
-                const canCommit = committable(r);
-                return (
-                  <tr key={r.row}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        disabled={!canCommit}
-                        checked={!!selected[r.row] && canCommit}
-                        onChange={(e) =>
-                          setSelected((prev) => ({
-                            ...prev,
-                            [r.row]: e.target.checked,
-                          }))
-                        }
-                      />
-                    </td>
-                    <td>
+          {/* Desktop table */}
+          <div className="batch-table-wrap hidden-mobile">
+            <table className="staff-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Phone</th>
+                  <th>Reference</th>
+                  <th>Tenant</th>
+                  <th>Lease</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preview.rows.map((r) => {
+                  const canCommit = committable(r);
+                  return (
+                    <tr key={r.row}>
+                      <td>{renderCheckbox(r, canCommit)}</td>
+                      <td>
+                        <span className="role-badge">
+                          {STATUS_LABEL[r.status] || r.status}
+                        </span>
+                      </td>
+                      <td>{r.date || "—"}</td>
+                      <td>{r.amount != null ? money(r.amount) : "—"}</td>
+                      <td>{r.phone || "—"}</td>
+                      <td>{r.reference || "—"}</td>
+                      <td>{r.tenant_name || "—"}</td>
+                      <td>{renderLeaseControl(r)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="hidden-desktop batch-cards">
+            {preview.rows.map((r) => {
+              const canCommit = committable(r);
+              return (
+                <div key={r.row} className="card batch-card">
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-sm">
+                      {renderCheckbox(r, canCommit)}
                       <span className="role-badge">
                         {STATUS_LABEL[r.status] || r.status}
                       </span>
-                    </td>
-                    <td>{r.date || "—"}</td>
-                    <td>{r.amount != null ? money(r.amount) : "—"}</td>
-                    <td>{r.phone || "—"}</td>
-                    <td>{r.reference || "—"}</td>
-                    <td>{r.tenant_name || "—"}</td>
-                    <td>
-                      {r.status === "matched" && "✓"}
-                      {r.status === "multiple_leases" && (
-                        <select
-                          className="input"
-                          value={leaseChoice[r.row] || ""}
-                          onChange={(e) =>
-                            setLeaseChoice((prev) => ({
-                              ...prev,
-                              [r.row]: e.target.value,
-                            }))
-                          }
-                        >
-                          <option value="">Select lease…</option>
-                          {r.lease_options.map((o) => (
-                            <option key={o.lease_id} value={o.lease_id}>
-                              {money(o.rent_amount)} / mo
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      {!["matched", "multiple_leases"].includes(r.status) && "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </label>
+                    <span className="text-bold">
+                      {r.amount != null ? money(r.amount) : "—"}
+                    </span>
+                  </div>
 
-          <div className="flex items-center gap-sm mt-md">
+                  <div className="text-sm">
+                    <div>
+                      <span className="text-muted">Tenant: </span>
+                      {r.tenant_name || "—"}
+                    </div>
+                    <div>
+                      <span className="text-muted">Date: </span>
+                      {r.date || "—"}
+                    </div>
+                    <div>
+                      <span className="text-muted">Phone: </span>
+                      {r.phone || "—"}
+                    </div>
+                    <div>
+                      <span className="text-muted">Reference: </span>
+                      {r.reference || "—"}
+                    </div>
+                  </div>
+
+                  {r.status === "matched" && (
+                    <div className="text-sm text-muted">Lease matched ✓</div>
+                  )}
+                  {r.status === "multiple_leases" && (
+                    <div>{renderLeaseControl(r)}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-sm mt-md flex-wrap">
             <label className="text-sm">
               <input
                 type="checkbox"

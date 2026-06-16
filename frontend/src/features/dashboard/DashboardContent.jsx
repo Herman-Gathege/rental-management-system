@@ -1,6 +1,7 @@
 // frontend/src/features/dashboard/DashboardContent.jsx
 //
-// Landlord (owner) dashboard body. Greeting + org-wide widgets + recent payments.
+// Landlord (owner) dashboard body. Greeting + org-wide widgets + notifications
+// + recent payments.
 // Pulls /dashboard/owner/summary (portfolio counts + money, the money block
 // reusing the finance summary so the figures match the finance dashboard) and
 // /dashboard/finance/recent-payments (the landlord is permitted on it).
@@ -74,6 +75,11 @@ export default function DashboardContent({ roleLabel }) {
       ]
     : [];
 
+  // Notifications placeholder. The notifications module isn't built yet, so
+  // this renders an honest empty state for now; once there's a notifications
+  // feed/endpoint, swap this array for the fetched items and map over them.
+  const notifications = [];
+
   return (
     <div className="p-6">
       <div className="text-lg font-bold mb-md">
@@ -101,6 +107,25 @@ export default function DashboardContent({ roleLabel }) {
                 <div className="dash-stat-label">{c.label}</div>
               </div>
             ))}
+          </div>
+
+          <div className="dash-panel mb-md">
+            <div className="dash-panel-title">Notifications</div>
+            {notifications.length === 0 ? (
+              <div className="text-muted">
+                You're all caught up — no new notifications.
+              </div>
+            ) : (
+              notifications.map((n, i) => (
+                <div className="dash-row" key={i}>
+                  <div>
+                    <div className="text-bold">{n.title}</div>
+                    <div className="text-muted">{n.body}</div>
+                  </div>
+                  <span className="text-muted">{fmtDate(n.created_at)}</span>
+                </div>
+              ))
+            )}
           </div>
 
           <div className="dash-panel">

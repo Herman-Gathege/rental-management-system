@@ -1121,3 +1121,25 @@
     flex-shrink: 0;
   }
 }
+
+/* ============================================================
+   TEAM PAGE — mobile: stack member/invite card contents so the
+   email and role/status badges don't collide in one row.
+   (.team-cards .team-card out-specifies the base .team-card rule.)
+   ============================================================ */
+@media (max-width: 768px) {
+  .team-cards .team-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}
+
+/* ============================================================
+   BATCH PAYMENT PREVIEW — desktop table scrolls if cramped;
+   mobile renders a stacked card per row (same controls).
+   ============================================================ */
+.batch-table-wrap { overflow-x: auto; }
+.batch-cards { display: flex; flex-direction: column; gap: 0.75rem; }
+.batch-card { display: flex; flex-direction: column; gap: 0.5rem; }
+.batch-card .input { width: 100%; }
