@@ -1155,3 +1155,25 @@
   margin-bottom: 0.25rem;
 }
 .profile-field .input { width: 100%; }
+
+/* ============================================================
+   STAFF / DASHBOARD READ-ONLY TABLES — desktop table scrolls if
+   cramped; mobile cards (via MobileCardList) style each row.
+   Shared by the Manager + Tenant read-only list pages.
+   ============================================================ */
+.staff-table-wrap { overflow-x: auto; }
+.staff-card {
+  border: 1px solid var(--color-border, #dee2e6);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+.staff-card-title { font-weight: 600; margin-bottom: 0.4rem; }
+.staff-card-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.2rem 0;
+  font-size: 0.9rem;
+}
+.staff-card-row > span:first-child { color: var(--color-text-muted, #6c757d); }
+.staff-card-row > span:last-child { text-align: right; }

@@ -2,9 +2,11 @@
 //
 // Property Manager — Properties (read-only, Sprint 4.5).
 // Lists the properties assigned to this manager via /dashboard/manager/properties.
+// Responsive: table on desktop, MobileCardList stacked cards below 768px.
 
 import { useEffect, useState } from "react";
 import { getManagerProperties } from "../../api/dashboard";
+import MobileCardList from "../../components/ui/MobileCardList";
 
 export default function ManagerProperties() {
   const [properties, setProperties] = useState([]);
@@ -58,24 +60,47 @@ export default function ManagerProperties() {
         {properties.length === 0 ? (
           <div className="text-muted">No properties assigned to you yet.</div>
         ) : (
-          <table className="staff-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>City</th>
-                <th>Address</th>
-              </tr>
-            </thead>
-            <tbody>
-              {properties.map((p) => (
-                <tr key={p.id}>
-                  <td className="text-bold">{p.name}</td>
-                  <td>{p.city || "—"}</td>
-                  <td>{p.address || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            {/* Desktop table */}
+            <div className="staff-table-wrap hidden-mobile">
+              <table className="staff-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>City</th>
+                    <th>Address</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {properties.map((p) => (
+                    <tr key={p.id}>
+                      <td className="text-bold">{p.name}</td>
+                      <td>{p.city || "—"}</td>
+                      <td>{p.address || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <MobileCardList
+              data={properties}
+              renderCard={(p, i) => (
+                <div className="staff-card" key={p.id || i}>
+                  <div className="staff-card-title">{p.name}</div>
+                  <div className="staff-card-row">
+                    <span>City</span>
+                    <span>{p.city || "—"}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Address</span>
+                    <span>{p.address || "—"}</span>
+                  </div>
+                </div>
+              )}
+            />
+          </>
         )}
       </div>
     </div>

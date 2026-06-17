@@ -3,9 +3,11 @@
 // Property Manager — Leases (read-only, Sprint 4.5).
 // All leases (any status) in the manager's assigned properties via
 // /dashboard/manager/leases.
+// Responsive: table on desktop, MobileCardList stacked cards below 768px.
 
 import { useEffect, useState } from "react";
 import { getManagerLeases } from "../../api/dashboard";
+import MobileCardList from "../../components/ui/MobileCardList";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -71,32 +73,71 @@ export default function ManagerLeases() {
         {leases.length === 0 ? (
           <div className="text-muted">No leases in your properties yet.</div>
         ) : (
-          <table className="staff-table">
-            <thead>
-              <tr>
-                <th>Tenant</th>
-                <th>Property</th>
-                <th>Unit</th>
-                <th>Status</th>
-                <th>Start</th>
-                <th>End</th>
-                <th>Rent</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leases.map((l, i) => (
-                <tr key={l.id || i}>
-                  <td className="text-bold">{l.tenant_name || "—"}</td>
-                  <td>{l.property_name}</td>
-                  <td>{l.unit_name}</td>
-                  <td>{l.status}</td>
-                  <td>{fmtDate(l.start_date)}</td>
-                  <td>{fmtDate(l.end_date)}</td>
-                  <td>{money(l.rent_amount)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            {/* Desktop table */}
+            <div className="staff-table-wrap hidden-mobile">
+              <table className="staff-table">
+                <thead>
+                  <tr>
+                    <th>Tenant</th>
+                    <th>Property</th>
+                    <th>Unit</th>
+                    <th>Status</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Rent</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leases.map((l, i) => (
+                    <tr key={l.id || i}>
+                      <td className="text-bold">{l.tenant_name || "—"}</td>
+                      <td>{l.property_name}</td>
+                      <td>{l.unit_name}</td>
+                      <td>{l.status}</td>
+                      <td>{fmtDate(l.start_date)}</td>
+                      <td>{fmtDate(l.end_date)}</td>
+                      <td>{money(l.rent_amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <MobileCardList
+              data={leases}
+              renderCard={(l, i) => (
+                <div className="staff-card" key={l.id || i}>
+                  <div className="staff-card-title">{l.tenant_name || "—"}</div>
+                  <div className="staff-card-row">
+                    <span>Property</span>
+                    <span>{l.property_name}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Unit</span>
+                    <span>{l.unit_name}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Status</span>
+                    <span>{l.status}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Start</span>
+                    <span>{fmtDate(l.start_date)}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>End</span>
+                    <span>{fmtDate(l.end_date)}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Rent</span>
+                    <span>{money(l.rent_amount)}</span>
+                  </div>
+                </div>
+              )}
+            />
+          </>
         )}
       </div>
     </div>
