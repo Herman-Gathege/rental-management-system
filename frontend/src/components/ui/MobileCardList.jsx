@@ -1,3 +1,4 @@
+//frontend\src\components\ui\MobileCardList.jsx
 export default function MobileCardList({ data = [], renderCard }) {
   if (!data.length) return null;
 
