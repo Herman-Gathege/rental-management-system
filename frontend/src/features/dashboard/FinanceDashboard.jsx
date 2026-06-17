@@ -2,8 +2,9 @@
 //
 // Finance dashboard (Sprint 4.5).
 // Pulls /dashboard/finance/summary + /dashboard/finance/recent-payments and
-// shows org-wide money: expected rent, collected, outstanding, overdue count,
-// plus the latest payments. Reuses the shared .dash-* card styles.
+// shows money for the finance user (scoped to their assigned properties):
+// expected rent, collected, outstanding, overdue count, plus latest payments.
+// Reuses the shared .dash-* card styles.
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
@@ -11,6 +12,7 @@ import {
   getFinanceSummary,
   getFinanceRecentPayments,
 } from "../../api/dashboard";
+import NotificationsCard from "../../components/ui/NotificationsCard";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -90,6 +92,8 @@ export default function FinanceDashboard() {
               </div>
             ))}
           </div>
+
+          <NotificationsCard />
 
           <div className="dash-panel">
             <div className="dash-panel-title">Recent Payments</div>

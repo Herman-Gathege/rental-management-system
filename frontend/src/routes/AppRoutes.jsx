@@ -50,6 +50,9 @@ import ChecklistTemplate from "../features/settings/ChecklistTemplate";
 /* Profile (Sprint 4.5 profile menu — role-agnostic) */
 import Profile from "../features/profile/Profile";
 
+/* Notifications (placeholder page — all roles) */
+import Notifications from "../features/notifications/Notifications";
+
 /* Inspections */
 import ConductInspection from "../features/inspections/ConductInspection";
 
@@ -156,6 +159,9 @@ export default function AppRoutes() {
         <Route path="settings" element={<Settings />} />
         <Route path="settings/checklist" element={<ChecklistTemplate />} />
 
+        {/* Notifications */}
+        <Route path="notifications" element={<Notifications />} />
+
         {/* Profile */}
         <Route path="profile" element={<Profile />} />
       </Route>
@@ -177,6 +183,9 @@ export default function AppRoutes() {
         <Route path="units" element={<ManagerUnits />} />
         <Route path="tenants" element={<ManagerTenants />} />
         <Route path="leases" element={<ManagerLeases />} />
+
+        {/* Notifications */}
+        <Route path="notifications" element={<Notifications />} />
 
         {/* Profile */}
         <Route path="profile" element={<Profile />} />
@@ -201,6 +210,9 @@ export default function AppRoutes() {
         <Route path="payments/batch" element={<BatchPayments />} />
         <Route path="finance" element={<FinancialDashboard />} />
 
+        {/* Notifications */}
+        <Route path="notifications" element={<Notifications />} />
+
         {/* Profile */}
         <Route path="profile" element={<Profile />} />
       </Route>
@@ -224,6 +236,9 @@ export default function AppRoutes() {
         <Route path="payments" element={<TenantPayments />} />
         <Route path="charges" element={<TenantCharges />} />
 
+        {/* Notifications */}
+        <Route path="notifications" element={<Notifications />} />
+
         {/* Profile */}
         <Route path="profile" element={<Profile />} />
       </Route>
@@ -238,6 +253,9 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<SuperAdminDashboard />} />
+
+        {/* Notifications */}
+        <Route path="notifications" element={<Notifications />} />
 
         {/* Profile */}
         <Route path="profile" element={<Profile />} />

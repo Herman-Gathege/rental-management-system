@@ -2,14 +2,13 @@
 //
 // Landlord (owner) dashboard body. Greeting + org-wide widgets + notifications
 // + recent payments.
-// Pulls /dashboard/owner/summary (portfolio counts + money, the money block
-// reusing the finance summary so the figures match the finance dashboard) and
+// Pulls /dashboard/owner/summary (portfolio counts + money) and
 // /dashboard/finance/recent-payments (the landlord is permitted on it).
-// Reuses the shared .dash-* card styles, same as the manager/finance pages.
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { getOwnerSummary, getFinanceRecentPayments } from "../../api/dashboard";
+import NotificationsCard from "../../components/ui/NotificationsCard";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -57,8 +56,6 @@ export default function DashboardContent({ roleLabel }) {
 
   if (!user) return null;
 
-  // Show the email after the greeting (matches the Finance dashboard look).
-  // For name + email instead, use: `${user.full_name} — ${user.email}`.
   const greeting = user.email || user.full_name || "there";
 
   const cards = summary
@@ -74,11 +71,6 @@ export default function DashboardContent({ roleLabel }) {
         { label: "Outstanding", value: money(summary.outstanding_balance), money: true },
       ]
     : [];
-
-  // Notifications placeholder. The notifications module isn't built yet, so
-  // this renders an honest empty state for now; once there's a notifications
-  // feed/endpoint, swap this array for the fetched items and map over them.
-  const notifications = [];
 
   return (
     <div className="p-6">
@@ -109,24 +101,7 @@ export default function DashboardContent({ roleLabel }) {
             ))}
           </div>
 
-          <div className="dash-panel mb-md">
-            <div className="dash-panel-title">Notifications</div>
-            {notifications.length === 0 ? (
-              <div className="text-muted">
-                You're all caught up — no new notifications.
-              </div>
-            ) : (
-              notifications.map((n, i) => (
-                <div className="dash-row" key={i}>
-                  <div>
-                    <div className="text-bold">{n.title}</div>
-                    <div className="text-muted">{n.body}</div>
-                  </div>
-                  <span className="text-muted">{fmtDate(n.created_at)}</span>
-                </div>
-              ))
-            )}
-          </div>
+          <NotificationsCard />
 
           <div className="dash-panel">
             <div className="dash-panel-title">Recent Payments</div>

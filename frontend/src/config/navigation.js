@@ -19,6 +19,7 @@ import {
   FiUser,
   FiUploadCloud,
   FiBarChart2,
+  FiBell,
 } from "react-icons/fi";
 
 /* ================= LANDLORD / PORTFOLIO OWNER =================
@@ -27,6 +28,7 @@ import {
  */
 export const ownerNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/owner/dashboard" },
+  { label: "Notifications", icon: FiBell, path: "/owner/notifications" },
 
   {
     label: "Properties",
@@ -88,6 +90,7 @@ export const ownerNavigation = [
  */
 export const staffNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/manager/dashboard" },
+  { label: "Notifications", icon: FiBell, path: "/manager/notifications" },
   { label: "Properties", icon: FiBriefcase, path: "/manager/properties" },
   { label: "Units", icon: FiLayers, path: "/manager/units" },
   { label: "Tenants", icon: FiUsers, path: "/manager/tenants" },
@@ -103,6 +106,7 @@ export const staffNavigation = [
  */
 export const financeNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/finance" },
+  { label: "Notifications", icon: FiBell, path: "/finance/notifications" },
   { label: "Billing", icon: FiFileText, path: "/finance/billing" },
   { label: "Payments", icon: FiDollarSign, path: "/finance/payments" },
   { label: "Batch Upload", icon: FiUploadCloud, path: "/finance/payments/batch" },
@@ -117,6 +121,7 @@ export const financeNavigation = [
  */
 export const tenantNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/tenant" },
+  { label: "Notifications", icon: FiBell, path: "/tenant/notifications" },
   { label: "My Lease", icon: FiFileText, path: "/tenant/lease" },
   { label: "Lease Checklist", icon: FiCheckSquare, path: "/tenant/inspections" },
   { label: "My Payments", icon: FiDollarSign, path: "/tenant/payments" },
@@ -127,6 +132,7 @@ export const tenantNavigation = [
 /* ================= SYSTEM / SUPER ADMIN ================= */
 export const superAdminNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/super-admin/dashboard" },
+  { label: "Notifications", icon: FiBell, path: "/super-admin/notifications" },
   { label: "Organizations", icon: FiUsers, path: "/super-admin/organizations" },
   { label: "Profile", icon: FiUser, path: "/super-admin/profile" },
 ];

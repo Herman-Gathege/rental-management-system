@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { getManagerSummary, getManagerProperties } from "../../api/dashboard";
+import NotificationsCard from "../../components/ui/NotificationsCard";
 
 export default function StaffDashboard() {
   const { user } = useAuth();
@@ -90,6 +91,8 @@ export default function StaffDashboard() {
               </div>
             ))}
           </div>
+
+          <NotificationsCard />
 
           <div className="dash-panel">
             <div className="dash-panel-title">Your Properties</div>
