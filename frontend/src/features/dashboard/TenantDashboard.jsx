@@ -2,8 +2,8 @@
 //
 // Tenant self-service dashboard (Sprint 4.5, multi-lease + property switcher).
 // Summary cards + charges/payments tables, all filtered to the property chosen
-// in the tenant property switcher (or all). Cards summarise the in-view leases:
-// property label, lease count, total monthly rent, and account balance.
+// in the tenant property switcher (or all).
+// Responsive: tables on desktop, MobileCardList stacked cards below 768px.
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
@@ -13,6 +13,7 @@ import {
   getTenantCharges,
   getTenantPayments,
 } from "../../api/dashboard";
+import MobileCardList from "../../components/ui/MobileCardList";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -160,30 +161,67 @@ export default function TenantDashboard() {
         {visibleCharges.length === 0 ? (
           <div className="text-muted">No charges yet.</div>
         ) : (
-          <table className="staff-table">
-            <thead>
-              <tr>
-                {showChargeProp && <th>Property</th>}
-                <th>Month</th>
-                <th>Amount</th>
-                <th>Paid</th>
-                <th>Balance</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleCharges.map((c, i) => (
-                <tr key={i}>
-                  {showChargeProp && <td>{c.property_name || "—"}</td>}
-                  <td>{fmtMonth(c.month)}</td>
-                  <td>{money(c.amount)}</td>
-                  <td>{money(c.amount_paid)}</td>
-                  <td className={isLate(c) ? "balance-late" : ""}>{money(c.balance)}</td>
-                  <td>{c.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            {/* Desktop table */}
+            <div className="staff-table-wrap hidden-mobile">
+              <table className="staff-table">
+                <thead>
+                  <tr>
+                    {showChargeProp && <th>Property</th>}
+                    <th>Month</th>
+                    <th>Amount</th>
+                    <th>Paid</th>
+                    <th>Balance</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleCharges.map((c, i) => (
+                    <tr key={i}>
+                      {showChargeProp && <td>{c.property_name || "—"}</td>}
+                      <td>{fmtMonth(c.month)}</td>
+                      <td>{money(c.amount)}</td>
+                      <td>{money(c.amount_paid)}</td>
+                      <td className={isLate(c) ? "balance-late" : ""}>{money(c.balance)}</td>
+                      <td>{c.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <MobileCardList
+              data={visibleCharges}
+              renderCard={(c, i) => (
+                <div className="staff-card" key={i}>
+                  <div className="staff-card-title">{fmtMonth(c.month)}</div>
+                  {showChargeProp && (
+                    <div className="staff-card-row">
+                      <span>Property</span>
+                      <span>{c.property_name || "—"}</span>
+                    </div>
+                  )}
+                  <div className="staff-card-row">
+                    <span>Amount</span>
+                    <span>{money(c.amount)}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Paid</span>
+                    <span>{money(c.amount_paid)}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Balance</span>
+                    <span className={isLate(c) ? "balance-late" : ""}>{money(c.balance)}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Status</span>
+                    <span>{c.status}</span>
+                  </div>
+                </div>
+              )}
+            />
+          </>
         )}
       </div>
 
@@ -193,26 +231,55 @@ export default function TenantDashboard() {
         {visiblePayments.length === 0 ? (
           <div className="text-muted">No payments yet.</div>
         ) : (
-          <table className="staff-table">
-            <thead>
-              <tr>
-                {showPayProp && <th>Property</th>}
-                <th>Date</th>
-                <th>Reference</th>
-                <th>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visiblePayments.map((p, i) => (
-                <tr key={i}>
-                  {showPayProp && <td>{p.property_name || "—"}</td>}
-                  <td>{fmtDate(p.date)}</td>
-                  <td>{p.reference || "—"}</td>
-                  <td>{money(p.amount)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            {/* Desktop table */}
+            <div className="staff-table-wrap hidden-mobile">
+              <table className="staff-table">
+                <thead>
+                  <tr>
+                    {showPayProp && <th>Property</th>}
+                    <th>Date</th>
+                    <th>Reference</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visiblePayments.map((p, i) => (
+                    <tr key={i}>
+                      {showPayProp && <td>{p.property_name || "—"}</td>}
+                      <td>{fmtDate(p.date)}</td>
+                      <td>{p.reference || "—"}</td>
+                      <td>{money(p.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <MobileCardList
+              data={visiblePayments}
+              renderCard={(p, i) => (
+                <div className="staff-card" key={i}>
+                  <div className="staff-card-title">{fmtDate(p.date)}</div>
+                  {showPayProp && (
+                    <div className="staff-card-row">
+                      <span>Property</span>
+                      <span>{p.property_name || "—"}</span>
+                    </div>
+                  )}
+                  <div className="staff-card-row">
+                    <span>Reference</span>
+                    <span>{p.reference || "—"}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Amount</span>
+                    <span>{money(p.amount)}</span>
+                  </div>
+                </div>
+              )}
+            />
+          </>
         )}
       </div>
     </div>

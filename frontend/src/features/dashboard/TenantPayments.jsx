@@ -4,10 +4,12 @@
 // Payments come back tagged with property_id; this page filters them to the
 // property chosen in the tenant property switcher (or shows all). A "Property"
 // column appears only in All mode when more than one property is present.
+// Responsive: table on desktop, MobileCardList stacked cards below 768px.
 
 import { useEffect, useState } from "react";
 import { getTenantPayments } from "../../api/dashboard";
 import { useTenantProperty } from "../../context/TenantPropertyContext";
+import MobileCardList from "../../components/ui/MobileCardList";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -89,28 +91,59 @@ export default function TenantPayments() {
           <div className="text-muted">No payments yet.</div>
         ) : (
           <>
-            <table className="staff-table">
-              <thead>
-                <tr>
-                  {showProperty && <th>Property</th>}
-                  <th>Date</th>
-                  <th>Reference</th>
-                  <th>Method</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((p, i) => (
-                  <tr key={i}>
-                    {showProperty && <td>{p.property_name || "—"}</td>}
-                    <td>{fmtDate(p.date)}</td>
-                    <td>{p.reference || "—"}</td>
-                    <td>{p.method ? p.method.toUpperCase() : "—"}</td>
-                    <td>{money(p.amount)}</td>
+            {/* Desktop table */}
+            <div className="staff-table-wrap hidden-mobile">
+              <table className="staff-table">
+                <thead>
+                  <tr>
+                    {showProperty && <th>Property</th>}
+                    <th>Date</th>
+                    <th>Reference</th>
+                    <th>Method</th>
+                    <th>Amount</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {visible.map((p, i) => (
+                    <tr key={i}>
+                      {showProperty && <td>{p.property_name || "—"}</td>}
+                      <td>{fmtDate(p.date)}</td>
+                      <td>{p.reference || "—"}</td>
+                      <td>{p.method ? p.method.toUpperCase() : "—"}</td>
+                      <td>{money(p.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <MobileCardList
+              data={visible}
+              renderCard={(p, i) => (
+                <div className="staff-card" key={i}>
+                  <div className="staff-card-title">{fmtDate(p.date)}</div>
+                  {showProperty && (
+                    <div className="staff-card-row">
+                      <span>Property</span>
+                      <span>{p.property_name || "—"}</span>
+                    </div>
+                  )}
+                  <div className="staff-card-row">
+                    <span>Reference</span>
+                    <span>{p.reference || "—"}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Method</span>
+                    <span>{p.method ? p.method.toUpperCase() : "—"}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Amount</span>
+                    <span>{money(p.amount)}</span>
+                  </div>
+                </div>
+              )}
+            />
 
             <div className="text-muted mt-md">
               Total paid: <span className="text-bold">{money(totalPaid)}</span>

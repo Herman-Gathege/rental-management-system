@@ -3,12 +3,13 @@
 // Tenant "My Charges" page (Sprint 4.5 tenant portal, multi-lease + switcher).
 // Charges come back tagged with property_id; this page filters them to the
 // property chosen in the tenant property switcher (or shows all). A "Property"
-// column appears only in All mode when more than one property is present, so
-// mixed rows stay readable without cluttering single-property views.
+// column appears only in All mode when more than one property is present.
+// Responsive: table on desktop, MobileCardList stacked cards below 768px.
 
 import { useEffect, useState } from "react";
 import { getTenantCharges } from "../../api/dashboard";
 import { useTenantProperty } from "../../context/TenantPropertyContext";
+import MobileCardList from "../../components/ui/MobileCardList";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -102,34 +103,75 @@ export default function TenantCharges() {
           <div className="text-muted">No charges yet.</div>
         ) : (
           <>
-            <table className="staff-table">
-              <thead>
-                <tr>
-                  {showProperty && <th>Property</th>}
-                  <th>Month</th>
-                  <th>Due</th>
-                  <th>Amount</th>
-                  <th>Paid</th>
-                  <th>Balance</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((c, i) => (
-                  <tr key={i}>
-                    {showProperty && <td>{c.property_name || "—"}</td>}
-                    <td>{fmtMonth(c.month)}</td>
-                    <td>{fmtDate(c.due_date)}</td>
-                    <td>{money(c.amount)}</td>
-                    <td>{money(c.amount_paid)}</td>
-                    <td className={isLate(c) ? "balance-late" : ""}>
-                      {money(c.balance)}
-                    </td>
-                    <td>{c.status}</td>
+            {/* Desktop table */}
+            <div className="staff-table-wrap hidden-mobile">
+              <table className="staff-table">
+                <thead>
+                  <tr>
+                    {showProperty && <th>Property</th>}
+                    <th>Month</th>
+                    <th>Due</th>
+                    <th>Amount</th>
+                    <th>Paid</th>
+                    <th>Balance</th>
+                    <th>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {visible.map((c, i) => (
+                    <tr key={i}>
+                      {showProperty && <td>{c.property_name || "—"}</td>}
+                      <td>{fmtMonth(c.month)}</td>
+                      <td>{fmtDate(c.due_date)}</td>
+                      <td>{money(c.amount)}</td>
+                      <td>{money(c.amount_paid)}</td>
+                      <td className={isLate(c) ? "balance-late" : ""}>
+                        {money(c.balance)}
+                      </td>
+                      <td>{c.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <MobileCardList
+              data={visible}
+              renderCard={(c, i) => (
+                <div className="staff-card" key={i}>
+                  <div className="staff-card-title">{fmtMonth(c.month)}</div>
+                  {showProperty && (
+                    <div className="staff-card-row">
+                      <span>Property</span>
+                      <span>{c.property_name || "—"}</span>
+                    </div>
+                  )}
+                  <div className="staff-card-row">
+                    <span>Due</span>
+                    <span>{fmtDate(c.due_date)}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Amount</span>
+                    <span>{money(c.amount)}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Paid</span>
+                    <span>{money(c.amount_paid)}</span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Balance</span>
+                    <span className={isLate(c) ? "balance-late" : ""}>
+                      {money(c.balance)}
+                    </span>
+                  </div>
+                  <div className="staff-card-row">
+                    <span>Status</span>
+                    <span>{c.status}</span>
+                  </div>
+                </div>
+              )}
+            />
 
             <div className="text-muted mt-md">
               Total outstanding:{" "}

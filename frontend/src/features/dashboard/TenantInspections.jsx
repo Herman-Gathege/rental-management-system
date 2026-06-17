@@ -4,12 +4,13 @@
 // Read-only view of the tenant's move-in and move-out inspections across all
 // their leases, filtered by the active property switcher like the other tenant
 // pages. Shows item conditions, comments, photos, and — for move-out — any
-// deposit deductions. No internal notes or inspector identity (handled in the
-// backend serializer).
+// deposit deductions. No internal notes or inspector identity.
+// Responsive: each inspection's item table -> MobileCardList cards below 768px.
 
 import { useEffect, useState } from "react";
 import { getTenantInspections } from "../../api/dashboard";
 import { useTenantProperty } from "../../context/TenantPropertyContext";
+import MobileCardList from "../../components/ui/MobileCardList";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -28,6 +29,26 @@ const TYPE_LABEL = { move_in: "Move-In", move_out: "Move-Out" };
 // "needs_repair" -> "Needs Repair", "working" -> "Working"
 const condLabel = (c) =>
   c ? c.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()) : "—";
+
+// Photo thumbnails (shared by table cell + mobile card).
+const Photos = ({ urls }) =>
+  !urls || urls.length === 0 ? (
+    "—"
+  ) : (
+    <div className="inspection-photos-grid">
+      {urls.map((url) => (
+        <a
+          key={url}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inspection-photo-thumb"
+        >
+          <img src={url} alt="Inspection" />
+        </a>
+      ))}
+    </div>
+  );
 
 export default function TenantInspections() {
   const tp = useTenantProperty() || {};
@@ -118,60 +139,87 @@ export default function TenantInspections() {
                 </span>
               </div>
 
-              <table className="staff-table">
-                <thead>
-                  <tr>
-                    <th>Item</th>
-                    <th>Condition</th>
-                    <th>Comments</th>
-                    {isMoveOut && <th>Deduction</th>}
-                    <th>Photos</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {insp.items.map((it) => (
-                    <tr key={it.id}>
-                      <td className="text-bold">{it.item_name}</td>
-                      <td>
-                        <span
-                          className={`condition-badge condition-${
-                            it.condition || ""
-                          }`}
-                        >
-                          {condLabel(it.condition)}
-                        </span>
-                      </td>
-                      <td>{it.comments || "—"}</td>
-                      {isMoveOut && (
+              {/* Desktop table */}
+              <div className="staff-table-wrap hidden-mobile">
+                <table className="staff-table">
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Condition</th>
+                      <th>Comments</th>
+                      {isMoveOut && <th>Deduction</th>}
+                      <th>Photos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {insp.items.map((it) => (
+                      <tr key={it.id}>
+                        <td className="text-bold">{it.item_name}</td>
                         <td>
+                          <span
+                            className={`condition-badge condition-${
+                              it.condition || ""
+                            }`}
+                          >
+                            {condLabel(it.condition)}
+                          </span>
+                        </td>
+                        <td>{it.comments || "—"}</td>
+                        {isMoveOut && (
+                          <td>
+                            {it.deduction_amount
+                              ? money(it.deduction_amount)
+                              : "—"}
+                          </td>
+                        )}
+                        <td>
+                          <Photos urls={it.photo_urls} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile cards */}
+              <MobileCardList
+                data={insp.items}
+                renderCard={(it) => (
+                  <div className="staff-card" key={it.id}>
+                    <div className="staff-card-title">{it.item_name}</div>
+                    <div className="staff-card-row">
+                      <span>Condition</span>
+                      <span
+                        className={`condition-badge condition-${
+                          it.condition || ""
+                        }`}
+                      >
+                        {condLabel(it.condition)}
+                      </span>
+                    </div>
+                    <div className="staff-card-row">
+                      <span>Comments</span>
+                      <span>{it.comments || "—"}</span>
+                    </div>
+                    {isMoveOut && (
+                      <div className="staff-card-row">
+                        <span>Deduction</span>
+                        <span>
                           {it.deduction_amount
                             ? money(it.deduction_amount)
                             : "—"}
-                        </td>
-                      )}
-                      <td>
-                        {it.photo_urls.length === 0 ? (
-                          "—"
-                        ) : (
-                          <div className="inspection-photos-grid">
-                            {it.photo_urls.map((url) => (
-                              <a
-                                key={url}
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inspection-photo-thumb"
-                              >
-                                <img src={url} alt="Inspection" />
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </span>
+                      </div>
+                    )}
+                    {it.photo_urls && it.photo_urls.length > 0 && (
+                      <div className="mt-sm">
+                        <div className="text-sm text-muted mb-sm">Photos</div>
+                        <Photos urls={it.photo_urls} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              />
 
               {isMoveOut && (
                 <div className="text-muted mt-md">

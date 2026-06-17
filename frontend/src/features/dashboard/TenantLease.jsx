@@ -4,6 +4,7 @@
 // Renders one card per lease, filtered to the property chosen in the tenant
 // property switcher (or all). The top section shows the account standing for
 // whatever is in view (a single property, or everything).
+// Responsive: per-lease details render as label/value rows (no wide table).
 
 import { useEffect, useState } from "react";
 import { getTenantDashboard } from "../../api/dashboard";
@@ -143,30 +144,26 @@ export default function TenantLease() {
           return (
             <div className="dash-panel mb-md" key={l.id || i}>
               <div className="dash-panel-title">{title}</div>
-              <table className="staff-table">
-                <tbody>
-                  <tr>
-                    <td className="text-muted">Status</td>
-                    <td>{l.status || "—"}</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted">Monthly Rent</td>
-                    <td>{money(l.rent_amount)}</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted">Start Date</td>
-                    <td>{fmtDate(l.start_date)}</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted">End Date</td>
-                    <td>{fmtDate(l.end_date)}</td>
-                  </tr>
-                  <tr>
-                    <td className="text-muted">Balance</td>
-                    <td className={standing.cls}>{standing.text}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="staff-card-row">
+                <span>Status</span>
+                <span>{l.status || "—"}</span>
+              </div>
+              <div className="staff-card-row">
+                <span>Monthly Rent</span>
+                <span>{money(l.rent_amount)}</span>
+              </div>
+              <div className="staff-card-row">
+                <span>Start Date</span>
+                <span>{fmtDate(l.start_date)}</span>
+              </div>
+              <div className="staff-card-row">
+                <span>End Date</span>
+                <span>{fmtDate(l.end_date)}</span>
+              </div>
+              <div className="staff-card-row">
+                <span>Balance</span>
+                <span className={standing.cls}>{standing.text}</span>
+              </div>
             </div>
           );
         })
