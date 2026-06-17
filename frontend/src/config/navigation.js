@@ -17,6 +17,8 @@ import {
   FiLayers,
   FiCheckSquare,
   FiUser,
+  FiUploadCloud,
+  FiBarChart2,
 } from "react-icons/fi";
 
 /* ================= LANDLORD / PORTFOLIO OWNER =================
@@ -96,13 +98,15 @@ export const staffNavigation = [
 /* ================= FINANCE =================
  * Guide Phase 8: Dashboard, Billing, Payments, Finance.
  * Paths use /finance/* (matches the finance mount in AppRoutes).
+ * Distinct icons per menu (was all FiDollarSign): Billing=invoices,
+ * Payments=money in, Batch Upload=upload, Finance=analytics.
  */
 export const financeNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/finance" },
-  { label: "Billing", icon: FiDollarSign, path: "/finance/billing" },
+  { label: "Billing", icon: FiFileText, path: "/finance/billing" },
   { label: "Payments", icon: FiDollarSign, path: "/finance/payments" },
-  { label: "Batch Upload", icon: FiDollarSign, path: "/finance/payments/batch" },
-  { label: "Finance", icon: FiDollarSign, path: "/finance/finance" },
+  { label: "Batch Upload", icon: FiUploadCloud, path: "/finance/payments/batch" },
+  { label: "Finance", icon: FiBarChart2, path: "/finance/finance" },
   { label: "Profile", icon: FiUser, path: "/finance/profile" },
 ];
 
@@ -157,9 +161,9 @@ export const tenantBottomNav = [
 
 export const financeBottomNav = [
   { label: "Home", icon: FiHome, path: "/finance", end: true },
-  { label: "Billing", icon: FiDollarSign, path: "/finance/billing" },
+  { label: "Billing", icon: FiFileText, path: "/finance/billing" },
   { label: "Payments", icon: FiDollarSign, path: "/finance/payments" },
-  { label: "Finance", icon: FiDollarSign, path: "/finance/finance" },
+  { label: "Finance", icon: FiBarChart2, path: "/finance/finance" },
 ];
 
 export const superAdminBottomNav = [
