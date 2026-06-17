@@ -13,6 +13,8 @@ from app.models.unit import Unit
 from app.models.property import Property
 from app.models.charge import Charge
 from app.models.payment import Payment
+from app.core.roles import FINANCE
+from app.services.finance_scope import assigned_finance_property_ids, lease_ids_for_properties
 
 router = APIRouter(prefix="/finance", tags=["Finance"])
 
@@ -108,44 +110,66 @@ def get_dashboard_summary(
 ):
     membership = get_user_org(current_user, db)
     org_id = membership.organization_id
+    role = membership.role.name if membership.role else None
+
+    # Finance scoping: restrict every figure to the finance user's assigned
+    # properties. None => org-wide (landlord). Empty list => sees nothing.
+    scoped_lease_ids = None
+    scoped_property_ids = None
+    if role == FINANCE:
+        scoped_property_ids = assigned_finance_property_ids(db, current_user.id, org_id)
+        scoped_lease_ids = lease_ids_for_properties(db, scoped_property_ids)
+        if not scoped_lease_ids:
+            return {
+                "total_expected_rent": 0.0,
+                "total_collected": 0.0,
+                "total_overdue": 0.0,
+                "occupancy_rate": 0.0,
+                "total_units": 0,
+                "occupied_units": 0,
+            }
 
     # Total expected rent (sum of all active lease rent amounts)
-    total_expected = (
+    expected_q = (
         db.query(func.coalesce(func.sum(Lease.rent_amount), 0))
         .filter(Lease.organization_id == org_id, Lease.status == "active")
-        .scalar()
     )
-
     # Total collected (all payments)
-    total_collected = (
+    collected_q = (
         db.query(func.coalesce(func.sum(Payment.amount), 0))
         .filter(Payment.organization_id == org_id)
-        .scalar()
     )
-
-    # Total overdue
-    total_overdue = (
+    # Total overdue (pending/overdue charges)
+    overdue_q = (
         db.query(func.coalesce(func.sum(Charge.amount), 0))
         .filter(
             Charge.organization_id == org_id,
             Charge.status.in_(["overdue", "pending"])
         )
-        .scalar()
     )
-
     # Occupancy
-    total_units = (
+    units_q = (
         db.query(func.count(Unit.id))
         .join(Property, Unit.property_id == Property.id)
-        .filter(Property.organization_id == org_id, Unit.is_active == True)
-        .scalar()
+        .filter(Property.organization_id == org_id, Unit.is_active == True)  # noqa: E712
     )
-
-    occupied_units = (
+    occupied_q = (
         db.query(func.count(func.distinct(Lease.unit_id)))
         .filter(Lease.organization_id == org_id, Lease.status == "active")
-        .scalar()
     )
+
+    if scoped_lease_ids is not None:
+        expected_q = expected_q.filter(Lease.id.in_(scoped_lease_ids))
+        collected_q = collected_q.filter(Payment.lease_id.in_(scoped_lease_ids))
+        overdue_q = overdue_q.filter(Charge.lease_id.in_(scoped_lease_ids))
+        units_q = units_q.filter(Unit.property_id.in_(scoped_property_ids))
+        occupied_q = occupied_q.filter(Lease.id.in_(scoped_lease_ids))
+
+    total_expected = expected_q.scalar()
+    total_collected = collected_q.scalar()
+    total_overdue = overdue_q.scalar()
+    total_units = units_q.scalar() or 0
+    occupied_units = occupied_q.scalar() or 0
 
     occupancy_rate = (occupied_units / total_units * 100) if total_units > 0 else 0
 

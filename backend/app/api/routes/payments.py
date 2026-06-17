@@ -12,10 +12,12 @@ from app.models.tenant import Tenant
 from app.models.lease import Lease
 from app.models.charge import Charge
 from app.models.payment import Payment
+from app.core.roles import FINANCE
 from app.schemas.finance import PaymentCreate
 from app.services.audit_service import log_action
 from app.services.messaging import notify_payment_received
 from app.services.billing_service import recompute_lease_settlement
+from app.services.finance_scope import assigned_finance_property_ids, lease_ids_for_properties
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
@@ -122,7 +124,9 @@ def list_payments(
     db: Session = Depends(get_db)
 ):
     membership = get_user_org(current_user, db)
-    query = db.query(Payment).filter(Payment.organization_id == membership.organization_id)
+    org_id = membership.organization_id
+    role = membership.role.name if membership.role else None
+    query = db.query(Payment).filter(Payment.organization_id == org_id)
 
     if tenant_id:
         query = query.filter(Payment.tenant_id == tenant_id)
@@ -135,6 +139,15 @@ def list_payments(
             .filter(Unit.property_id == property_id).subquery()
         )
         query = query.filter(Payment.lease_id.in_(lease_ids))
+
+    # Finance scoping: a FINANCE user only sees payments for the properties
+    # they're assigned to. Empty assignment => nothing (strict).
+    if role == FINANCE:
+        prop_ids = assigned_finance_property_ids(db, current_user.id, org_id)
+        scoped_lease_ids = lease_ids_for_properties(db, prop_ids)
+        if not scoped_lease_ids:
+            return []
+        query = query.filter(Payment.lease_id.in_(scoped_lease_ids))
 
     payments = query.order_by(Payment.payment_date.desc()).all()
     result = []

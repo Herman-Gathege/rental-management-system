@@ -11,7 +11,8 @@ Scoping rules enforced here:
     within their own organization. Units / tenants / leases are all derived
     from those assigned properties.
   - Owner/Landlord: organization-wide portfolio + money (every property).
-  - Finance: organization-wide financial records.
+  - Finance: organization-wide by default, OR restricted to a passed-in set of
+    property_ids (the finance user's assigned properties — see finance_scope).
   - Tenant: only the tenant row linked to their user account (tenants.user_id),
     and that tenant's own leases / charges / payments.
 
@@ -42,6 +43,7 @@ from app.models.charge import Charge
 from app.models.payment import Payment
 from app.models.lease_inspection import LeaseInspection
 from app.models.inspection_item import InspectionItem
+from app.services.finance_scope import lease_ids_for_properties
 
 
 # ---------------------------------------------------------------------
@@ -229,36 +231,57 @@ def get_manager_leases(db: Session, user_id: str, org_id: str) -> list:
 # Finance
 # ---------------------------------------------------------------------
 
-def get_finance_summary(db: Session, org_id: str) -> dict:
+def get_finance_summary(db: Session, org_id: str, property_ids=None) -> dict:
+    """Org-wide money summary. If property_ids is provided (a FINANCE user's
+    assigned properties), restrict every figure to leases in those properties;
+    an empty list => all zeros (strict scoping). property_ids=None => org-wide
+    (landlord / owner summary)."""
     today = date.today()
 
-    expected_rent = (
+    lease_ids = None
+    if property_ids is not None:
+        lease_ids = lease_ids_for_properties(db, property_ids)
+        if not lease_ids:
+            return {
+                "total_collected": 0.0,
+                "expected_rent": 0.0,
+                "outstanding_balance": 0.0,
+                "overdue_charges": 0,
+            }
+
+    expected_q = (
         db.query(func.coalesce(func.sum(Lease.rent_amount), 0))
         .filter(Lease.organization_id == org_id, Lease.status == "active")
-        .scalar()
     )
-    total_collected = (
+    collected_q = (
         db.query(func.coalesce(func.sum(Payment.amount), 0))
         .filter(Payment.organization_id == org_id)
-        .scalar()
     )
-    total_charged = (
+    charged_q = (
         db.query(func.coalesce(func.sum(Charge.amount), 0))
         .filter(Charge.organization_id == org_id)
-        .scalar()
     )
-
     # Overdue (Option A): past due AND still owing a balance. Counts
     # partially-paid-but-late charges, matching the Billing Overdue tab.
-    overdue_charges = (
+    overdue_q = (
         db.query(func.count(Charge.id))
         .filter(
             Charge.organization_id == org_id,
             Charge.due_date < today,
             Charge.amount_paid < Charge.amount,
         )
-        .scalar()
-    ) or 0
+    )
+
+    if lease_ids is not None:
+        expected_q = expected_q.filter(Lease.id.in_(lease_ids))
+        collected_q = collected_q.filter(Payment.lease_id.in_(lease_ids))
+        charged_q = charged_q.filter(Charge.lease_id.in_(lease_ids))
+        overdue_q = overdue_q.filter(Charge.lease_id.in_(lease_ids))
+
+    expected_rent = expected_q.scalar()
+    total_collected = collected_q.scalar()
+    total_charged = charged_q.scalar()
+    overdue_charges = overdue_q.scalar() or 0
 
     outstanding_balance = max(float(total_charged) - float(total_collected), 0.0)
 
@@ -270,15 +293,22 @@ def get_finance_summary(db: Session, org_id: str) -> dict:
     }
 
 
-def get_finance_recent_payments(db: Session, org_id: str, limit: int = 10) -> list:
-    rows = (
+def get_finance_recent_payments(db: Session, org_id: str, limit: int = 10, property_ids=None) -> list:
+    """Recent payments, org-wide or (for a scoped FINANCE user) restricted to
+    leases in the given properties. Empty property list => []."""
+    q = (
         db.query(Payment, Tenant.full_name)
         .join(Tenant, Tenant.id == Payment.tenant_id)
         .filter(Payment.organization_id == org_id)
-        .order_by(Payment.created_at.desc())
-        .limit(limit)
-        .all()
     )
+
+    if property_ids is not None:
+        lease_ids = lease_ids_for_properties(db, property_ids)
+        if not lease_ids:
+            return []
+        q = q.filter(Payment.lease_id.in_(lease_ids))
+
+    rows = q.order_by(Payment.created_at.desc()).limit(limit).all()
     return [
         {
             "tenant_name": full_name,

@@ -12,8 +12,9 @@ from app.models.users import User
 from app.models.organization_member import OrganizationMember
 from app.models.property import Property
 from app.models.property_manager import PropertyManager
+from app.models.property_finance_manager import PropertyFinanceManager
 from app.schemas.organization import PropertyCreate, PropertyOut, AssignManagerRequest
-from app.core.roles import LANDLORD, PROPERTY_MANAGER
+from app.core.roles import LANDLORD, PROPERTY_MANAGER, FINANCE
 from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/properties", tags=["Properties"])
@@ -50,11 +51,32 @@ def create_property(payload: PropertyCreate, current_user: User = Depends(get_cu
 @router.get("/")
 def list_properties(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     membership = get_user_org_membership(current_user, db)
-    if membership.role.name == LANDLORD:
-        properties = db.query(Property).filter(Property.organization_id == membership.organization_id).all()
+    org_id = membership.organization_id
+    role = membership.role.name if membership.role else None
+
+    if role == LANDLORD:
+        properties = db.query(Property).filter(Property.organization_id == org_id).all()
+    elif role == FINANCE:
+        # Finance only sees the properties they're assigned to (strict).
+        assigned_ids = (
+            db.query(PropertyFinanceManager.property_id)
+            .filter(PropertyFinanceManager.user_id == current_user.id)
+            .subquery()
+        )
+        properties = db.query(Property).filter(
+            Property.organization_id == org_id, Property.id.in_(assigned_ids)
+        ).all()
     else:
-        assigned_ids = db.query(PropertyManager.property_id).filter(PropertyManager.user_id == current_user.id).subquery()
-        properties = db.query(Property).filter(Property.organization_id == membership.organization_id, Property.id.in_(assigned_ids)).all()
+        # Property managers: assigned properties.
+        assigned_ids = (
+            db.query(PropertyManager.property_id)
+            .filter(PropertyManager.user_id == current_user.id)
+            .subquery()
+        )
+        properties = db.query(Property).filter(
+            Property.organization_id == org_id, Property.id.in_(assigned_ids)
+        ).all()
+
     return [{"id": p.id, "name": p.name, "address": p.address, "city": p.city, "country": p.country, "organization_id": p.organization_id, "created_at": p.created_at} for p in properties]
 
 
@@ -64,13 +86,22 @@ def get_property(property_id: str, current_user: User = Depends(get_current_user
     prop = db.query(Property).filter(Property.id == property_id, Property.organization_id == membership.organization_id).first()
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
+
     managers = db.query(PropertyManager).filter(PropertyManager.property_id == property_id).all()
     manager_list = []
     for pm in managers:
         user = db.query(User).filter(User.id == pm.user_id).first()
         if user:
             manager_list.append({"user_id": user.id, "email": user.email})
-    return {"id": prop.id, "name": prop.name, "address": prop.address, "city": prop.city, "country": prop.country, "organization_id": prop.organization_id, "created_at": prop.created_at, "managers": manager_list}
+
+    finance_managers = db.query(PropertyFinanceManager).filter(PropertyFinanceManager.property_id == property_id).all()
+    finance_list = []
+    for fm in finance_managers:
+        user = db.query(User).filter(User.id == fm.user_id).first()
+        if user:
+            finance_list.append({"user_id": user.id, "email": user.email})
+
+    return {"id": prop.id, "name": prop.name, "address": prop.address, "city": prop.city, "country": prop.country, "organization_id": prop.organization_id, "created_at": prop.created_at, "managers": manager_list, "finance_managers": finance_list}
 
 
 @router.put("/{property_id}")
@@ -127,3 +158,42 @@ def remove_manager(property_id: str, user_id: str, current_user: User = Depends(
     db.delete(assignment)
     db.commit()
     return {"message": "Manager removed from property"}
+
+
+# ─── Finance manager assignment (mirror of property-manager assignment) ───
+@router.post("/{property_id}/assign-finance")
+def assign_finance(property_id: str, payload: AssignManagerRequest, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    membership = get_user_org_membership(current_user, db)
+    if membership.role.name != LANDLORD:
+        raise HTTPException(status_code=403, detail="Only landlords can assign finance managers")
+    prop = db.query(Property).filter(Property.id == property_id, Property.organization_id == membership.organization_id).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    target_membership = db.query(OrganizationMember).filter(OrganizationMember.user_id == payload.user_id, OrganizationMember.organization_id == membership.organization_id).first()
+    if not target_membership:
+        raise HTTPException(status_code=404, detail="User is not a member of this organization")
+    if target_membership.role.name != FINANCE:
+        raise HTTPException(status_code=400, detail="User must have the FINANCE role")
+    existing = db.query(PropertyFinanceManager).filter(PropertyFinanceManager.property_id == property_id, PropertyFinanceManager.user_id == payload.user_id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Finance manager is already assigned")
+    assignment = PropertyFinanceManager(id=str(uuid.uuid4()), property_id=property_id, user_id=payload.user_id)
+    db.add(assignment)
+    user = db.query(User).filter(User.id == payload.user_id).first()
+    log_action(db, membership.organization_id, current_user.id, "create", "property_finance_manager", assignment.id, f"Assigned finance manager {user.email} to {prop.name}")
+    db.commit()
+    return {"message": f"Finance manager {user.email} assigned to {prop.name}", "property_id": property_id, "user_id": payload.user_id}
+
+
+@router.delete("/{property_id}/remove-finance/{user_id}")
+def remove_finance(property_id: str, user_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    membership = get_user_org_membership(current_user, db)
+    if membership.role.name != LANDLORD:
+        raise HTTPException(status_code=403, detail="Only landlords can remove finance managers")
+    assignment = db.query(PropertyFinanceManager).filter(PropertyFinanceManager.property_id == property_id, PropertyFinanceManager.user_id == user_id).first()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    log_action(db, membership.organization_id, current_user.id, "delete", "property_finance_manager", assignment.id, f"Removed finance manager from property {property_id}")
+    db.delete(assignment)
+    db.commit()
+    return {"message": "Finance manager removed from property"}

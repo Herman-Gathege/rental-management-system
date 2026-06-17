@@ -15,9 +15,11 @@ from app.models.property import Property
 from app.models.tenant import Tenant
 from app.models.charge import Charge
 from app.models.payment import Payment
+from app.core.roles import FINANCE
 from app.services.audit_service import log_action
 from app.services.messaging import notify_rent_due_for_charges
 from app.services.billing_service import recompute_lease_settlement
+from app.services.finance_scope import assigned_finance_property_ids, lease_ids_for_properties
 
 router = APIRouter(prefix="/charges", tags=["Charges"])
 
@@ -104,7 +106,6 @@ def generate_monthly_charges(
     new_charge_ids: list[str] = []
     affected_lease_ids: set[str] = set()
     skipped = 0
-    
 
     for lease in active_leases:
         existing = db.query(Charge).filter(Charge.lease_id == lease.id, Charge.billing_month == billing_month).first()
@@ -145,8 +146,10 @@ def generate_monthly_charges(
 @router.get("/")
 def list_charges(status: str = Query(None), lease_id: str = Query(None), property_id: str = Query(None), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     membership = get_user_org(current_user, db)
+    org_id = membership.organization_id
+    role = membership.role.name if membership.role else None
     today = date.today()
-    query = db.query(Charge).filter(Charge.organization_id == membership.organization_id)
+    query = db.query(Charge).filter(Charge.organization_id == org_id)
 
     if status == "overdue":
         # Option A: "overdue" = anything past its due date that still owes a
@@ -161,6 +164,15 @@ def list_charges(status: str = Query(None), lease_id: str = Query(None), propert
     if property_id:
         lease_ids = db.query(Lease.id).join(Unit, Lease.unit_id == Unit.id).filter(Unit.property_id == property_id).subquery()
         query = query.filter(Charge.lease_id.in_(lease_ids))
+
+    # Finance scoping: a FINANCE user only sees charges for the properties
+    # they're assigned to. Empty assignment => nothing (strict).
+    if role == FINANCE:
+        prop_ids = assigned_finance_property_ids(db, current_user.id, org_id)
+        scoped_lease_ids = lease_ids_for_properties(db, prop_ids)
+        if not scoped_lease_ids:
+            return []
+        query = query.filter(Charge.lease_id.in_(scoped_lease_ids))
 
     charges = query.order_by(Charge.due_date.desc()).all()
 

@@ -5,7 +5,8 @@ Role-based dashboard endpoints (Sprint 4.5).
 Each role gets its own slice of data:
   - PROPERTY_MANAGER   -> /dashboard/manager/*   (their assigned properties)
   - LANDLORD           -> /dashboard/owner/*     (org-wide portfolio + money)
-  - FINANCE / LANDLORD -> /dashboard/finance/*   (org-wide money)
+  - FINANCE / LANDLORD -> /dashboard/finance/*   (LANDLORD org-wide; FINANCE
+                                                  scoped to assigned properties)
   - TENANT             -> /dashboard/tenant/*    (their own records)
 
 Authz lives here; the queries live in dashboard_service. We resolve the
@@ -27,6 +28,7 @@ from app.schemas.dashboard import (
     TenantDashboardResponse,
 )
 from app.services import dashboard_service
+from app.services.finance_scope import assigned_finance_property_ids
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -46,6 +48,15 @@ def _require(membership: OrganizationMember, *allowed_roles: str) -> None:
     role = membership.role.name if membership.role else None
     if role not in allowed_roles:
         raise HTTPException(status_code=403, detail="Access denied")
+
+
+def _finance_scope(db: Session, user: User, membership: OrganizationMember):
+    """For a FINANCE caller, the property IDs they're assigned to (strict:
+    [] => sees nothing). For a LANDLORD caller, None => org-wide."""
+    role = membership.role.name if membership.role else None
+    if role == FINANCE:
+        return assigned_finance_property_ids(db, user.id, membership.organization_id)
+    return None
 
 
 # ─── Property Manager ───
@@ -131,7 +142,10 @@ def finance_summary(
 ):
     membership = _membership(db, current_user)
     _require(membership, FINANCE, LANDLORD)
-    return dashboard_service.get_finance_summary(db, membership.organization_id)
+    property_ids = _finance_scope(db, current_user, membership)
+    return dashboard_service.get_finance_summary(
+        db, membership.organization_id, property_ids
+    )
 
 
 @router.get("/finance/recent-payments")
@@ -141,8 +155,9 @@ def finance_recent_payments(
 ):
     membership = _membership(db, current_user)
     _require(membership, FINANCE, LANDLORD)
+    property_ids = _finance_scope(db, current_user, membership)
     return dashboard_service.get_finance_recent_payments(
-        db, membership.organization_id
+        db, membership.organization_id, property_ids=property_ids
     )
 
 

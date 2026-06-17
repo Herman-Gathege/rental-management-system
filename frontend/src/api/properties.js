@@ -35,3 +35,19 @@ export const removeManager = async (propertyId, userId) => {
   );
   return data;
 };
+
+/* ASSIGN finance manager to a property */
+export const assignFinance = async (propertyId, userId) => {
+  const { data } = await API.post(`/properties/${propertyId}/assign-finance`, {
+    user_id: userId,
+  });
+  return data;
+};
+
+/* REMOVE finance manager from a property */
+export const removeFinance = async (propertyId, userId) => {
+  const { data } = await API.delete(
+    `/properties/${propertyId}/remove-finance/${userId}`
+  );
+  return data;
+};
