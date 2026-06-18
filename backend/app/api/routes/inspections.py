@@ -15,10 +15,29 @@ from app.models.lease import Lease
 from app.models.lease_inspection import LeaseInspection
 from app.models.inspection_item import InspectionItem
 from app.models.inspection_note import InspectionNote
+from app.core.roles import LANDLORD, PROPERTY_MANAGER, TENANT
 from app.services.audit_service import log_action
 from app.services.s3_service import upload_file
 
 router = APIRouter(prefix="/inspections", tags=["Inspections"])
+
+
+# ─── Who may fill / sign each inspection type ───
+#
+# Move-in:  the inspection can be filled and signed by the landlord, a
+#           property manager, OR the tenant. Whoever signs it first locks
+#           it; after that it is read-only for everyone.
+#
+# Move-out: filling and signing is restricted to the landlord or a property
+#           manager. The tenant must NOT be able to fill a move-out inspection
+#           because its deductions come out of the tenant's own deposit
+#           (conflict of interest). The tenant can still VIEW it and their
+#           signature is captured on the conductor's device.
+#
+# Viewing (GET endpoints) stays open to any member of the organization.
+
+MOVE_IN_FILL_ROLES = {LANDLORD, PROPERTY_MANAGER, TENANT}
+MOVE_OUT_FILL_ROLES = {LANDLORD, PROPERTY_MANAGER}
 
 
 # ─── Schemas ───
@@ -64,6 +83,34 @@ def get_inspection_for_org(inspection_id: str, org_id: str, db: Session) -> Leas
     if not inspection:
         raise HTTPException(status_code=404, detail="Inspection not found")
     return inspection
+
+
+def assert_can_modify(membership: OrganizationMember, inspection: LeaseInspection):
+    """
+    Enforce who may fill or sign an inspection based on its type.
+
+    Move-in:  landlord, property manager, or tenant.
+    Move-out: landlord or property manager only.
+
+    Raises 403 if the current member's role is not permitted. This is the
+    backend enforcement of the permission matrix — the frontend hides the
+    controls too, but the rule is enforced here so it can't be bypassed
+    via the API.
+    """
+    role = membership.role.name if membership.role else None
+
+    if inspection.inspection_type == "move_out":
+        if role not in MOVE_OUT_FILL_ROLES:
+            raise HTTPException(
+                status_code=403,
+                detail="Only the landlord or a property manager can fill or sign a move-out inspection.",
+            )
+    else:
+        if role not in MOVE_IN_FILL_ROLES:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to fill this inspection.",
+            )
 
 
 def item_dict(item: InspectionItem) -> dict:
@@ -207,6 +254,9 @@ def update_inspection_item(
     membership = get_user_org(current_user, db)
     inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
 
+    # Permission: who is allowed to fill this inspection type?
+    assert_can_modify(membership, inspection)
+
     if inspection.status != "draft":
         raise HTTPException(
             status_code=400,
@@ -224,13 +274,12 @@ def update_inspection_item(
     if not item:
         raise HTTPException(status_code=404, detail="Inspection item not found")
 
-        valid_conditions = ["working", "faulty", "needs_repair"]
-
-        if payload.condition is not None and payload.condition not in valid_conditions:
-            raise HTTPException(
-                status_code=400,
-                detail=f"condition must be one of: {valid_conditions}"
-            )
+    valid_conditions = ["working", "faulty", "needs_repair"]
+    if payload.condition is not None and payload.condition not in valid_conditions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"condition must be one of: {valid_conditions}"
+        )
 
     update_data = payload.dict(exclude_unset=True)
     for key, value in update_data.items():
@@ -256,6 +305,9 @@ async def upload_item_photo(
 ):
     membership = get_user_org(current_user, db)
     inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
+
+    # Permission: who is allowed to fill this inspection type?
+    assert_can_modify(membership, inspection)
 
     if inspection.status != "draft":
         raise HTTPException(
@@ -313,6 +365,9 @@ def remove_item_photo(
     membership = get_user_org(current_user, db)
     inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
 
+    # Permission: who is allowed to fill this inspection type?
+    assert_can_modify(membership, inspection)
+
     if inspection.status != "draft":
         raise HTTPException(
             status_code=400,
@@ -359,6 +414,9 @@ def sign_inspection(
 ):
     membership = get_user_org(current_user, db)
     inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
+
+    # Permission: who is allowed to sign this inspection type?
+    assert_can_modify(membership, inspection)
 
     if inspection.status != "draft":
         raise HTTPException(status_code=400, detail="Inspection is already signed")
@@ -438,6 +496,10 @@ def sign_inspection(
 
 
 # ─── Add Note (post-signature) ───
+#
+# Notes are append-only annotations and do not alter the checklist or its
+# deductions, so they remain open to any organization member (a tenant can
+# record a dispute, etc.) regardless of inspection type.
 
 @router.post("/{inspection_id}/notes")
 def add_inspection_note(

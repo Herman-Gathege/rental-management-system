@@ -1,11 +1,20 @@
 //frontend\src\features\leases\LeaseDetail.jsx
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import { getLease, initiateMoveOut, uploadSignedLease } from "../../api/leases";
 
 export default function LeaseDetail() {
   const { leaseId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // The same lease detail page is mounted under both /owner and /manager.
+  // Links derive from the role so a PM stays inside /manager. Move-out
+  // initiation and termination are owner-only.
+  const role = user?.role?.toLowerCase();
+  const base = role === "property_manager" ? "/manager" : "/owner";
+  const isManager = role === "property_manager";
 
   const [lease, setLease] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -42,29 +51,13 @@ export default function LeaseDetail() {
     try {
       const result = await initiateMoveOut(leaseId);
       // Redirect straight to the move-out inspection page
-      navigate(`/owner/leases/${leaseId}/inspections/${result.inspection_id}`);
+      navigate(`${base}/leases/${leaseId}/inspections/${result.inspection_id}`);
     } catch (err) {
       alert(err.response?.data?.detail || "Failed to initiate move-out");
     } finally {
       setInitiating(false);
     }
   };
-
-  /* Upload signed lease document */
-  // const handleSignedUpload = async (e) => {
-  //   const file = e.target.files[0];
-  //   if (!file) return;
-  //   setUploadingSigned(true);
-  //   try {
-  //     await uploadSignedLease(leaseId, file);
-  //     fetchLease();
-  //   } catch (err) {
-  //     alert(err.response?.data?.detail || "Upload failed");
-  //   } finally {
-  //     setUploadingSigned(false);
-  //     e.target.value = "";
-  //   }
-  // };
 
   const handleSignedUpload = async (e) => {
     const files = Array.from(e.target.files);
@@ -80,12 +73,7 @@ export default function LeaseDetail() {
     setUploadingSigned(true);
 
     try {
-      // for (const file of files) {
-      //   await uploadSignedLease(leaseId, file);
-      // }
-
       await uploadSignedLease(leaseId, files);
-
       fetchLease();
     } catch (err) {
       alert(err.response?.data?.detail || "Upload failed");
@@ -110,7 +98,7 @@ export default function LeaseDetail() {
     <section className="properties-page">
       {/* Back link */}
       <div className="flex items-center gap-sm mb-sm">
-        <Link to="/owner/leases" className="text-sm checklist-back-link">
+        <Link to={`${base}/leases`} className="text-sm checklist-back-link">
           ← All Leases
         </Link>
       </div>
@@ -186,56 +174,6 @@ export default function LeaseDetail() {
             <div className="text-bold">{lease.signed_on_behalf_of}</div>
           </div>
         )}
-
-        {/* Signed lease document */}
-        {/* <div className="mt-md">
-          <div className="text-sm text-muted">Signed Lease Document</div>
-          {lease.signed_lease_url ? (
-            <div className="flex gap-sm items-center">
-              <a
-                href={lease.signed_lease_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-secondary btn-sm"
-              >
-                View Document
-              </a>
-              <label className="btn btn-secondary btn-sm doc-upload-label">
-                {uploadingSigned
-                  ? "Uploading..."
-                  : "Add / Replace Lease Documents (Max 3)"}
-                <input
-                  type="file"
-                  accept="application/pdf,image/*"
-                  multiple
-                  onChange={handleSignedUpload}
-                  disabled={uploadingSigned}
-                  className="doc-upload-hidden-input"
-                />
-              </label>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-xs">
-              <label className="btn btn-secondary btn-sm doc-upload-label">
-                {uploadingSigned
-                  ? "Uploading..."
-                  : "Upload Signed Lease Documents (Max 3)"}
-                <input
-                  type="file"
-                  accept="application/pdf,image/*"
-                  multiple
-                  onChange={handleSignedUpload}
-                  disabled={uploadingSigned}
-                  className="doc-upload-hidden-input"
-                />
-              </label>
-
-              <p className="text-xs text-muted">
-                You can upload up to 3 PDF or image files.
-              </p>
-            </div>
-          )}
-        </div> */}
 
         {/* Signed lease documents */}
         <div className="mt-md">
@@ -336,7 +274,7 @@ export default function LeaseDetail() {
           </div>
           {moveIn && (
             <Link
-              to={`/owner/leases/${leaseId}/inspections/${moveIn.id}`}
+              to={`${base}/leases/${leaseId}/inspections/${moveIn.id}`}
               className="btn btn-primary btn-sm"
             >
               {moveIn.status === "draft" ? "Conduct" : "View"}
@@ -356,7 +294,9 @@ export default function LeaseDetail() {
                     ` · Conducted ${new Date(moveOut.inspection_date).toLocaleDateString()}`}
                 </>
               ) : lease.status === "active" ? (
-                "Click 'Initiate Move-Out' below to begin"
+                isManager
+                  ? "Not started"
+                  : "Click 'Initiate Move-Out' below to begin"
               ) : (
                 "Not applicable"
               )}
@@ -364,7 +304,7 @@ export default function LeaseDetail() {
           </div>
           {moveOut && (
             <Link
-              to={`/owner/leases/${leaseId}/inspections/${moveOut.id}`}
+              to={`${base}/leases/${leaseId}/inspections/${moveOut.id}`}
               className="btn btn-primary btn-sm"
             >
               {moveOut.status === "draft" ? "Conduct" : "View"}
@@ -373,8 +313,9 @@ export default function LeaseDetail() {
         </div>
       </div>
 
-      {/* ─── Move-out action ─── */}
-      {lease.status === "active" && (
+      {/* ─── Move-out action (owner only — PMs cannot initiate move-out or
+              terminate a lease) ─── */}
+      {lease.status === "active" && !isManager && (
         <div className="card detail-card info-banner-warning">
           <h3>End This Tenancy</h3>
           <p className="text-sm">
@@ -395,7 +336,7 @@ export default function LeaseDetail() {
             )}
             {hasMoveOutDraft && (
               <Link
-                to={`/owner/leases/${leaseId}/inspections/${moveOut.id}`}
+                to={`${base}/leases/${leaseId}/inspections/${moveOut.id}`}
                 className="btn btn-primary"
               >
                 Continue Move-Out Inspection

@@ -1,12 +1,12 @@
 // frontend/src/features/dashboard/DashboardContent.jsx
 //
-// Landlord (owner) dashboard body. Greeting + org-wide widgets + notifications
-// + recent payments.
-// Pulls /dashboard/owner/summary (portfolio counts + money) and
-// /dashboard/finance/recent-payments (the landlord is permitted on it).
+// Landlord (owner) dashboard body. Greeting + portfolio/money widgets +
+// notifications + recent payments. Scopes to the property chosen in the navbar
+// switcher (All = org-wide). Refetches when the selection changes.
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useProperty } from "../../context/PropertyContext";
 import { getOwnerSummary, getFinanceRecentPayments } from "../../api/dashboard";
 import NotificationsCard from "../../components/ui/NotificationsCard";
 
@@ -24,6 +24,8 @@ const fmtDate = (d) =>
 
 export default function DashboardContent({ roleLabel }) {
   const { user } = useAuth();
+  const { activeProperty } = useProperty();
+  const activePropertyId = activeProperty?.id || null;
 
   const [summary, setSummary] = useState(null);
   const [payments, setPayments] = useState([]);
@@ -34,13 +36,15 @@ export default function DashboardContent({ roleLabel }) {
     let active = true;
     const load = async () => {
       try {
+        setLoading(true);
         const [s, p] = await Promise.all([
-          getOwnerSummary(),
-          getFinanceRecentPayments(),
+          getOwnerSummary(activePropertyId),
+          getFinanceRecentPayments(activePropertyId),
         ]);
         if (!active) return;
         setSummary(s);
         setPayments(p);
+        setError("");
       } catch (err) {
         if (!active) return;
         setError(err?.response?.data?.detail || "Could not load your dashboard.");
@@ -52,7 +56,7 @@ export default function DashboardContent({ roleLabel }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [activePropertyId]);
 
   if (!user) return null;
 
@@ -76,6 +80,10 @@ export default function DashboardContent({ roleLabel }) {
     <div className="p-6">
       <div className="text-lg font-bold mb-md">
         Welcome, <span className="company-blue text-bold">{greeting}</span> 👋
+      </div>
+
+      <div className="text-muted mb-md">
+        Viewing: {activeProperty ? activeProperty.name : "All Properties"}
       </div>
 
       {loading && <div className="dash-panel">Loading your dashboard…</div>}

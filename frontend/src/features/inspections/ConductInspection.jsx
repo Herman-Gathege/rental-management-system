@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import SignatureCanvas from "react-signature-canvas";
+import { useAuth } from "../../context/AuthContext";
 import {
   getInspection,
   getMoveInComparison,
@@ -26,9 +27,29 @@ const CONDITIONS = [
   { value: "needs_repair", label: "Needs Repair" },
 ];
 
+/* Where the "Back to Lease" / "Save Draft & Exit" links should point,
+   based on the logged-in role. Owners and managers go back to the lease
+   detail page; tenants go back to their Inspections list (they have no
+   lease-detail page of their own). */
+function inspectionBackLink(role, leaseId) {
+  switch (role) {
+    case "landlord":
+      return `/owner/leases/${leaseId}`;
+    case "property_manager":
+      return `/manager/leases/${leaseId}`;
+    case "tenant":
+      return `/tenant/inspections`;
+    case "finance":
+      return `/finance`;
+    default:
+      return `/owner/leases/${leaseId}`;
+  }
+}
+
 export default function ConductInspection() {
   const { leaseId, inspectionId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [inspection, setInspection] = useState(null);
   const [lease, setLease] = useState(null);
@@ -45,6 +66,9 @@ export default function ConductInspection() {
   // Post-signature note state
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
+
+  const role = user?.role?.toLowerCase();
+  const backLink = inspectionBackLink(role, leaseId);
 
   /* Load inspection + lease + comparison */
   const fetchData = async () => {
@@ -77,6 +101,17 @@ export default function ConductInspection() {
   const isMoveOut = inspection?.inspection_type === "move_out";
   const hasComparison = isMoveOut && comparison?.signed_move_in;
   const isMoveOutWithoutComparison = isMoveOut && comparison && !comparison.signed_move_in;
+
+  // A tenant may VIEW a move-out inspection but never fill or sign it
+  // (the deductions come out of their own deposit). The backend enforces
+  // this too; here we force the whole page read-only for that case.
+  const isTenant = role === "tenant";
+  const tenantViewingMoveOut = isTenant && isMoveOut;
+
+  // The page is read-only if the inspection is signed OR a tenant is
+  // looking at a move-out. Editing controls key off this; the "locked"
+  // banner and signed-signature display still key off the real status.
+  const isReadOnly = isLocked || tenantViewingMoveOut;
 
   /* Update a single item field */
   const handleItemChange = async (itemId, updates) => {
@@ -196,8 +231,8 @@ export default function ConductInspection() {
     <section className="properties-page">
       {/* Back link */}
       <div className="flex items-center gap-sm mb-sm">
-        <Link to={`/owner/leases/${leaseId}`} className="text-sm checklist-back-link">
-          ← Back to Lease
+        <Link to={backLink} className="text-sm checklist-back-link">
+          ← Back
         </Link>
       </div>
 
@@ -217,6 +252,17 @@ export default function ConductInspection() {
           {inspection.status}
         </span>
       </div>
+
+      {/* Tenant read-only notice (move-out) */}
+      {tenantViewingMoveOut && !isLocked && (
+        <div className="card info-banner-warning mt-md">
+          <p>
+            <strong>Read-only.</strong> A move-out inspection can only be filled
+            and signed by the landlord or property manager. You can view it here
+            and add a note below if you'd like to record anything.
+          </p>
+        </div>
+      )}
 
       {/* No-comparison warning */}
       {isMoveOutWithoutComparison && (
@@ -255,7 +301,7 @@ export default function ConductInspection() {
               key={item.id}
               item={item}
               index={idx}
-              isLocked={isLocked}
+              isLocked={isReadOnly}
               isMoveOut={isMoveOut}
               moveInItem={moveInItem}
               saving={savingItem === item.id}
@@ -318,8 +364,8 @@ export default function ConductInspection() {
         </div>
       )}
 
-      {/* Signature section (only if draft) */}
-      {!isLocked && (
+      {/* Signature section (only if editable: draft AND not a tenant on move-out) */}
+      {!isReadOnly && (
         <div className="card mt-md inspection-signature-card">
           <h3>Tenant Signature</h3>
           <p className="text-sm text-muted">
@@ -373,7 +419,7 @@ export default function ConductInspection() {
                 ? "Sign, Lock & Terminate Lease"
                 : "Sign & Lock Inspection"}
             </button>
-            <Link to={`/owner/leases/${leaseId}`} className="btn btn-secondary">
+            <Link to={backLink} className="btn btn-secondary">
               Save Draft & Exit
             </Link>
           </div>

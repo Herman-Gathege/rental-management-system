@@ -6,8 +6,13 @@
 // pages. Shows item conditions, comments, photos, and — for move-out — any
 // deposit deductions. No internal notes or inspector identity.
 // Responsive: each inspection's item table -> MobileCardList cards below 768px.
+//
+// Each inspection links to the shared ConductInspection page:
+//   - a DRAFT move-in  -> "Conduct" (the tenant may fill and sign it)
+//   - anything else     -> "View"    (read-only; move-out is owner/PM-only)
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getTenantInspections } from "../../api/dashboard";
 import { useTenantProperty } from "../../context/TenantPropertyContext";
 import MobileCardList from "../../components/ui/MobileCardList";
@@ -120,6 +125,10 @@ export default function TenantInspections() {
             [insp.property_name, insp.unit_name].filter(Boolean).join(" · ") ||
             "Lease";
 
+          // A tenant may fill a draft move-in; everything else is view-only.
+          const canConduct =
+            insp.status === "draft" && insp.inspection_type === "move_in";
+
           return (
             <div className="dash-panel mb-md" key={insp.id}>
               <div className="flex items-center justify-between mb-sm">
@@ -134,9 +143,17 @@ export default function TenantInspections() {
                       : "Not yet dated"}
                   </div>
                 </div>
-                <span className={`role-badge inspection-status-${insp.status}`}>
-                  {insp.status}
-                </span>
+                <div className="flex items-center gap-sm">
+                  <span className={`role-badge inspection-status-${insp.status}`}>
+                    {insp.status}
+                  </span>
+                  <Link
+                    to={`/tenant/leases/${insp.lease_id}/inspections/${insp.id}`}
+                    className="btn btn-primary btn-sm"
+                  >
+                    {canConduct ? "Conduct" : "View"}
+                  </Link>
+                </div>
               </div>
 
               {/* Desktop table */}

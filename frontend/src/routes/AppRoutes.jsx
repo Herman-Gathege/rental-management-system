@@ -184,6 +184,15 @@ export default function AppRoutes() {
         <Route path="tenants" element={<ManagerTenants />} />
         <Route path="leases" element={<ManagerLeases />} />
 
+        {/* Lease detail + inspections — PM can open a lease and conduct/view
+            its inspections. The lease detail hides move-out initiation and
+            termination for PMs; ConductInspection enforces the rest. */}
+        <Route path="leases/:leaseId" element={<LeaseDetail />} />
+        <Route
+          path="leases/:leaseId/inspections/:inspectionId"
+          element={<ConductInspection />}
+        />
+
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />
 
@@ -235,6 +244,14 @@ export default function AppRoutes() {
         <Route path="inspections" element={<TenantInspections />} />
         <Route path="payments" element={<TenantPayments />} />
         <Route path="charges" element={<TenantCharges />} />
+
+        {/* Inspections — tenant can conduct a draft move-in and view the rest.
+            Same ConductInspection page as the owner; the backend + the page's
+            read-only logic enforce the move-out restriction. */}
+        <Route
+          path="leases/:leaseId/inspections/:inspectionId"
+          element={<ConductInspection />}
+        />
 
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />

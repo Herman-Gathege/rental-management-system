@@ -14,7 +14,7 @@ caller's organization + role from their OrganizationMember row -- the same
 authoritative, org-scoped role source organizations.py uses -- and reject
 anyone whose role isn't allowed for the endpoint.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
@@ -59,17 +59,31 @@ def _finance_scope(db: Session, user: User, membership: OrganizationMember):
     return None
 
 
+def _narrow(scope, property_id):
+    """Apply a single-property selection on top of the role scope.
+    `scope` is None (landlord = all org) or a list (finance = assigned).
+    A property_id outside the scope is ignored (keeps the role scope)."""
+    if not property_id:
+        return scope
+    if scope is None:
+        return [property_id]          # landlord narrowing to one property
+    if property_id in scope:
+        return [property_id]          # finance narrowing to one assigned property
+    return scope
+
+
 # ─── Property Manager ───
 
 @router.get("/manager/summary", response_model=ManagerSummaryResponse)
 def manager_summary(
+    property_id: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     membership = _membership(db, current_user)
     _require(membership, PROPERTY_MANAGER)
     return dashboard_service.get_manager_summary(
-        db, current_user.id, membership.organization_id
+        db, current_user.id, membership.organization_id, property_id
     )
 
 
@@ -125,24 +139,26 @@ def manager_leases(
 
 @router.get("/owner/summary")
 def owner_summary(
+    property_id: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     membership = _membership(db, current_user)
     _require(membership, LANDLORD)
-    return dashboard_service.get_owner_summary(db, membership.organization_id)
+    return dashboard_service.get_owner_summary(db, membership.organization_id, property_id)
 
 
 # ─── Finance (and Landlord, who can see everything) ───
 
 @router.get("/finance/summary", response_model=FinanceSummaryResponse)
 def finance_summary(
+    property_id: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     membership = _membership(db, current_user)
     _require(membership, FINANCE, LANDLORD)
-    property_ids = _finance_scope(db, current_user, membership)
+    property_ids = _narrow(_finance_scope(db, current_user, membership), property_id)
     return dashboard_service.get_finance_summary(
         db, membership.organization_id, property_ids
     )
@@ -150,12 +166,13 @@ def finance_summary(
 
 @router.get("/finance/recent-payments")
 def finance_recent_payments(
+    property_id: str = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     membership = _membership(db, current_user)
     _require(membership, FINANCE, LANDLORD)
-    property_ids = _finance_scope(db, current_user, membership)
+    property_ids = _narrow(_finance_scope(db, current_user, membership), property_id)
     return dashboard_service.get_finance_recent_payments(
         db, membership.organization_id, property_ids=property_ids
     )

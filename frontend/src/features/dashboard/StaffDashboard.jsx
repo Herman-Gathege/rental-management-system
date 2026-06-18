@@ -1,18 +1,20 @@
 //frontend/src/features/dashboard/StaffDashboard.jsx
 //
 // Property Manager dashboard (Sprint 4.5).
-// Pulls /dashboard/manager/summary + /dashboard/manager/properties and shows
-// occupancy/lease/tenant stats for the properties assigned to this manager.
-// A manager with no assignments yet sees zeros + a hint (a valid state, not
-// an error).
+// Stats scope to the property chosen in the navbar switcher (All = every
+// assigned property); refetches on change. The "Your Properties" list always
+// shows all assigned properties.
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useProperty } from "../../context/PropertyContext";
 import { getManagerSummary, getManagerProperties } from "../../api/dashboard";
 import NotificationsCard from "../../components/ui/NotificationsCard";
 
 export default function StaffDashboard() {
   const { user } = useAuth();
+  const { activeProperty } = useProperty();
+  const activePropertyId = activeProperty?.id || null;
 
   const [summary, setSummary] = useState(null);
   const [properties, setProperties] = useState([]);
@@ -24,13 +26,15 @@ export default function StaffDashboard() {
 
     const load = async () => {
       try {
+        setLoading(true);
         const [s, p] = await Promise.all([
-          getManagerSummary(),
+          getManagerSummary(activePropertyId),
           getManagerProperties(),
         ]);
         if (!active) return;
         setSummary(s);
         setProperties(p);
+        setError("");
       } catch (err) {
         if (!active) return;
         setError(
@@ -45,7 +49,7 @@ export default function StaffDashboard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [activePropertyId]);
 
   const displayName = user?.full_name || user?.email || "there";
 
@@ -64,6 +68,10 @@ export default function StaffDashboard() {
     <div className="p-6">
       <div className="text-lg font-bold mb-md">
         Welcome, <span className="company-blue text-bold">{displayName}</span> 👋
+      </div>
+
+      <div className="text-muted mb-md">
+        Viewing: {activeProperty ? activeProperty.name : "All Properties"}
       </div>
 
       {loading && <div className="dash-panel">Loading your dashboard…</div>}

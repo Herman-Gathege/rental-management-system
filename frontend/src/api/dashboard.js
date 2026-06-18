@@ -4,13 +4,20 @@
 // Mirrors the other api/*.js modules: import the shared axios instance
 // (which attaches the bearer token automatically) and expose one function
 // per endpoint. Covers manager / owner / finance / tenant.
+//
+// Summary + recent-payments calls accept an optional propertyId to scope the
+// figures to a single property (omit / null = all, per the property switcher).
 
 import API from "./client";
 
+// Build axios params only when a property is selected (null/undefined = all).
+const propParams = (propertyId) =>
+  propertyId ? { params: { property_id: propertyId } } : undefined;
+
 /* ─── Property Manager ─── */
 
-export const getManagerSummary = async () => {
-  const res = await API.get("/dashboard/manager/summary");
+export const getManagerSummary = async (propertyId) => {
+  const res = await API.get("/dashboard/manager/summary", propParams(propertyId));
   return res.data;
 };
 
@@ -36,20 +43,23 @@ export const getManagerLeases = async () => {
 
 /* ─── Owner / Landlord ─── */
 
-export const getOwnerSummary = async () => {
-  const res = await API.get("/dashboard/owner/summary");
+export const getOwnerSummary = async (propertyId) => {
+  const res = await API.get("/dashboard/owner/summary", propParams(propertyId));
   return res.data;
 };
 
 /* ─── Finance ─── */
 
-export const getFinanceSummary = async () => {
-  const res = await API.get("/dashboard/finance/summary");
+export const getFinanceSummary = async (propertyId) => {
+  const res = await API.get("/dashboard/finance/summary", propParams(propertyId));
   return res.data;
 };
 
-export const getFinanceRecentPayments = async () => {
-  const res = await API.get("/dashboard/finance/recent-payments");
+export const getFinanceRecentPayments = async (propertyId) => {
+  const res = await API.get(
+    "/dashboard/finance/recent-payments",
+    propParams(propertyId)
+  );
   return res.data;
 };
 

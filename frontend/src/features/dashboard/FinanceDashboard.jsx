@@ -1,13 +1,13 @@
 //frontend/src/features/dashboard/FinanceDashboard.jsx
 //
 // Finance dashboard (Sprint 4.5).
-// Pulls /dashboard/finance/summary + /dashboard/finance/recent-payments and
-// shows money for the finance user (scoped to their assigned properties):
-// expected rent, collected, outstanding, overdue count, plus latest payments.
-// Reuses the shared .dash-* card styles.
+// Money for the finance user (scoped to assigned properties by the backend),
+// further narrowable to a single property via the navbar switcher (All = every
+// assigned property). Refetches on change. Reuses the shared .dash-* styles.
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useProperty } from "../../context/PropertyContext";
 import {
   getFinanceSummary,
   getFinanceRecentPayments,
@@ -19,6 +19,8 @@ const money = (n) =>
 
 export default function FinanceDashboard() {
   const { user } = useAuth();
+  const { activeProperty } = useProperty();
+  const activePropertyId = activeProperty?.id || null;
 
   const [summary, setSummary] = useState(null);
   const [payments, setPayments] = useState([]);
@@ -30,13 +32,15 @@ export default function FinanceDashboard() {
 
     const load = async () => {
       try {
+        setLoading(true);
         const [s, p] = await Promise.all([
-          getFinanceSummary(),
-          getFinanceRecentPayments(),
+          getFinanceSummary(activePropertyId),
+          getFinanceRecentPayments(activePropertyId),
         ]);
         if (!active) return;
         setSummary(s);
         setPayments(p);
+        setError("");
       } catch (err) {
         if (!active) return;
         setError(
@@ -51,7 +55,7 @@ export default function FinanceDashboard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [activePropertyId]);
 
   const displayName = user?.full_name || user?.email || "there";
 
@@ -68,6 +72,10 @@ export default function FinanceDashboard() {
     <div className="p-6">
       <div className="text-lg font-bold mb-md">
         Welcome, <span className="company-blue text-bold">{displayName}</span> 👋
+      </div>
+
+      <div className="text-muted mb-md">
+        Viewing: {activeProperty ? activeProperty.name : "All Properties"}
       </div>
 
       {loading && <div className="dash-panel">Loading the finance dashboard…</div>}

@@ -64,8 +64,13 @@ def _assigned_property_ids(db: Session, user_id: str, org_id: str) -> list:
     return [r[0] for r in rows]
 
 
-def get_manager_summary(db: Session, user_id: str, org_id: str) -> dict:
-    property_ids = _assigned_property_ids(db, user_id, org_id)
+def get_manager_summary(db: Session, user_id: str, org_id: str, property_id: str = None) -> dict:
+    assigned = _assigned_property_ids(db, user_id, org_id)
+    # Narrow to a single assigned property if one is selected; else all assigned.
+    if property_id and property_id in assigned:
+        property_ids = [property_id]
+    else:
+        property_ids = assigned
 
     if not property_ids:
         return {
@@ -328,17 +333,26 @@ def get_finance_recent_payments(db: Session, org_id: str, limit: int = 10, prope
 # Owner / Landlord (organization-wide)
 # ---------------------------------------------------------------------
 
-def get_owner_summary(db: Session, org_id: str) -> dict:
+def get_owner_summary(db: Session, org_id: str, property_id: str = None) -> dict:
     """Organization-wide snapshot for the landlord dashboard: portfolio counts
     + money. The portfolio counts mirror the manager summary but span EVERY
     property in the org (not just assigned ones); the money block reuses
     get_finance_summary so the figures match the finance dashboard exactly."""
-    property_ids = [
-        r[0]
-        for r in db.query(Property.id)
-        .filter(Property.organization_id == org_id)
-        .all()
-    ]
+    if property_id:
+        # Narrow to a single property, validated to belong to this org.
+        exists = (
+            db.query(Property.id)
+            .filter(Property.id == property_id, Property.organization_id == org_id)
+            .first()
+        )
+        property_ids = [property_id] if exists else []
+    else:
+        property_ids = [
+            r[0]
+            for r in db.query(Property.id)
+            .filter(Property.organization_id == org_id)
+            .all()
+        ]
 
     properties = len(property_ids)
     units = occupied_units = active_leases = tenants = 0
@@ -371,7 +385,7 @@ def get_owner_summary(db: Session, org_id: str) -> dict:
             .scalar()
         ) or 0
 
-    money = get_finance_summary(db, org_id)
+    money = get_finance_summary(db, org_id, property_ids if property_id else None)
 
     return {
         "properties": properties,
