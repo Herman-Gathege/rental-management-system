@@ -6,9 +6,15 @@
 //
 // Sprint 4.5 tenant portal: tenants now get their own property switcher
 // (TenantPropertySwitcher), sourced from their leases rather than the org.
+//
+// Portal updates: FINANCE now also gets the org PropertySwitcher (scoped to
+// their assigned properties via list_properties), shown only when they have
+// at least one assignment so an unassigned finance user doesn't see an empty
+// switcher.
 
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../../context/AuthContext";
+import { useProperty } from "../../../context/PropertyContext";
 import { FiMaximize, FiMinimize, FiChevronDown } from "react-icons/fi";
 import { NavLink } from "react-router-dom";
 import PropertySwitcher from "../../../components/PropertySwitcher/PropertySwitcher";
@@ -23,6 +29,7 @@ import {
 
 export default function Navbar() {
   const { user, logout } = useAuth();
+  const { properties } = useProperty();
   const [open, setOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(
@@ -70,6 +77,14 @@ export default function Navbar() {
         return tenantNavigation;
     }
   }, [role]);
+
+  // Who sees the org property switcher. Landlord + property manager always;
+  // finance only when they actually have assigned properties (strict scoping
+  // means an unassigned finance user has none -> hide rather than show empty).
+  const showOrgSwitcher =
+    role === "landlord" ||
+    role === "property_manager" ||
+    (role === "finance" && (properties?.length || 0) > 0);
 
   // ----------------------------
   // SAFE USER DISPLAY HELPERS
@@ -119,10 +134,8 @@ export default function Navbar() {
           {isFullscreen ? <FiMinimize size={20} /> : <FiMaximize size={20} />}
         </button>
 
-        {/* Property Switcher — Sprint 2 (landlord / manager: org properties) */}
-        {(role === "landlord" || role === "property_manager") && (
-          <PropertySwitcher />
-        )}
+        {/* Property Switcher — org properties (landlord / manager / finance) */}
+        {showOrgSwitcher && <PropertySwitcher />}
 
         {/* Property Switcher — Sprint 4.5 (tenant: their own leased properties) */}
         {role === "tenant" && <TenantPropertySwitcher />}
