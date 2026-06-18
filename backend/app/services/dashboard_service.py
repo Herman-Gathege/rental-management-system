@@ -133,7 +133,7 @@ def get_manager_units(db: Session, user_id: str, org_id: str) -> list:
         return []
 
     rows = (
-        db.query(Unit, Property.name)
+        db.query(Unit, Property.id, Property.name)
         .join(Property, Property.id == Unit.property_id)
         .filter(Unit.property_id.in_(property_ids), Unit.is_active == True)  # noqa: E712
         .order_by(Property.name.asc(), Unit.name.asc())
@@ -141,7 +141,7 @@ def get_manager_units(db: Session, user_id: str, org_id: str) -> list:
     )
 
     # Active lease per unit -> occupancy + current tenant.
-    unit_ids = [u.id for u, _pname in rows]
+    unit_ids = [u.id for u, _pid, _pname in rows]
     active_by_unit: dict = {}
     if unit_ids:
         lease_rows = (
@@ -154,11 +154,12 @@ def get_manager_units(db: Session, user_id: str, org_id: str) -> list:
             active_by_unit[lease.unit_id] = tenant_name
 
     result = []
-    for u, pname in rows:
+    for u, pid, pname in rows:
         tenant_name = active_by_unit.get(u.id)
         result.append({
             "id": u.id,
             "name": u.name,
+            "property_id": pid,
             "property_name": pname,
             "rent_amount": float(u.rent_amount) if u.rent_amount is not None else None,
             "status": "occupied" if u.id in active_by_unit else "vacant",
@@ -176,7 +177,7 @@ def get_manager_tenants(db: Session, user_id: str, org_id: str) -> list:
         return []
 
     rows = (
-        db.query(Tenant, Property.name, Unit.name)
+        db.query(Tenant, Property.id, Property.name, Unit.name)
         .join(Lease, Lease.tenant_id == Tenant.id)
         .join(Unit, Unit.id == Lease.unit_id)
         .join(Property, Property.id == Unit.property_id)
@@ -190,10 +191,11 @@ def get_manager_tenants(db: Session, user_id: str, org_id: str) -> list:
             "full_name": t.full_name,
             "phone": t.phone,
             "email": t.email,
+            "property_id": pid,
             "property_name": pname,
             "unit_name": uname,
         }
-        for t, pname, uname in rows
+        for t, pid, pname, uname in rows
     ]
 
 
@@ -204,7 +206,7 @@ def get_manager_leases(db: Session, user_id: str, org_id: str) -> list:
         return []
 
     rows = (
-        db.query(Lease, Tenant.full_name, Property.name, Unit.name)
+        db.query(Lease, Tenant.full_name, Property.id, Property.name, Unit.name)
         .outerjoin(Tenant, Tenant.id == Lease.tenant_id)
         .join(Unit, Unit.id == Lease.unit_id)
         .join(Property, Property.id == Unit.property_id)
@@ -216,6 +218,7 @@ def get_manager_leases(db: Session, user_id: str, org_id: str) -> list:
         {
             "id": l.id,
             "tenant_name": tname,
+            "property_id": pid,
             "property_name": pname,
             "unit_name": uname,
             "status": l.status,
@@ -223,7 +226,7 @@ def get_manager_leases(db: Session, user_id: str, org_id: str) -> list:
             "end_date": l.end_date.isoformat() if l.end_date else None,
             "rent_amount": float(l.rent_amount) if l.rent_amount is not None else None,
         }
-        for l, tname, pname, uname in rows
+        for l, tname, pid, pname, uname in rows
     ]
 
 

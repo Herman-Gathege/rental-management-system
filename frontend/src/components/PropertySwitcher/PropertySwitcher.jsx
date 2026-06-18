@@ -1,4 +1,8 @@
-/*frontend\src\components\PropertySwitcher.jsx*/
+/*frontend\src\components\PropertySwitcher\PropertySwitcher.jsx*/
+//
+// Org property switcher (landlord / property manager / finance).
+// Includes an "All Properties" option (activeProperty === null) so a user can
+// view everything or narrow to a single property.
 
 import { useState, useRef, useEffect } from "react";
 import { useProperty } from "../../context/PropertyContext";
@@ -33,13 +37,24 @@ export default function PropertySwitcher() {
       >
         <span className="switcher-icon">🏠</span>
         <span className="switcher-label">
-          {activeProperty ? activeProperty.name : "Select Property"}
+          {activeProperty ? activeProperty.name : "All Properties"}
         </span>
         <span className={`switcher-arrow ${open ? "open" : ""}`}>▾</span>
       </button>
 
       {open && (
         <div className="switcher-dropdown">
+          {/* All Properties */}
+          <button
+            className={`switcher-option ${!activeProperty ? "active" : ""}`}
+            onClick={() => {
+              switchProperty(null);
+              setOpen(false);
+            }}
+          >
+            <span className="option-name">All Properties</span>
+          </button>
+
           {properties.map((prop) => (
             <button
               key={prop.id}

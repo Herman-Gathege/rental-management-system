@@ -3,16 +3,21 @@
 // Property Manager — Units (read-only, Sprint 4.5).
 // Units across the manager's assigned properties, with occupancy + current
 // tenant, via /dashboard/manager/units.
-// Responsive: table on desktop, MobileCardList stacked cards below 768px.
+// Filters to the property chosen in the navbar switcher (All = every assigned
+// property). Responsive: table on desktop, MobileCardList cards below 768px.
 
 import { useEffect, useState } from "react";
 import { getManagerUnits } from "../../api/dashboard";
+import { useProperty } from "../../context/PropertyContext";
 import MobileCardList from "../../components/ui/MobileCardList";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
 
 export default function ManagerUnits() {
+  const { activeProperty } = useProperty();
+  const activePropertyId = activeProperty?.id || null;
+
   const [units, setUnits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -55,16 +60,21 @@ export default function ManagerUnits() {
     );
   }
 
-  const occupied = units.filter((u) => u.status === "occupied").length;
+  const visible = units.filter(
+    (u) => !activePropertyId || u.property_id === activePropertyId
+  );
+  const occupied = visible.filter((u) => u.status === "occupied").length;
 
   return (
     <div className="p-6">
-      <div className="text-lg font-bold mb-md">Units</div>
+      <div className="text-lg font-bold mb-md">
+        Units{activeProperty ? ` — ${activeProperty.name}` : ""}
+      </div>
 
       <div className="dash-panel">
         <div className="dash-panel-title">Units in Your Properties</div>
-        {units.length === 0 ? (
-          <div className="text-muted">No units in your properties yet.</div>
+        {visible.length === 0 ? (
+          <div className="text-muted">No units in this view yet.</div>
         ) : (
           <>
             {/* Desktop table */}
@@ -80,7 +90,7 @@ export default function ManagerUnits() {
                   </tr>
                 </thead>
                 <tbody>
-                  {units.map((u, i) => (
+                  {visible.map((u, i) => (
                     <tr key={u.id || i}>
                       <td>{u.property_name}</td>
                       <td className="text-bold">{u.name}</td>
@@ -95,7 +105,7 @@ export default function ManagerUnits() {
 
             {/* Mobile cards */}
             <MobileCardList
-              data={units}
+              data={visible}
               renderCard={(u, i) => (
                 <div className="staff-card" key={u.id || i}>
                   <div className="staff-card-title">{u.name}</div>
@@ -120,7 +130,7 @@ export default function ManagerUnits() {
             />
 
             <div className="text-muted mt-md">
-              {units.length} units · <span className="text-bold">{occupied}</span> occupied
+              {visible.length} units · <span className="text-bold">{occupied}</span> occupied
             </div>
           </>
         )}

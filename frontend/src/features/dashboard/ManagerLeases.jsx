@@ -2,11 +2,12 @@
 //
 // Property Manager — Leases (read-only, Sprint 4.5).
 // All leases (any status) in the manager's assigned properties via
-// /dashboard/manager/leases.
-// Responsive: table on desktop, MobileCardList stacked cards below 768px.
+// /dashboard/manager/leases. Filters to the navbar switcher's property
+// (All = every assigned property). Responsive table + MobileCardList.
 
 import { useEffect, useState } from "react";
 import { getManagerLeases } from "../../api/dashboard";
+import { useProperty } from "../../context/PropertyContext";
 import MobileCardList from "../../components/ui/MobileCardList";
 
 const money = (n) =>
@@ -22,6 +23,9 @@ const fmtDate = (d) =>
     : "—";
 
 export default function ManagerLeases() {
+  const { activeProperty } = useProperty();
+  const activePropertyId = activeProperty?.id || null;
+
   const [leases, setLeases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -64,14 +68,20 @@ export default function ManagerLeases() {
     );
   }
 
+  const visible = leases.filter(
+    (l) => !activePropertyId || l.property_id === activePropertyId
+  );
+
   return (
     <div className="p-6">
-      <div className="text-lg font-bold mb-md">Leases</div>
+      <div className="text-lg font-bold mb-md">
+        Leases{activeProperty ? ` — ${activeProperty.name}` : ""}
+      </div>
 
       <div className="dash-panel">
         <div className="dash-panel-title">Leases in Your Properties</div>
-        {leases.length === 0 ? (
-          <div className="text-muted">No leases in your properties yet.</div>
+        {visible.length === 0 ? (
+          <div className="text-muted">No leases in this view yet.</div>
         ) : (
           <>
             {/* Desktop table */}
@@ -89,7 +99,7 @@ export default function ManagerLeases() {
                   </tr>
                 </thead>
                 <tbody>
-                  {leases.map((l, i) => (
+                  {visible.map((l, i) => (
                     <tr key={l.id || i}>
                       <td className="text-bold">{l.tenant_name || "—"}</td>
                       <td>{l.property_name}</td>
@@ -106,7 +116,7 @@ export default function ManagerLeases() {
 
             {/* Mobile cards */}
             <MobileCardList
-              data={leases}
+              data={visible}
               renderCard={(l, i) => (
                 <div className="staff-card" key={l.id || i}>
                   <div className="staff-card-title">{l.tenant_name || "—"}</div>
