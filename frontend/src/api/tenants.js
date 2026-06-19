@@ -33,7 +33,7 @@ export const deleteTenant = async (tenantId) => {
   return data;
 };
 
-/* ─── DOCUMENTS ─── */
+/* ─── DOCUMENTS (owner / PM, keyed on tenant id) ─── */
 
 /* UPLOAD DOCUMENT (multipart form) */
 export const uploadTenantDocument = async (tenantId, documentType, file) => {
@@ -61,3 +61,30 @@ export const deleteTenantDocument = async (tenantId, documentId) => {
   return data;
 };
 
+/* ─── MY DOCUMENTS (tenant self-service) ─── */
+/* These hit /tenants/me/documents — the backend resolves the tenant from the
+   logged-in user, so a tenant only ever touches their own documents. */
+
+/* LIST MY DOCUMENTS */
+export const getMyDocuments = async () => {
+  const { data } = await API.get("/tenants/me/documents");
+  return data;
+};
+
+/* UPLOAD MY DOCUMENT (multipart form) */
+export const uploadMyDocument = async (documentType, file) => {
+  const formData = new FormData();
+  formData.append("document_type", documentType);
+  formData.append("file", file);
+
+  const { data } = await API.post("/tenants/me/documents", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+};
+
+/* DELETE MY DOCUMENT */
+export const deleteMyDocument = async (documentId) => {
+  const { data } = await API.delete(`/tenants/me/documents/${documentId}`);
+  return data;
+};

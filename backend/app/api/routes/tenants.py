@@ -16,6 +16,15 @@ from app.services.s3_service import upload_file
 
 router = APIRouter(prefix="/tenants", tags=["Tenants"])
 
+# Allowed values for TenantDocument.document_type — shared by the owner/PM
+# upload endpoint and the tenant self-service endpoint so they never drift.
+ALLOWED_DOCUMENT_TYPES = [
+    "national_id_front",
+    "national_id_back",
+    "passport_biodata",
+    "other",
+]
+
 
 def get_user_org(user: User, db: Session):
     """Helper: get the current user's org membership or raise 403."""
@@ -27,6 +36,37 @@ def get_user_org(user: User, db: Session):
     if not membership:
         raise HTTPException(status_code=403, detail="No organization found")
     return membership
+
+
+def _resolve_my_tenant(user: User, membership: OrganizationMember, db: Session) -> Tenant:
+    """Resolve the tenant record linked to the logged-in user (tenants.user_id),
+    scoped to their organization. Used by the /me/* self-service endpoints so a
+    tenant can only ever act on THEIR OWN record."""
+    tenant = (
+        db.query(Tenant)
+        .filter(
+            Tenant.user_id == user.id,
+            Tenant.organization_id == membership.organization_id,
+        )
+        .first()
+    )
+    if not tenant:
+        raise HTTPException(
+            status_code=404,
+            detail="No tenant record is linked to this account.",
+        )
+    return tenant
+
+
+def _document_dict(d: TenantDocument) -> dict:
+    return {
+        "id": d.id,
+        "tenant_id": d.tenant_id,
+        "document_type": d.document_type,
+        "file_url": d.file_url,
+        "original_filename": d.original_filename,
+        "uploaded_at": d.uploaded_at,
+    }
 
 
 def tenant_dict(tenant, db=None):
@@ -169,6 +209,121 @@ def list_tenants(
     return [tenant_dict(t) for t in tenants]
 
 
+# ─── My Documents (tenant self-service) ───
+#
+# These resolve the tenant from the logged-in user (Tenant.user_id), so a
+# tenant can only ever list / upload / delete THEIR OWN documents — unlike the
+# /{tenant_id}/documents endpoints below, which are owner/PM tools keyed on a
+# tenant id. They are declared BEFORE the /{tenant_id} routes so the literal
+# path "me" is not captured as a {tenant_id} path parameter.
+
+@router.get("/me/documents")
+def list_my_documents(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    membership = get_user_org(current_user, db)
+    tenant = _resolve_my_tenant(current_user, membership, db)
+
+    documents = (
+        db.query(TenantDocument)
+        .filter(TenantDocument.tenant_id == tenant.id)
+        .order_by(TenantDocument.uploaded_at.desc())
+        .all()
+    )
+    return [_document_dict(d) for d in documents]
+
+
+@router.post("/me/documents")
+async def upload_my_document(
+    document_type: str = Form(..., description="national_id_front, national_id_back, passport_biodata, other"),
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    membership = get_user_org(current_user, db)
+    tenant = _resolve_my_tenant(current_user, membership, db)
+
+    if document_type not in ALLOWED_DOCUMENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Document type must be one of: {ALLOWED_DOCUMENT_TYPES}",
+        )
+
+    file_bytes = await file.read()
+    s3_key = f"tenant-documents/{tenant.id}/{uuid.uuid4()}-{file.filename}"
+
+    try:
+        file_url = upload_file(s3_key, file_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+    document = TenantDocument(
+        id=str(uuid.uuid4()),
+        tenant_id=tenant.id,
+        document_type=document_type,
+        file_url=file_url,
+        original_filename=file.filename,
+        uploaded_by_user_id=current_user.id,
+    )
+    db.add(document)
+    db.flush()
+
+    log_action(
+        db=db,
+        organization_id=membership.organization_id,
+        user_id=current_user.id,
+        action="create",
+        entity_type="tenant_document",
+        entity_id=document.id,
+        description=f"Tenant self-uploaded {document_type}",
+        new_values={"filename": file.filename, "document_type": document_type},
+    )
+
+    db.commit()
+    db.refresh(document)
+
+    return _document_dict(document)
+
+
+@router.delete("/me/documents/{document_id}")
+def delete_my_document(
+    document_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    membership = get_user_org(current_user, db)
+    tenant = _resolve_my_tenant(current_user, membership, db)
+
+    document = (
+        db.query(TenantDocument)
+        .filter(
+            TenantDocument.id == document_id,
+            TenantDocument.tenant_id == tenant.id,
+        )
+        .first()
+    )
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    log_action(
+        db=db,
+        organization_id=membership.organization_id,
+        user_id=current_user.id,
+        action="delete",
+        entity_type="tenant_document",
+        entity_id=document.id,
+        description=f"Tenant self-deleted {document.document_type}",
+    )
+
+    # As with the owner delete, the S3 object is left for a later cleanup job;
+    # we only drop the DB reference here.
+    db.delete(document)
+    db.commit()
+
+    return {"message": "Document deleted"}
+
+
 # ─── Get Single Tenant ───
 
 @router.get("/{tenant_id}")
@@ -297,7 +452,7 @@ def delete_tenant(
     return {"message": "Tenant deleted"}
 
 
-# ─── Upload Tenant Document ───
+# ─── Upload Tenant Document (owner / PM, keyed on tenant id) ───
 
 @router.post("/{tenant_id}/documents")
 async def upload_tenant_document(
@@ -322,9 +477,8 @@ async def upload_tenant_document(
         raise HTTPException(status_code=404, detail="Tenant not found")
 
     # Validate document type
-    allowed_types = ["national_id_front", "national_id_back", "passport_biodata", "other"]
-    if document_type not in allowed_types:
-        raise HTTPException(status_code=400, detail=f"Document type must be one of: {allowed_types}")
+    if document_type not in ALLOWED_DOCUMENT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Document type must be one of: {ALLOWED_DOCUMENT_TYPES}")
 
     # Read file bytes
     file_bytes = await file.read()
@@ -375,7 +529,7 @@ async def upload_tenant_document(
     }
 
 
-# ─── List Tenant Documents ───
+# ─── List Tenant Documents (owner / PM, keyed on tenant id) ───
 
 @router.get("/{tenant_id}/documents")
 def list_tenant_documents(
@@ -417,7 +571,7 @@ def list_tenant_documents(
     ]
 
 
-# ─── Delete Tenant Document ───
+# ─── Delete Tenant Document (owner / PM, keyed on tenant id) ───
 
 @router.delete("/{tenant_id}/documents/{document_id}")
 def delete_tenant_document(
