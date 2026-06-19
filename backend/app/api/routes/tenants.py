@@ -25,6 +25,15 @@ ALLOWED_DOCUMENT_TYPES = [
     "other",
 ]
 
+# Types limited to ONE document per tenant — re-uploading one of these replaces
+# the previous file. "other" is intentionally excluded (a tenant may keep
+# several miscellaneous documents).
+SINGLETON_DOCUMENT_TYPES = {
+    "national_id_front",
+    "national_id_back",
+    "passport_biodata",
+}
+
 
 def get_user_org(user: User, db: Session):
     """Helper: get the current user's org membership or raise 403."""
@@ -257,6 +266,18 @@ async def upload_my_document(
         file_url = upload_file(s3_key, file_bytes)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+    # Singleton ID types replace any previous document of the same type.
+    if document_type in SINGLETON_DOCUMENT_TYPES:
+        for _old in (
+            db.query(TenantDocument)
+            .filter(
+                TenantDocument.tenant_id == tenant.id,
+                TenantDocument.document_type == document_type,
+            )
+            .all()
+        ):
+            db.delete(_old)
 
     document = TenantDocument(
         id=str(uuid.uuid4()),
@@ -491,6 +512,18 @@ async def upload_tenant_document(
         file_url = upload_file(s3_key, file_bytes)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+    # Singleton ID types replace any previous document of the same type.
+    if document_type in SINGLETON_DOCUMENT_TYPES:
+        for _old in (
+            db.query(TenantDocument)
+            .filter(
+                TenantDocument.tenant_id == tenant_id,
+                TenantDocument.document_type == document_type,
+            )
+            .all()
+        ):
+            db.delete(_old)
 
     # Save record
     document = TenantDocument(

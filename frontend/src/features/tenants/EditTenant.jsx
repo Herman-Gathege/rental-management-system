@@ -10,6 +10,14 @@ import {
 } from "../../api/tenants";
 import CollapsibleSection from "../../components/CollapsibleSection";
 
+// ID types limited to one document each (re-uploading replaces). Mirrors
+// SINGLETON_DOCUMENT_TYPES on the backend. "other" allows multiple.
+const SINGLETON_TYPES = new Set([
+  "national_id_front",
+  "national_id_back",
+  "passport_biodata",
+]);
+
 export default function EditTenant() {
   const { tenantId } = useParams();
   const navigate = useNavigate();
@@ -69,7 +77,16 @@ export default function EditTenant() {
     setUploadingType(documentType);
     try {
       const newDoc = await uploadTenantDocument(tenantId, documentType, file);
-      setDocuments((prev) => [newDoc, ...prev]);
+      setDocuments((prev) => {
+        // Singleton types replace any existing document of the same type.
+        if (SINGLETON_TYPES.has(documentType)) {
+          return [
+            newDoc,
+            ...prev.filter((d) => d.document_type !== documentType),
+          ];
+        }
+        return [newDoc, ...prev];
+      });
     } catch (err) {
       alert(err.response?.data?.detail || "Upload failed");
     } finally {
@@ -114,6 +131,10 @@ export default function EditTenant() {
 
   if (loading) return <p>Loading...</p>;
   if (!form) return <p>Tenant not found</p>;
+
+  // One document per singleton type; "other" can be several.
+  const findDoc = (type) => documents.find((d) => d.document_type === type);
+  const otherDocs = documents.filter((d) => d.document_type === "other");
 
   return (
     <section className="properties-page">
@@ -188,58 +209,72 @@ export default function EditTenant() {
             Upload or remove ID documents. Changes happen immediately.
           </p>
 
-          {/* Existing documents list */}
-          {documents.length > 0 && (
-            <div className="mb-md">
-              {documents.map((doc) => (
-                <div key={doc.id} className="doc-upload-row">
-                  <div className="doc-upload-row-info">
-                    <div className="text-sm text-bold">
-                      {formatDocType(doc.document_type)}
-                    </div>
-                    <div className="text-sm text-muted">{doc.original_filename}</div>
-                  </div>
-                  <div className="flex gap-sm">
-                    <a
-                      href={doc.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-secondary btn-sm"
-                    >
-                      View
-                    </a>
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleDeleteDocument(doc.id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Upload buttons */}
-          <UploadRow
+          {/* One slot per ID type — shows the file inline if present, else an
+              upload button. Re-uploading replaces the existing file. */}
+          <DocSlot
             label="National ID — Front"
             documentType="national_id_front"
+            doc={findDoc("national_id_front")}
             onUpload={handleFileUpload}
+            onDelete={handleDeleteDocument}
             uploadingType={uploadingType}
           />
-          <UploadRow
+          <DocSlot
             label="National ID — Back"
             documentType="national_id_back"
+            doc={findDoc("national_id_back")}
             onUpload={handleFileUpload}
+            onDelete={handleDeleteDocument}
             uploadingType={uploadingType}
           />
-          <UploadRow
+          <DocSlot
             label="Passport (Biodata page)"
             documentType="passport_biodata"
+            doc={findDoc("passport_biodata")}
             onUpload={handleFileUpload}
+            onDelete={handleDeleteDocument}
             uploadingType={uploadingType}
           />
+
+          {/* Other documents — multiple allowed */}
+          <div className="mt-md">
+            <div className="text-sm text-bold mb-sm">Other Documents</div>
+
+            {otherDocs.map((doc) => (
+              <div key={doc.id} className="doc-upload-row">
+                <div className="doc-upload-row-info">
+                  <div className="text-sm text-bold">Other Document</div>
+                  <div className="text-sm text-muted file-name-ellipsis">
+                    {doc.original_filename}
+                  </div>
+                </div>
+                <div className="flex gap-sm">
+                  <a
+                    href={doc.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary btn-sm"
+                  >
+                    View
+                  </a>
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm"
+                    onClick={() => handleDeleteDocument(doc.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <UploadRow
+              label="Upload other document"
+              documentType="other"
+              onUpload={handleFileUpload}
+              uploadingType={uploadingType}
+            />
+          </div>
         </CollapsibleSection>
 
         {/* ─── Next of Kin ─── */}
@@ -375,14 +410,66 @@ export default function EditTenant() {
 
 /* ─── Helpers ─── */
 
-function formatDocType(type) {
-  const map = {
-    national_id_front: "National ID — Front",
-    national_id_back: "National ID — Back",
-    passport_biodata: "Passport Biodata",
-    other: "Other Document",
-  };
-  return map[type] || type;
+// A single ID-document slot. If `doc` exists, shows the file inline with
+// View / Replace / Remove; otherwise shows an Upload button.
+function DocSlot({ label, documentType, doc, onUpload, onDelete, uploadingType }) {
+  const isUploading = uploadingType === documentType;
+
+  if (doc) {
+    return (
+      <div className="doc-upload-row">
+        <div className="doc-upload-row-info">
+          <div className="text-sm text-bold">{label}</div>
+          <div className="text-sm text-muted file-name-ellipsis">
+            {doc.original_filename}
+          </div>
+        </div>
+        <div className="flex gap-sm">
+          <a
+            href={doc.file_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-secondary btn-sm"
+          >
+            View
+          </a>
+          <label className="btn btn-secondary btn-sm doc-upload-label">
+            {isUploading ? "Replacing..." : "Replace"}
+            <input
+              type="file"
+              accept="image/*,application/pdf"
+              onChange={(e) => onUpload(e, documentType)}
+              disabled={isUploading}
+              className="doc-upload-hidden-input"
+            />
+          </label>
+          <button
+            type="button"
+            className="btn btn-danger btn-sm"
+            onClick={() => onDelete(doc.id)}
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="doc-upload-row">
+      <div className="text-sm">{label}</div>
+      <label className="btn btn-secondary btn-sm doc-upload-label">
+        {isUploading ? "Uploading..." : "Upload"}
+        <input
+          type="file"
+          accept="image/*,application/pdf"
+          onChange={(e) => onUpload(e, documentType)}
+          disabled={isUploading}
+          className="doc-upload-hidden-input"
+        />
+      </label>
+    </div>
+  );
 }
 
 
