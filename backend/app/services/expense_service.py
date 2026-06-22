@@ -31,9 +31,11 @@ from app.models.property_manager import PropertyManager
 from app.models.unit import Unit
 from app.models.expense import Expense
 from app.models.expense_category import ExpenseCategory
+from app.models.expense_attachment import ExpenseAttachment
 from app.models.vendor import Vendor
 from app.core.roles import LANDLORD, PROPERTY_MANAGER, FINANCE
 from app.services.audit_service import log_action
+from app.services.s3_service import upload_file
 
 
 # ─── Status constants ───
@@ -471,6 +473,87 @@ def pay_expense(db: Session, current_user: User, membership: OrganizationMember,
         old_values={"status": STATUS_APPROVED}, new_values={"status": STATUS_PAID},
     )
 
+    db.commit()
+    db.refresh(expense)
+    return expense
+
+
+# ─── Attachments (receipts / invoices / etc.) ───
+#
+# An expense may carry several files. Anyone who can manage the expense (not a
+# tenant, and within their property scope) may add or remove attachments,
+# regardless of the expense's status — receipts are evidence and don't change
+# the financial amount. As with leases/tenant docs, deleting an attachment drops
+# the DB row and leaves the stored file for a later cleanup job.
+
+def add_attachment(
+    db: Session,
+    current_user: User,
+    membership: OrganizationMember,
+    expense_id: str,
+    *,
+    file_bytes: bytes,
+    filename: str,
+) -> Expense:
+    org_id = membership.organization_id
+    _assert_not_tenant(membership)
+    expense = _get_org_expense(db, org_id, expense_id)
+    _ensure_property_access(db, membership, expense.property_id)
+
+    s3_key = f"expense-receipts/{expense.id}/{uuid.uuid4()}-{filename}"
+    try:
+        file_url = upload_file(s3_key, file_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+    attachment = ExpenseAttachment(
+        id=str(uuid.uuid4()),
+        expense_id=expense.id,
+        filename=filename,
+        file_url=file_url,
+        uploaded_by=current_user.id,
+    )
+    db.add(attachment)
+    db.flush()
+
+    log_action(
+        db=db, organization_id=org_id, user_id=current_user.id,
+        action="create", entity_type="expense_attachment", entity_id=attachment.id,
+        description=f"Attached a receipt to expense: {expense.title}",
+        new_values={"filename": filename},
+    )
+
+    db.commit()
+    db.refresh(expense)
+    return expense
+
+
+def delete_attachment(db: Session, current_user: User, membership: OrganizationMember, attachment_id: str) -> Expense:
+    org_id = membership.organization_id
+    _assert_not_tenant(membership)
+
+    attachment = (
+        db.query(ExpenseAttachment)
+        .filter(ExpenseAttachment.id == attachment_id)
+        .first()
+    )
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    # _get_org_expense also guarantees the attachment's expense is in the
+    # caller's organization (cross-org access -> 404).
+    expense = _get_org_expense(db, org_id, attachment.expense_id)
+    _ensure_property_access(db, membership, expense.property_id)
+
+    log_action(
+        db=db, organization_id=org_id, user_id=current_user.id,
+        action="delete", entity_type="expense_attachment", entity_id=attachment.id,
+        description=f"Removed a receipt from expense: {expense.title}",
+        old_values={"filename": attachment.filename},
+    )
+
+    # Drop the DB reference; the stored file is left for a later cleanup job.
+    db.delete(attachment)
     db.commit()
     db.refresh(expense)
     return expense

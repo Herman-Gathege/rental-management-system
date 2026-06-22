@@ -1,5 +1,5 @@
 #backend\app\api\routes\expenses.py
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
@@ -210,4 +210,34 @@ def pay_expense(
 ):
     membership = get_user_org(current_user, db)
     expense = expense_service.pay_expense(db, current_user, membership, expense_id, payload=payload)
+    return enrich_expense(expense, db)
+
+
+# ─── Attachments (receipts) ───
+
+@router.post("/{expense_id}/attachments")
+async def upload_attachment(
+    expense_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    membership = get_user_org(current_user, db)
+    file_bytes = await file.read()
+    expense = expense_service.add_attachment(
+        db, current_user, membership, expense_id,
+        file_bytes=file_bytes, filename=file.filename,
+    )
+    return enrich_expense(expense, db)
+
+
+@router.delete("/{expense_id}/attachments/{attachment_id}")
+def delete_attachment(
+    expense_id: str,
+    attachment_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    membership = get_user_org(current_user, db)
+    expense = expense_service.delete_attachment(db, current_user, membership, attachment_id)
     return enrich_expense(expense, db)
