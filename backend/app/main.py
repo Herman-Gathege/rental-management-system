@@ -91,6 +91,7 @@ from app.api.routes.inspections import router as inspections_router
 from app.api.routes.messages import router as messages_router
 from app.api.routes.webhooks import router as webhooks_router
 from app.api.routes import payment_batch
+from app.api.routes.expenses import router as expenses_router
 
 
 app = FastAPI(title="Rental Management API")
@@ -134,6 +135,7 @@ app.include_router(inspections_router)
 app.include_router(messages_router)
 app.include_router(webhooks_router)
 app.include_router(payment_batch.router)
+app.include_router(expenses_router)
 
 
 @app.get("/")
