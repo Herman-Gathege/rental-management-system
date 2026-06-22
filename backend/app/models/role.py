@@ -12,3 +12,4 @@ class Role(Base):
     name = Column(String, unique=True, nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
+    
