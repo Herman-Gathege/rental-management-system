@@ -73,6 +73,7 @@ from pathlib import Path
 from app.db.session import SessionLocal
 from app.db.seed_roles import seed_roles
 from app.services.checklist_seed import seed_checklist_for_all_orgs
+from app.services.expense_category_seed import seed_expense_categories_for_all_orgs
 
 # Routers
 from app.api.routes.auth import router as auth_router
@@ -92,6 +93,8 @@ from app.api.routes.messages import router as messages_router
 from app.api.routes.webhooks import router as webhooks_router
 from app.api.routes import payment_batch
 from app.api.routes.expenses import router as expenses_router
+from app.api.routes.expense_categories import router as expense_categories_router
+from app.api.routes.vendors import router as vendors_router
 
 
 app = FastAPI(title="Rental Management API")
@@ -136,6 +139,8 @@ app.include_router(messages_router)
 app.include_router(webhooks_router)
 app.include_router(payment_batch.router)
 app.include_router(expenses_router)
+app.include_router(expense_categories_router)
+app.include_router(vendors_router)
 
 
 @app.get("/")
@@ -157,5 +162,12 @@ def startup_event():
         created = seed_checklist_for_all_orgs(db)
         if created > 0:
             print(f"[Startup] Seeded {created} default checklist items across orgs")
+
+        # TEMPORARY: backfill default expense categories for existing orgs.
+        # New orgs get them at registration; this covers orgs created before
+        # Sprint 5. Idempotent — safe to leave in, removable after first boot.
+        cats = seed_expense_categories_for_all_orgs(db)
+        if cats > 0:
+            print(f"[Startup] Seeded {cats} default expense categories across orgs")
     finally:
         db.close()

@@ -20,6 +20,7 @@ from app.models.role import Role
 from app.core.roles import LANDLORD, TENANT
 from app.models.organization_member import OrganizationMember
 from app.services.tenant_linking import link_tenant_to_user
+from app.services.expense_category_seed import seed_expense_categories_for_org
 
 
 
@@ -93,7 +94,11 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         )
         db.add(membership)
 
-        # 6️⃣ commit everything
+        # 6️⃣ seed default expense categories for the new organization
+        # (added to this same transaction; committed together below)
+        seed_expense_categories_for_org(db, org.id)
+
+        # 7️⃣ commit everything
         db.commit()
 
         return {
