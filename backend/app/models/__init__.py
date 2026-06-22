@@ -19,3 +19,9 @@ from app.models.inspection_item import InspectionItem
 from app.models.inspection_note import InspectionNote
 from app.models.message import Message
 from app.models.ticket import Ticket
+
+# Expense management (Sprint 5)
+from app.models.expense_category import ExpenseCategory
+from app.models.vendor import Vendor
+from app.models.expense import Expense
+from app.models.expense_attachment import ExpenseAttachment
