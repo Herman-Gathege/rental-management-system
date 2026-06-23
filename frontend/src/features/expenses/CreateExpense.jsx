@@ -126,7 +126,9 @@ export default function CreateExpense() {
         }
       }
 
-      navigate(`${base}/expenses`);
+      // Land on the new expense's detail page so it can be submitted / have
+      // more receipts added straight away.
+      navigate(`${base}/expenses/${expense.id}`);
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to create expense");
     } finally {
