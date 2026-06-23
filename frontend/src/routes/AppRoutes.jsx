@@ -35,6 +35,9 @@ import RecordPayment from "../features/payments/RecordPayment";
 import BatchPayments from "../features/payments/BatchPayments";
 import FinancialDashboard from "../features/finance/FinancialDashboard";
 
+/* SPRINT 5 — Expenses */
+import Expenses from "../features/expenses/Expenses";
+
 /* Edit Pages */
 import EditProperty from "../features/properties/EditProperty";
 import EditUnit from "../features/units/EditUnit";
@@ -152,6 +155,9 @@ export default function AppRoutes() {
         <Route path="finance" element={<FinancialDashboard />} />
         <Route path="finance/expenses" element={<FinancialDashboard />} />
 
+        {/* Sprint 5 — Expenses */}
+        <Route path="expenses" element={<Expenses />} />
+
         {/* History / Audit */}
         <Route path="history" element={<History />} />
 
@@ -193,6 +199,9 @@ export default function AppRoutes() {
           element={<ConductInspection />}
         />
 
+        {/* Sprint 5 — Expenses (PM scoped to assigned properties) */}
+        <Route path="expenses" element={<Expenses />} />
+
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />
 
@@ -218,6 +227,9 @@ export default function AppRoutes() {
         <Route path="payments" element={<PaymentsList />} />
         <Route path="payments/batch" element={<BatchPayments />} />
         <Route path="finance" element={<FinancialDashboard />} />
+
+        {/* Sprint 5 — Expenses */}
+        <Route path="expenses" element={<Expenses />} />
 
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />

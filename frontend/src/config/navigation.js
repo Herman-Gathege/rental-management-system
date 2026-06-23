@@ -20,6 +20,7 @@ import {
   FiUploadCloud,
   FiBarChart2,
   FiBell,
+  FiCreditCard,
 } from "react-icons/fi";
 
 /* ================= LANDLORD / PORTFOLIO OWNER =================
@@ -79,6 +80,8 @@ export const ownerNavigation = [
     ],
   },
 
+  { label: "Expenses", icon: FiCreditCard, path: "/owner/expenses" },
+
   { label: "Team", icon: FiKey, path: "/owner/team" },
   { label: "Settings", icon: FiSettings, path: "/owner/settings" },
   { label: "Profile", icon: FiUser, path: "/owner/profile" },
@@ -95,6 +98,7 @@ export const staffNavigation = [
   { label: "Units", icon: FiLayers, path: "/manager/units" },
   { label: "Tenants", icon: FiUsers, path: "/manager/tenants" },
   { label: "Leases", icon: FiFileText, path: "/manager/leases" },
+  { label: "Expenses", icon: FiCreditCard, path: "/manager/expenses" },
   { label: "Profile", icon: FiUser, path: "/manager/profile" },
 ];
 
@@ -110,6 +114,7 @@ export const financeNavigation = [
   { label: "Billing", icon: FiFileText, path: "/finance/billing" },
   { label: "Payments", icon: FiDollarSign, path: "/finance/payments" },
   { label: "Batch Upload", icon: FiUploadCloud, path: "/finance/payments/batch" },
+  { label: "Expenses", icon: FiCreditCard, path: "/finance/expenses" },
   { label: "Finance", icon: FiBarChart2, path: "/finance/finance" },
   { label: "Profile", icon: FiUser, path: "/finance/profile" },
 ];
