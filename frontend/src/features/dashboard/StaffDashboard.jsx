@@ -5,21 +5,19 @@
 // assigned property); refetches on change. The "Your Properties" list always
 // shows all assigned properties.
 //
-// Sprint 5: adds a best-effort "Expenses (YTD)" widget (paid / approved-pending
-// / NOI + category breakdown) scoped to assigned properties (and the active
-// property when one is selected). The expense reports are fetched separately so
-// a hiccup there never blanks the core dashboard.
+// Sprint 5: adds a best-effort "Expenses (YTD)" widget. Per the MVP guide the
+// PM dashboard shows OPERATIONAL expense data only — what they've submitted,
+// what's pending/approved, and what's been spent — and NO financial reports.
+// Income, profit and NOI are deliberately NOT shown here (those require
+// revenue, which is above the PM's pay grade). The widget is fed by a single
+// per-status expense summary; it never fetches income or NOI.
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useProperty } from "../../context/PropertyContext";
 import { getManagerSummary, getManagerProperties } from "../../api/dashboard";
-import {
-  getExpenseSummary,
-  getNOI,
-  getExpensesByCategory,
-} from "../../api/expenses";
+import { getExpenseSummary, getExpensesByCategory } from "../../api/expenses";
 import NotificationsCard from "../../components/ui/NotificationsCard";
 
 const money = (n) => `KES ${Number(n || 0).toLocaleString()}`;
@@ -62,9 +60,9 @@ export default function StaffDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Expense widget (best-effort, doesn't block the core dashboard)
+  // Expense widget (best-effort, doesn't block the core dashboard).
+  // Operational only — per-status totals + category breakdown. No income/NOI.
   const [expenseSummary, setExpenseSummary] = useState(null);
-  const [noi, setNoi] = useState(null);
   const [byCategory, setByCategory] = useState([]);
 
   useEffect(() => {
@@ -91,22 +89,20 @@ export default function StaffDashboard() {
       }
 
       // Expense reports — separate so a failure here leaves the rest intact.
+      // Only the expense-status summary + category split; never income or NOI.
       try {
         const params = ytd();
         if (activePropertyId) params.property_id = activePropertyId;
-        const [exp, noiData, cats] = await Promise.all([
+        const [exp, cats] = await Promise.all([
           getExpenseSummary(params),
-          getNOI(params),
           getExpensesByCategory(params),
         ]);
         if (!active) return;
         setExpenseSummary(exp);
-        setNoi(noiData);
         setByCategory(cats);
       } catch {
         if (!active) return;
         setExpenseSummary(null);
-        setNoi(null);
         setByCategory([]);
       }
     };
@@ -130,7 +126,6 @@ export default function StaffDashboard() {
       ]
     : [];
 
-  const noiValue = noi?.noi ?? 0;
   const maxCategory = Math.max(0, ...byCategory.map((c) => c.total));
 
   return (
@@ -169,7 +164,7 @@ export default function StaffDashboard() {
             ))}
           </div>
 
-          {/* ─── Expenses (YTD) — Sprint 5 ─── */}
+          {/* ─── Expenses (YTD) — Sprint 5, operational only ─── */}
           {expenseSummary && (
             <div className="dash-panel mb-md">
               <div className="flex items-center justify-between mb-sm">
@@ -181,21 +176,16 @@ export default function StaffDashboard() {
 
               <div className="dash-grid mb-md">
                 <div className="dash-stat">
-                  <div className="dash-stat-value">{money(expenseSummary.total_paid)}</div>
-                  <div className="dash-stat-label">Paid</div>
+                  <div className="dash-stat-value">{money(expenseSummary.total_submitted)}</div>
+                  <div className="dash-stat-label">Submitted · pending approval</div>
                 </div>
                 <div className="dash-stat">
                   <div className="dash-stat-value">{money(expenseSummary.total_approved)}</div>
-                  <div className="dash-stat-label">Approved · pending</div>
+                  <div className="dash-stat-label">Approved · awaiting payment</div>
                 </div>
                 <div className="dash-stat">
-                  <div
-                    className="dash-stat-value"
-                    style={{ color: noiValue >= 0 ? "#16a34a" : "#ef4444" }}
-                  >
-                    {money(noiValue)}
-                  </div>
-                  <div className="dash-stat-label">Net Operating Income</div>
+                  <div className="dash-stat-value">{money(expenseSummary.total_paid)}</div>
+                  <div className="dash-stat-label">Spent (paid)</div>
                 </div>
               </div>
 
