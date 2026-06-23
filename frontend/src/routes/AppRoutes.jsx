@@ -37,6 +37,8 @@ import FinancialDashboard from "../features/finance/FinancialDashboard";
 
 /* SPRINT 5 — Expenses */
 import Expenses from "../features/expenses/Expenses";
+import CreateExpense from "../features/expenses/CreateExpense";
+import EditExpense from "../features/expenses/EditExpense";
 
 /* Edit Pages */
 import EditProperty from "../features/properties/EditProperty";
@@ -155,8 +157,10 @@ export default function AppRoutes() {
         <Route path="finance" element={<FinancialDashboard />} />
         <Route path="finance/expenses" element={<FinancialDashboard />} />
 
-        {/* Sprint 5 — Expenses */}
+        {/* Sprint 5 — Expenses (static segments before any future :id route) */}
         <Route path="expenses" element={<Expenses />} />
+        <Route path="expenses/create" element={<CreateExpense />} />
+        <Route path="expenses/:expenseId/edit" element={<EditExpense />} />
 
         {/* History / Audit */}
         <Route path="history" element={<History />} />
@@ -201,6 +205,8 @@ export default function AppRoutes() {
 
         {/* Sprint 5 — Expenses (PM scoped to assigned properties) */}
         <Route path="expenses" element={<Expenses />} />
+        <Route path="expenses/create" element={<CreateExpense />} />
+        <Route path="expenses/:expenseId/edit" element={<EditExpense />} />
 
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />
@@ -230,6 +236,8 @@ export default function AppRoutes() {
 
         {/* Sprint 5 — Expenses */}
         <Route path="expenses" element={<Expenses />} />
+        <Route path="expenses/create" element={<CreateExpense />} />
+        <Route path="expenses/:expenseId/edit" element={<EditExpense />} />
 
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />
