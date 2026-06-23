@@ -95,6 +95,7 @@ from app.api.routes import payment_batch
 from app.api.routes.expenses import router as expenses_router
 from app.api.routes.expense_categories import router as expense_categories_router
 from app.api.routes.vendors import router as vendors_router
+from app.api.routes.expense_reports import router as expense_reports_router
 
 
 app = FastAPI(title="Rental Management API")
@@ -141,6 +142,7 @@ app.include_router(payment_batch.router)
 app.include_router(expenses_router)
 app.include_router(expense_categories_router)
 app.include_router(vendors_router)
+app.include_router(expense_reports_router)
 
 
 @app.get("/")
