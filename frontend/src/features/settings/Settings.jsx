@@ -1,6 +1,6 @@
 //frontend\src\features\settings\Settings.jsx
 import { Link } from "react-router-dom";
-import { FiCheckSquare, FiClock } from "react-icons/fi";
+import { FiCheckSquare, FiClock, FiTag, FiTruck } from "react-icons/fi";
 
 export default function Settings() {
   const settingsTiles = [
@@ -10,6 +10,20 @@ export default function Settings() {
       icon: <FiCheckSquare size={28} />,
       link: "/owner/settings/checklist",
       colorClass: "", // default blue
+    },
+    {
+      title: "Expense Categories",
+      description: "Manage the categories used when recording expenses.",
+      icon: <FiTag size={28} />,
+      link: "/owner/settings/expense-categories",
+      colorClass: "",
+    },
+    {
+      title: "Vendors",
+      description: "Manage suppliers and service providers you record expenses against.",
+      icon: <FiTruck size={28} />,
+      link: "/owner/settings/vendors",
+      colorClass: "",
     },
     {
       title: "Activity History",
