@@ -93,6 +93,7 @@ from app.api.routes.expense_reports import router as expense_reports_router
 
 # Sprint 6 — Tickets
 from app.api.routes.tickets import router as tickets_router
+from app.api.routes.ticket_conversation import router as ticket_conversation_router
 
 from app.services.expense_category_seed import seed_expense_categories_for_all_orgs
 
@@ -130,6 +131,7 @@ app.include_router(expense_reports_router)
 
 # Sprint 6
 app.include_router(tickets_router)
+app.include_router(ticket_conversation_router)
 
 
 @app.on_event("startup")
