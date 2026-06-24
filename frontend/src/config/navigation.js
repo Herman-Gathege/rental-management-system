@@ -21,6 +21,7 @@ import {
   FiBarChart2,
   FiBell,
   FiCreditCard,
+  FiAlertCircle,
 } from "react-icons/fi";
 
 /* ================= LANDLORD / PORTFOLIO OWNER =================
@@ -81,6 +82,7 @@ export const ownerNavigation = [
   },
 
   { label: "Expenses", icon: FiCreditCard, path: "/owner/expenses" },
+  { label: "Tickets", icon: FiAlertCircle, path: "/owner/tickets" },
 
   { label: "Team", icon: FiKey, path: "/owner/team" },
   { label: "Settings", icon: FiSettings, path: "/owner/settings" },
@@ -99,6 +101,7 @@ export const staffNavigation = [
   { label: "Tenants", icon: FiUsers, path: "/manager/tenants" },
   { label: "Leases", icon: FiFileText, path: "/manager/leases" },
   { label: "Expenses", icon: FiCreditCard, path: "/manager/expenses" },
+  { label: "Tickets", icon: FiAlertCircle, path: "/manager/tickets" },
   { label: "Profile", icon: FiUser, path: "/manager/profile" },
 ];
 
@@ -115,6 +118,7 @@ export const financeNavigation = [
   { label: "Payments", icon: FiDollarSign, path: "/finance/payments" },
   { label: "Batch Upload", icon: FiUploadCloud, path: "/finance/payments/batch" },
   { label: "Expenses", icon: FiCreditCard, path: "/finance/expenses" },
+  { label: "Tickets", icon: FiAlertCircle, path: "/finance/tickets" },
   { label: "Finance", icon: FiBarChart2, path: "/finance/finance" },
   { label: "Profile", icon: FiUser, path: "/finance/profile" },
 ];
@@ -131,6 +135,7 @@ export const tenantNavigation = [
   { label: "Lease Checklist", icon: FiCheckSquare, path: "/tenant/inspections" },
   { label: "My Payments", icon: FiDollarSign, path: "/tenant/payments" },
   { label: "My Charges", icon: FiDollarSign, path: "/tenant/charges" },
+  { label: "My Tickets", icon: FiAlertCircle, path: "/tenant/tickets" },
   { label: "Profile", icon: FiUser, path: "/tenant/profile" },
 ];
 
@@ -161,13 +166,14 @@ export const staffBottomNav = [
   { label: "Home", icon: FiHome, path: "/manager/dashboard" },
   { label: "Properties", icon: FiBriefcase, path: "/manager/properties" },
   { label: "Tenants", icon: FiUsers, path: "/manager/tenants" },
+  { label: "Tickets", icon: FiAlertCircle, path: "/manager/tickets" },
 ];
 
 export const tenantBottomNav = [
   { label: "Home", icon: FiHome, path: "/tenant", end: true },
   { label: "Lease", icon: FiFileText, path: "/tenant/lease" },
+  { label: "Tickets", icon: FiAlertCircle, path: "/tenant/tickets" },
   { label: "Payments", icon: FiDollarSign, path: "/tenant/payments" },
-  { label: "Charges", icon: FiDollarSign, path: "/tenant/charges" },
 ];
 
 export const financeBottomNav = [

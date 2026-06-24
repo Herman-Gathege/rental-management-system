@@ -41,6 +41,10 @@ import CreateExpense from "../features/expenses/CreateExpense";
 import EditExpense from "../features/expenses/EditExpense";
 import ExpenseDetail from "../features/expenses/ExpenseDetail";
 
+/* SPRINT 6 — Tickets */
+import Tickets from "../features/tickets/Tickets";
+import CreateTicket from "../features/tickets/CreateTicket";
+
 /* Edit Pages */
 import EditProperty from "../features/properties/EditProperty";
 import EditUnit from "../features/units/EditUnit";
@@ -166,6 +170,10 @@ export default function AppRoutes() {
         <Route path="expenses/:expenseId/edit" element={<EditExpense />} />
         <Route path="expenses/:expenseId" element={<ExpenseDetail />} />
 
+        {/* Sprint 6 — Tickets (static before :id) */}
+        <Route path="tickets" element={<Tickets />} />
+        <Route path="tickets/create" element={<CreateTicket />} />
+
         {/* History / Audit */}
         <Route path="history" element={<History />} />
 
@@ -215,6 +223,10 @@ export default function AppRoutes() {
         <Route path="expenses/:expenseId/edit" element={<EditExpense />} />
         <Route path="expenses/:expenseId" element={<ExpenseDetail />} />
 
+        {/* Sprint 6 — Tickets */}
+        <Route path="tickets" element={<Tickets />} />
+        <Route path="tickets/create" element={<CreateTicket />} />
+
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />
 
@@ -246,6 +258,9 @@ export default function AppRoutes() {
         <Route path="expenses/create" element={<CreateExpense />} />
         <Route path="expenses/:expenseId/edit" element={<EditExpense />} />
         <Route path="expenses/:expenseId" element={<ExpenseDetail />} />
+
+        {/* Sprint 6 — Tickets (Finance responds but doesn't create) */}
+        <Route path="tickets" element={<Tickets />} />
 
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />
@@ -280,6 +295,10 @@ export default function AppRoutes() {
           path="leases/:leaseId/inspections/:inspectionId"
           element={<ConductInspection />}
         />
+
+        {/* Sprint 6 — Tickets (tenant can create + view own) */}
+        <Route path="tickets" element={<Tickets />} />
+        <Route path="tickets/create" element={<CreateTicket />} />
 
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />
