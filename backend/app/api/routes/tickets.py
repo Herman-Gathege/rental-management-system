@@ -15,9 +15,6 @@ Endpoints:
   POST   /tickets/{id}/resolve            → resolved
   POST   /tickets/{id}/close              → closed (manager/landlord)
   POST   /tickets/{id}/reopen             → open (landlord only)
-
-Tenant-scoped ticket creation goes through POST /tickets/ with the tenant's
-own JWT — the service resolves tenant_id from the membership.
 """
 
 from typing import Optional
@@ -25,7 +22,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
-from app.db.deps import get_current_user
+from app.api.deps import get_current_user
 from app.models.users import User
 from app.models.organization_member import OrganizationMember
 from app.models.tenant import Tenant
@@ -58,7 +55,6 @@ def get_user_org(
 
 
 def _tenant_id(user: User, membership: OrganizationMember, db: Session) -> Optional[str]:
-    """Resolve the Tenant.id for the logged-in user (if they are a tenant)."""
     from app.core.roles import TENANT
     if membership.role.name != TENANT:
         return None
