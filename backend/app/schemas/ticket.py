@@ -1,37 +1,47 @@
 #backend\app\schemas\ticket.py
-"""
-Ticket Pydantic schemas.
-
-Phase 2 only uses TicketOut internally (e.g. in the inbound handler return
-value and for logging). Phase 3 will use these in the /tickets API routes.
-"""
-
-from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 
-class TicketBase(BaseModel):
-    subject: str
-    description: str
-    status: str = "open"
-    source: str = "whatsapp"
+# ─── Ticket ───
 
-
-class TicketCreate(TicketBase):
-    organization_id: str
+class TicketCreate(BaseModel):
+    property_id: str
+    unit_id: Optional[str] = None
     tenant_id: Optional[str] = None
-    source_phone: str
-    source_message_id: Optional[str] = None
+    title: str
+    description: str
+    priority: str = "medium"
+    category: str
+    source: str = "tenant_portal"
 
 
-class TicketOut(TicketBase):
-    id: str
-    organization_id: str
-    tenant_id: Optional[str]
-    source_phone: str
-    source_message_id: Optional[str]
-    created_at: datetime
-    updated_at: datetime
+class TicketUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    priority: Optional[str] = None
+    category: Optional[str] = None
+    unit_id: Optional[str] = None
+    tenant_id: Optional[str] = None
 
-    model_config = ConfigDict(from_attributes=True)
+
+class TicketAssignPayload(BaseModel):
+    assigned_to: Optional[str] = None   # null = unassign
+    reason: Optional[str] = None
+
+
+class TicketStatusPayload(BaseModel):
+    reason: Optional[str] = None        # optional note recorded in a message
+
+
+# ─── Message ───
+
+class TicketMessageCreate(BaseModel):
+    message: str
+    is_internal: bool = False
+
+
+# ─── Config ───
+
+class Config:
+    from_attributes = True

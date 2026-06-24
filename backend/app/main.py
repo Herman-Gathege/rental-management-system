@@ -65,111 +65,81 @@
 #     seed_roles(db)
 #     db.close()
 
+#backend\app\main.py
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
+from fastapi.middleware.cors import CORSMiddleware
+import os
 
 from app.db.session import SessionLocal
-from app.db.seed_roles import seed_roles
-from app.services.checklist_seed import seed_checklist_for_all_orgs
-from app.services.expense_category_seed import seed_expense_categories_for_all_orgs
 
-# Routers
 from app.api.routes.auth import router as auth_router
-from app.api.routes.organizations import router as org_router
+from app.api.routes.organizations import router as organizations_router
 from app.api.routes.properties import router as properties_router
 from app.api.routes.units import router as units_router
 from app.api.routes.tenants import router as tenants_router
 from app.api.routes.leases import router as leases_router
 from app.api.routes.charges import router as charges_router
 from app.api.routes.payments import router as payments_router
-from app.api.routes.finance import router as finance_router
 from app.api.routes.dashboard import router as dashboard_router
+from app.api.routes.finance import router as finance_router
 from app.api.routes.audit import router as audit_router
-from app.api.routes.checklist_template import router as checklist_template_router
 from app.api.routes.inspections import router as inspections_router
-from app.api.routes.messages import router as messages_router
 from app.api.routes.webhooks import router as webhooks_router
-from app.api.routes import payment_batch
 from app.api.routes.expenses import router as expenses_router
 from app.api.routes.expense_categories import router as expense_categories_router
 from app.api.routes.vendors import router as vendors_router
 from app.api.routes.expense_reports import router as expense_reports_router
 
+# Sprint 6 — Tickets
+from app.api.routes.tickets import router as tickets_router
+
+from app.services.expense_category_seed import seed_expense_categories_for_all_orgs
 
 app = FastAPI(title="Rental Management API")
 
-# CORS for React + Docker frontend
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost",
-    "http://127.0.0.1",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ─── Static file serving for uploads (local dev storage) ───
-# Files saved by s3_service.upload_file() are accessible at /uploads/<key>
-UPLOAD_DIR = Path("/app/uploads")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/app/uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# Register routers
 app.include_router(auth_router)
-app.include_router(org_router)
+app.include_router(organizations_router)
 app.include_router(properties_router)
 app.include_router(units_router)
 app.include_router(tenants_router)
 app.include_router(leases_router)
 app.include_router(charges_router)
 app.include_router(payments_router)
-app.include_router(finance_router)
 app.include_router(dashboard_router)
+app.include_router(finance_router)
 app.include_router(audit_router)
-app.include_router(checklist_template_router)
 app.include_router(inspections_router)
-app.include_router(messages_router)
 app.include_router(webhooks_router)
-app.include_router(payment_batch.router)
 app.include_router(expenses_router)
 app.include_router(expense_categories_router)
 app.include_router(vendors_router)
 app.include_router(expense_reports_router)
 
+# Sprint 6
+app.include_router(tickets_router)
 
-@app.get("/")
-def root():
-    return {"message": "API running"}
-
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
 
 @app.on_event("startup")
-def startup_event():
+async def startup_event():
     db = SessionLocal()
     try:
-        # Seed roles
-        seed_roles(db)
-
-        # TEMPORARY: seed checklist defaults for any existing orgs
-        created = seed_checklist_for_all_orgs(db)
-        if created > 0:
-            print(f"[Startup] Seeded {created} default checklist items across orgs")
-
-        # TEMPORARY: backfill default expense categories for existing orgs.
-        # New orgs get them at registration; this covers orgs created before
-        # Sprint 5. Idempotent — safe to leave in, removable after first boot.
         cats = seed_expense_categories_for_all_orgs(db)
-        if cats > 0:
-            print(f"[Startup] Seeded {cats} default expense categories across orgs")
+        if cats:
+            print(f"[startup] seeded {cats} expense categories")
+    except Exception as e:
+        print(f"[startup] category seed failed (non-fatal): {e}")
     finally:
         db.close()
