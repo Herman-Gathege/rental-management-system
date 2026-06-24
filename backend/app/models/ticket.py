@@ -1,20 +1,25 @@
 #backend\app\models\ticket.py
 """
-Ticket model — minimal version for Phase 2 auto-ticketing from inbound WhatsApp.
+Ticket model — the unified maintenance / support ticket.
 
-Phase 2 only needs enough fields to:
-  1. Persist an inbound WhatsApp message as a maintenance request
-  2. Link the originating message and tenant (when known)
-  3. Surface a ticket reference in the auto-confirmation reply
-  4. Scope every ticket to an organization (multi-tenant safety)
+History: a minimal version was introduced for WhatsApp Phase 2 auto-ticketing
+(inbound message -> ticket). Sprint 6 evolves that SAME table into the full
+support hub: property/unit scope, an assignee, priority, category, the full
+lifecycle (open -> assigned -> in_progress -> waiting -> resolved -> closed),
+plus conversation / attachment / assignment-history child tables.
 
-Phase 3 will expand this model with assignment, SLA, comments, attachments,
-status transitions, and the matching API routes + frontend sidebar item.
+WhatsApp tickets keep working unchanged: they arrive with source="whatsapp",
+tenant_id (best-effort), source_phone, source_message_id, and now title (was
+"subject"). property_id / category / created_by are nullable so a
+machine-created ticket isn't blocked — staff fill those in during triage.
+User-created tickets (portal/manager/landlord/finance) always set created_by
+and category at the API layer.
 
 Conventions matched:
-  - String UUID primary key (same as Message, Tenant, etc.)
-  - organization_id FK with ondelete CASCADE
-  - created_at + updated_at with default=utcnow
+  - String UUID primary key
+  - organization_id FK, ondelete CASCADE
+  - created_at + updated_at default=utcnow
+  - multiple user FKs disambiguated with foreign_keys=[...]
 """
 
 import uuid
@@ -35,9 +40,19 @@ class Ticket(Base):
         index=True,
     )
 
-    # ─── Source / ownership ───
-    # tenant_id is nullable: inbound messages from unknown numbers still
-    # create a ticket so staff can triage manually instead of losing them.
+    # ─── Scope ───
+    # property_id nullable: WhatsApp tickets have no property until triage.
+    property_id = Column(
+        String,
+        ForeignKey("properties.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    unit_id = Column(
+        String, ForeignKey("units.id", ondelete="SET NULL"), nullable=True
+    )
+    # tenant_id nullable: inbound messages from unknown numbers still create a
+    # ticket so staff can triage instead of losing it.
     tenant_id = Column(
         String,
         ForeignKey("tenants.id", ondelete="SET NULL"),
@@ -45,47 +60,65 @@ class Ticket(Base):
         index=True,
     )
 
-    # The phone number the message came from (always populated, even when
-    # tenant_id is null). Useful for grouping unknown-sender tickets.
-    source_phone = Column(String, nullable=False, index=True)
+    # ─── People ───
+    # created_by nullable: system / WhatsApp tickets have no authoring user
+    # (source tells you it came from WhatsApp). User-created tickets always
+    # set this at the API layer.
+    created_by = Column(String, ForeignKey("users.id"), nullable=True)
+    assigned_to = Column(
+        String, ForeignKey("users.id"), nullable=True, index=True
+    )
 
-    # The Message row that triggered this ticket (the first inbound message).
-    # Nullable so a ticket created manually in the future isn't blocked.
+    # ─── WhatsApp intake fields (kept from Phase 2) ───
+    # The phone the message came from (always set for WhatsApp tickets, even
+    # when tenant_id is null). Nullable so user-created tickets need not set it.
+    source_phone = Column(String, nullable=True, index=True)
+    # The Message row that triggered this ticket (first inbound message).
     source_message_id = Column(
-        String,
-        ForeignKey("messages.id", ondelete="SET NULL"),
-        nullable=True,
+        String, ForeignKey("messages.id", ondelete="SET NULL"), nullable=True
     )
 
     # ─── Content ───
-    # A short subject we derive from the message body (first ~80 chars).
-    subject = Column(String, nullable=False)
-
-    # Full original message body for context.
+    title = Column(String, nullable=False)
     description = Column(Text, nullable=False)
 
-    # ─── Lifecycle ───
-    # Phase 2 keeps status as a plain string for simplicity.
-    # Phase 3 will swap this for an Enum + status-transition rules.
-    # Values: "open", "in_progress", "resolved", "closed"
+    # low | medium | high | critical
+    priority = Column(String, nullable=False, default="medium")
+    # maintenance | repairs | electricity | water | security | cleaning |
+    # noise | lease_question | billing_question | complaint | suggestion | other
+    # Nullable: WhatsApp tickets are uncategorized until triage.
+    category = Column(String, nullable=True)
+    # open -> assigned -> in_progress -> waiting -> resolved -> closed
     status = Column(String, nullable=False, default="open", index=True)
-
-    # How the ticket was created — distinguishes WhatsApp tickets from
-    # tickets created manually in the admin UI (coming in Phase 3).
+    # tenant_portal | manager | finance | landlord | system | whatsapp
     source = Column(String, nullable=False, default="whatsapp")
+
+    # ─── Lifecycle timestamps ───
+    opened_at = Column(DateTime, default=datetime.utcnow)
+    resolved_at = Column(DateTime, nullable=True)
+    closed_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(
-        DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
-        nullable=False,
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
 
     # ─── Relationships ───
     organization = relationship("Organization")
     tenant = relationship("Tenant")
-    source_message = relationship(
-        "Message",
-        foreign_keys=[source_message_id],
+    source_message = relationship("Message", foreign_keys=[source_message_id])
+
+    # Two FKs point at users — disambiguate. One-directional (no back_populates
+    # on User) so the User model is untouched.
+    creator = relationship("User", foreign_keys=[created_by])
+    assignee = relationship("User", foreign_keys=[assigned_to])
+
+    messages = relationship(
+        "TicketMessage", back_populates="ticket", cascade="all, delete-orphan"
+    )
+    attachments = relationship(
+        "TicketAttachment", back_populates="ticket", cascade="all, delete-orphan"
+    )
+    assignments = relationship(
+        "TicketAssignment", back_populates="ticket", cascade="all, delete-orphan"
     )

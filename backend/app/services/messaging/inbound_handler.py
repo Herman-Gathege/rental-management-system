@@ -52,6 +52,12 @@ Pipeline for a status update (sent / delivered / read / failed):
 Both pipelines swallow per-event exceptions so one bad event in a batch
 doesn't poison the rest. The webhook endpoint always returns 200 to Meta
 (per Meta's docs — non-2xx triggers retries that compound the problem).
+
+Sprint 6 note: the tickets table was evolved (subject -> title, plus
+property/assignee/priority/category/lifecycle fields). WhatsApp tickets keep
+arriving uncategorized with source="whatsapp"; staff triage them in the hub.
+The only change here vs. the Phase 2 version is writing `title` instead of
+`subject`.
 """
 
 from __future__ import annotations
@@ -303,13 +309,18 @@ def _create_ticket_from_message(
     """
     Create a ticket from an inbound message body.
 
-    Subject = first 80 chars of body, single-line, trimmed.
+    Title = first 80 chars of body, single-line, trimmed.
+
+    Sprint 6: the column is now `title` (was `subject`). property_id /
+    category / created_by are left null — a WhatsApp ticket is uncategorized
+    and unassigned to a property until staff triage it in the hub. source
+    stays "whatsapp" so it's distinguishable from user-created tickets.
     """
-    subject = (body or "").replace("\n", " ").strip()
-    if not subject:
-        subject = "(empty message)"
-    if len(subject) > 80:
-        subject = subject[:77] + "..."
+    title = (body or "").replace("\n", " ").strip()
+    if not title:
+        title = "(empty message)"
+    if len(title) > 80:
+        title = title[:77] + "..."
 
     ticket = Ticket(
         id=str(uuid.uuid4()),
@@ -317,7 +328,7 @@ def _create_ticket_from_message(
         tenant_id=tenant_id,
         source_phone=source_phone,
         source_message_id=message.id,
-        subject=subject,
+        title=title,
         description=body or "",
         status="open",
         source="whatsapp",
@@ -443,7 +454,7 @@ def handle_inbound_message(
         action="create",
         entity_type="ticket",
         entity_id=ticket.id,
-        description=f"Ticket auto-created from WhatsApp message: {ticket.subject}",
+        description=f"Ticket auto-created from WhatsApp message: {ticket.title}",
     )
 
     # 5) Commit everything together so message + ticket + audit are atomic.

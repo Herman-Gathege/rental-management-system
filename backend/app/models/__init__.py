@@ -25,3 +25,12 @@ from app.models.expense_category import ExpenseCategory
 from app.models.vendor import Vendor
 from app.models.expense import Expense
 from app.models.expense_attachment import ExpenseAttachment
+
+# Communication & support hub (Sprint 6)
+# Ticket itself is imported above (it already existed from WhatsApp Phase 2 and
+# was evolved in place). These are the new child + notification tables.
+from app.models.ticket_message import TicketMessage
+from app.models.ticket_attachment import TicketAttachment
+from app.models.ticket_assignment import TicketAssignment
+from app.models.notification import Notification
+from app.models.notification_preference import NotificationPreference
