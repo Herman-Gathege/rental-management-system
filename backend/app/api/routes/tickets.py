@@ -15,10 +15,13 @@ Endpoints:
   POST   /tickets/{id}/resolve            → resolved
   POST   /tickets/{id}/close              → closed (manager/landlord)
   POST   /tickets/{id}/reopen             → open (landlord only)
+
+Notifications are fired via BackgroundTasks so they never block the
+HTTP response — same pattern as lease/payment notifications.
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 
 from app.db.deps import get_db
@@ -33,6 +36,13 @@ from app.schemas.ticket import (
     TicketStatusPayload,
 )
 from app.services import ticket_service
+from app.services.notification_service import (
+    notify_ticket_created,
+    notify_ticket_assigned,
+    notify_ticket_in_progress,
+    notify_ticket_resolved,
+    notify_ticket_closed,
+)
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 
@@ -90,13 +100,17 @@ def list_tickets(
 @router.post("/")
 def create_ticket(
     payload: TicketCreate,
+    background_tasks: BackgroundTasks,
     deps=Depends(get_user_org),
 ):
     user, membership, db = deps
     tid = _tenant_id(user, membership, db)
-    return ticket_service.create_ticket(
+    ticket = ticket_service.create_ticket(
         db, membership.organization_id, user.id, membership, payload, tenant_id=tid
     )
+    # Pizza-inn stage 1: "Your request has been received"
+    background_tasks.add_task(notify_ticket_created, ticket["id"])
+    return ticket
 
 
 @router.get("/{ticket_id}")
@@ -140,24 +154,32 @@ def delete_ticket(
 def assign_ticket(
     ticket_id: str,
     payload: TicketAssignPayload,
+    background_tasks: BackgroundTasks,
     deps=Depends(get_user_org),
 ):
     user, membership, db = deps
-    return ticket_service.assign_ticket(
+    ticket = ticket_service.assign_ticket(
         db, ticket_id, membership.organization_id, user.id, membership, payload
     )
+    # Pizza-inn stage 2: "Your issue has been assigned"
+    background_tasks.add_task(notify_ticket_assigned, ticket_id)
+    return ticket
 
 
 @router.post("/{ticket_id}/start")
 def start_ticket(
     ticket_id: str,
     payload: TicketStatusPayload = TicketStatusPayload(),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     deps=Depends(get_user_org),
 ):
     user, membership, db = deps
-    return ticket_service.start_ticket(
+    ticket = ticket_service.start_ticket(
         db, ticket_id, membership.organization_id, user.id, membership, payload.reason
     )
+    # Pizza-inn stage 3: "We're working on it"
+    background_tasks.add_task(notify_ticket_in_progress, ticket_id)
+    return ticket
 
 
 @router.post("/{ticket_id}/wait")
@@ -176,24 +198,32 @@ def wait_ticket(
 def resolve_ticket(
     ticket_id: str,
     payload: TicketStatusPayload = TicketStatusPayload(),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     deps=Depends(get_user_org),
 ):
     user, membership, db = deps
-    return ticket_service.resolve_ticket(
+    ticket = ticket_service.resolve_ticket(
         db, ticket_id, membership.organization_id, user.id, membership, payload.reason
     )
+    # Pizza-inn stage 4: "Your issue has been resolved"
+    background_tasks.add_task(notify_ticket_resolved, ticket_id)
+    return ticket
 
 
 @router.post("/{ticket_id}/close")
 def close_ticket(
     ticket_id: str,
     payload: TicketStatusPayload = TicketStatusPayload(),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     deps=Depends(get_user_org),
 ):
     user, membership, db = deps
-    return ticket_service.close_ticket(
+    ticket = ticket_service.close_ticket(
         db, ticket_id, membership.organization_id, user.id, membership, payload.reason
     )
+    # Pizza-inn stage 5: "Ticket closed. Thank you!"
+    background_tasks.add_task(notify_ticket_closed, ticket_id)
+    return ticket
 
 
 @router.post("/{ticket_id}/reopen")

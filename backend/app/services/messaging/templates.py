@@ -126,6 +126,75 @@ TEMPLATES = {
         ),
         "language_code": "en_US",
     },
+
+    # ─── Ticket assigned (tenant) ───
+    # Sent when a staff member is assigned to work on the tenant's ticket.
+    "ticket_assigned": {
+        "param_order": ["ticket_id", "ticket_title"],
+        "template_body_freeform": (
+            "✅ Update on your request (Ticket {ticket_id}):\n\n"
+            "{ticket_title}\n\n"
+            "Your issue has been assigned and someone will be in touch soon."
+        ),
+        "template_body_meta": (
+            "✅ Update on your request (Ticket {{1}}):\n\n"
+            "{{2}}\n\n"
+            "Your issue has been assigned and someone will be in touch soon."
+        ),
+        "language_code": "en_US",
+    },
+
+    # ─── Ticket in progress (tenant) ───
+    # Sent when work actually starts on the ticket.
+    "ticket_in_progress": {
+        "param_order": ["ticket_id", "ticket_title"],
+        "template_body_freeform": (
+            "🔧 Work in progress (Ticket {ticket_id}):\n\n"
+            "{ticket_title}\n\n"
+            "We're actively working on your issue."
+        ),
+        "template_body_meta": (
+            "🔧 Work in progress (Ticket {{1}}):\n\n"
+            "{{2}}\n\n"
+            "We're actively working on your issue."
+        ),
+        "language_code": "en_US",
+    },
+
+    # ─── Ticket resolved (tenant) ───
+    # Sent when the issue is marked resolved. Asks tenant to confirm.
+    "ticket_resolved": {
+        "param_order": ["ticket_id", "ticket_title"],
+        "template_body_freeform": (
+            "✔ Issue resolved (Ticket {ticket_id}):\n\n"
+            "{ticket_title}\n\n"
+            "We've marked your issue as resolved. "
+            "Please let us know if it hasn't been fixed and we'll follow up."
+        ),
+        "template_body_meta": (
+            "✔ Issue resolved (Ticket {{1}}):\n\n"
+            "{{2}}\n\n"
+            "We've marked your issue as resolved. "
+            "Please let us know if it hasn't been fixed and we'll follow up."
+        ),
+        "language_code": "en_US",
+    },
+
+    # ─── Ticket closed (tenant) ───
+    "ticket_closed": {
+        "param_order": ["ticket_id", "ticket_title"],
+        "template_body_freeform": (
+            "🎉 Ticket closed (Ticket {ticket_id}):\n\n"
+            "{ticket_title}\n\n"
+            "This request has been closed. Thank you for your patience!"
+        ),
+        "template_body_meta": (
+            "🎉 Ticket closed (Ticket {{1}}):\n\n"
+            "{{2}}\n\n"
+            "This request has been closed. Thank you for your patience!"
+        ),
+        "language_code": "en_US",
+    },
 }
 
 
