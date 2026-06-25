@@ -1,0 +1,530 @@
+//frontend\src\features\tickets\TicketDetail.jsx
+//
+// Ticket detail (Sprint 6). Shows ticket info, role-aware lifecycle action
+// buttons (Pizza Inn stages), the message thread (internal notes hidden from
+// tenants), and the attachments panel.
+//
+// RBAC summary (mirrors backend):
+//   Landlord  → all actions including close/reopen/delete
+//   PM        → assign, start, wait, resolve, close; can post messages
+//   Finance   → can post messages; no status transitions
+//   Tenant    → can post messages (no internal notes); sees their own ticket
+
+import { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import {
+  getTicket,
+  assignTicket,
+  startTicket,
+  waitTicket,
+  resolveTicket,
+  closeTicket,
+  reopenTicket,
+  deleteTicket,
+  getMessages,
+  addMessage,
+  deleteMessage,
+  getAttachments,
+  uploadAttachment,
+  deleteAttachment,
+} from "../../api/tickets";
+import { useAuth } from "../../context/AuthContext";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
+
+const fmtDate = (d) =>
+  d
+    ? new Date(d).toLocaleString("en-GB", {
+        day: "2-digit", month: "short", year: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      })
+    : "—";
+
+const fmtShort = (d) =>
+  d
+    ? new Date(d).toLocaleDateString("en-GB", {
+        day: "2-digit", month: "short", year: "numeric",
+      })
+    : "—";
+
+const statusClass = (s) => {
+  switch (s) {
+    case "closed":      return "status-paid";
+    case "resolved":    return "status-ok";
+    case "in_progress": return "status-ok";
+    default:            return "status-owed";
+  }
+};
+
+const priorityColor = (p) => {
+  switch (p) {
+    case "critical": return "#ef4444";
+    case "high":     return "#f59e0b";
+    case "medium":   return "#2563eb";
+    default:         return "#6b7280";
+  }
+};
+
+function dashboardBase(role) {
+  switch (role) {
+    case "property_manager": return "/manager";
+    case "finance":          return "/finance";
+    case "tenant":           return "/tenant";
+    default:                 return "/owner";
+  }
+}
+
+// ─── Component ───────────────────────────────────────────────────────────
+
+export default function TicketDetail() {
+  const { ticketId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const role = user?.role?.toLowerCase();
+  const base = dashboardBase(role);
+
+  const isLandlord = role === "landlord";
+  const isPM       = role === "property_manager";
+  const isFinance  = role === "finance";
+  const isTenant   = role === "tenant";
+  const canManage  = isLandlord || isPM;  // can do status transitions
+  const canClose   = isLandlord || isPM;
+  const canReopen  = isLandlord;
+  const canDelete  = isLandlord;
+
+  const [ticket, setTicket] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [attachments, setAttachments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  // Message compose
+  const [msgText, setMsgText] = useState("");
+  const [isInternal, setIsInternal] = useState(false);
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef(null);
+
+  const load = async () => {
+    try {
+      const [t, m, a] = await Promise.all([
+        getTicket(ticketId),
+        getMessages(ticketId),
+        getAttachments(ticketId),
+      ]);
+      setTicket(t);
+      setMessages(m);
+      setAttachments(a);
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to load ticket");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, [ticketId]);
+
+  // Scroll to bottom of thread when messages load/change
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // ─── Lifecycle actions ─────────────────────────────────────────────
+
+  const runAction = async (fn) => {
+    setBusy(true);
+    try {
+      const updated = await fn();
+      setTicket(updated);
+    } catch (err) {
+      alert(err.response?.data?.detail || "Action failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleStart    = () => runAction(() => startTicket(ticketId));
+  const handleWait     = () => runAction(() => waitTicket(ticketId));
+  const handleResolve  = () => {
+    const note = prompt("Resolution note (optional):");
+    if (note === null) return;
+    runAction(() => resolveTicket(ticketId, note || null));
+  };
+  const handleClose    = () => {
+    if (!confirm("Close this ticket?")) return;
+    runAction(() => closeTicket(ticketId));
+  };
+  const handleReopen   = () => {
+    if (!confirm("Reopen this ticket?")) return;
+    runAction(() => reopenTicket(ticketId));
+  };
+  const handleDelete   = async () => {
+    if (!confirm("Delete this ticket? This cannot be undone.")) return;
+    setBusy(true);
+    try {
+      await deleteTicket(ticketId);
+      navigate(`${base}/tickets`);
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to delete ticket");
+      setBusy(false);
+    }
+  };
+
+  // ─── Messages ──────────────────────────────────────────────────────
+
+  const handleSendMessage = async () => {
+    if (!msgText.trim()) return;
+    setSending(true);
+    try {
+      const msg = await addMessage(ticketId, {
+        message: msgText.trim(),
+        is_internal: isInternal,
+      });
+      setMessages((prev) => [...prev, msg]);
+      setMsgText("");
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to send message");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!confirm("Delete this message?")) return;
+    try {
+      await deleteMessage(ticketId, messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to delete message");
+    }
+  };
+
+  // ─── Attachments ───────────────────────────────────────────────────
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const att = await uploadAttachment(ticketId, file);
+      setAttachments((prev) => [...prev, att]);
+    } catch (err) {
+      alert(err.response?.data?.detail || "Upload failed");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    if (!confirm("Remove this attachment?")) return;
+    try {
+      await deleteAttachment(ticketId, attachmentId);
+      setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to remove attachment");
+    }
+  };
+
+  // ─── Render ────────────────────────────────────────────────────────
+
+  if (loading) return <p>Loading...</p>;
+  if (error)   return <div className="error-text">{error}</div>;
+  if (!ticket) return <p>Ticket not found</p>;
+
+  const status = ticket.status;
+  const isClosed = status === "closed";
+
+  return (
+    <section className="properties-page">
+      {/* Back link */}
+      <div className="flex items-center gap-sm mb-sm">
+        <Link to={`${base}/tickets`} className="text-sm checklist-back-link">
+          ← All Tickets
+        </Link>
+      </div>
+
+      {/* Header */}
+      <div className="properties-header">
+        <div>
+          <h2>{ticket.title}</h2>
+          <p className="text-muted text-sm">
+            {ticket.property_name || "No property"}
+            {ticket.unit_name ? ` · ${ticket.unit_name}` : ""}
+            {ticket.category ? ` · ${ticket.category.replace(/_/g, " ")}` : ""}
+          </p>
+        </div>
+        <div className="flex gap-sm items-center">
+          <span style={{ color: priorityColor(ticket.priority), fontWeight: 700 }}>
+            {ticket.priority}
+          </span>
+          <span className={`status-pill ${statusClass(status)}`}>
+            {status.replace(/_/g, " ")}
+          </span>
+        </div>
+      </div>
+
+      {/* ─── Details ─── */}
+      <div className="card detail-card">
+        <h3>Details</h3>
+        <div className="two-col">
+          <div>
+            <div className="text-sm text-muted">Opened</div>
+            <div className="text-bold">{fmtShort(ticket.opened_at || ticket.created_at)}</div>
+          </div>
+          <div>
+            <div className="text-sm text-muted">Source</div>
+            <div className="text-bold">{ticket.source?.replace(/_/g, " ") || "—"}</div>
+          </div>
+        </div>
+        <div className="two-col mt-md">
+          <div>
+            <div className="text-sm text-muted">Assigned to</div>
+            <div className="text-bold">{ticket.assignee_email || "Unassigned"}</div>
+          </div>
+          <div>
+            <div className="text-sm text-muted">Reported by</div>
+            <div className="text-bold">{ticket.creator_email || "—"}</div>
+          </div>
+        </div>
+        {ticket.resolved_at && (
+          <div className="mt-md">
+            <div className="text-sm text-muted">Resolved</div>
+            <div className="text-bold">{fmtShort(ticket.resolved_at)}</div>
+          </div>
+        )}
+        <div className="mt-md">
+          <div className="text-sm text-muted">Description</div>
+          <div style={{ whiteSpace: "pre-wrap" }}>{ticket.description}</div>
+        </div>
+      </div>
+
+      {/* ─── Actions (Pizza Inn lifecycle) ─── */}
+      {!isTenant && (
+        <div className="card detail-card">
+          <h3>Actions</h3>
+          <div className="flex gap-sm flex-wrap">
+            {/* start: assigned → in_progress */}
+            {canManage && status === "assigned" && (
+              <button className="btn btn-primary" onClick={handleStart} disabled={busy}>
+                Start Work
+              </button>
+            )}
+            {/* wait: in_progress → waiting */}
+            {canManage && status === "in_progress" && (
+              <button className="btn btn-secondary" onClick={handleWait} disabled={busy}>
+                Mark as Waiting
+              </button>
+            )}
+            {/* resolve: any open status */}
+            {canManage && ["open","assigned","in_progress","waiting"].includes(status) && (
+              <button className="btn btn-primary" onClick={handleResolve} disabled={busy}>
+                Mark Resolved
+              </button>
+            )}
+            {/* close: resolved only */}
+            {canClose && status === "resolved" && (
+              <button className="btn btn-primary" onClick={handleClose} disabled={busy}>
+                Close Ticket
+              </button>
+            )}
+            {/* reopen: resolved or closed */}
+            {canReopen && ["resolved","closed"].includes(status) && (
+              <button className="btn btn-secondary" onClick={handleReopen} disabled={busy}>
+                Reopen
+              </button>
+            )}
+            {/* delete: landlord only, any non-closed status */}
+            {canDelete && !isClosed && (
+              <button className="btn btn-danger" onClick={handleDelete} disabled={busy}>
+                Delete
+              </button>
+            )}
+          </div>
+          {isClosed && (
+            <p className="text-sm text-muted mt-sm">
+              This ticket is closed. {canReopen ? "Reopen it if the issue has recurred." : ""}
+            </p>
+          )}
+          {isFinance && (
+            <p className="text-sm text-muted">
+              Finance can respond to this ticket but cannot change its status.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ─── Conversation ─── */}
+      <div className="card detail-card">
+        <h3>Conversation</h3>
+
+        {/* Thread */}
+        <div
+          style={{
+            maxHeight: 400,
+            overflowY: "auto",
+            marginBottom: 16,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          {messages.length === 0 ? (
+            <p className="text-sm text-muted">No messages yet. Start the conversation below.</p>
+          ) : (
+            messages.map((m) => {
+              const isOwn = m.sender_id === user?.id;
+              return (
+                <div
+                  key={m.id}
+                  style={{
+                    alignSelf: isOwn ? "flex-end" : "flex-start",
+                    maxWidth: "78%",
+                    background: m.is_internal
+                      ? "#fef9c3"
+                      : isOwn ? "#2563eb" : "#f1f5f9",
+                    color: isOwn && !m.is_internal ? "#fff" : "#1e293b",
+                    borderRadius: 12,
+                    padding: "8px 12px",
+                    position: "relative",
+                  }}
+                >
+                  {m.is_internal && (
+                    <div className="text-xs" style={{ color: "#92400e", marginBottom: 2 }}>
+                      🔒 Internal note
+                    </div>
+                  )}
+                  <div className="text-sm" style={{ whiteSpace: "pre-wrap" }}>
+                    {m.message}
+                  </div>
+                  <div
+                    className="text-xs"
+                    style={{ opacity: 0.65, marginTop: 4 }}
+                  >
+                    {m.sender_email || "System"} · {fmtDate(m.created_at)}
+                  </div>
+                  {/* Delete own messages (or landlord deletes any) */}
+                  {(isOwn || isLandlord) && (
+                    <button
+                      onClick={() => handleDeleteMessage(m.id)}
+                      style={{
+                        position: "absolute",
+                        top: 4, right: 6,
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: 10,
+                        opacity: 0.4,
+                      }}
+                      title="Delete message"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              );
+            })
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Compose */}
+        {!isClosed && (
+          <div className="flex flex-col gap-sm">
+            <textarea
+              className="input"
+              rows={3}
+              placeholder="Type a message…"
+              value={msgText}
+              onChange={(e) => setMsgText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSendMessage();
+              }}
+            />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-sm">
+                {/* Internal note toggle — staff only */}
+                {!isTenant && (
+                  <label className="flex items-center gap-sm text-sm" style={{ cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={isInternal}
+                      onChange={(e) => setIsInternal(e.target.checked)}
+                    />
+                    Internal note (hidden from tenant)
+                  </label>
+                )}
+              </div>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={handleSendMessage}
+                disabled={sending || !msgText.trim()}
+              >
+                {sending ? "Sending…" : "Send"}
+              </button>
+            </div>
+            <p className="text-xs text-muted">Ctrl+Enter to send</p>
+          </div>
+        )}
+        {isClosed && (
+          <p className="text-sm text-muted">This ticket is closed — conversation is locked.</p>
+        )}
+      </div>
+
+      {/* ─── Attachments ─── */}
+      <div className="card detail-card">
+        <div className="flex items-center justify-between mb-sm">
+          <h3>Attachments</h3>
+          {!isClosed && (
+            <label className="btn btn-secondary btn-sm doc-upload-label">
+              {uploading ? "Uploading…" : "Add File"}
+              <input
+                type="file"
+                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                onChange={handleUpload}
+                disabled={uploading}
+                className="doc-upload-hidden-input"
+              />
+            </label>
+          )}
+        </div>
+
+        {attachments.length === 0 ? (
+          <div className="empty-state-sm">
+            <p className="text-sm">No files attached yet.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-sm">
+            {attachments.map((a) => (
+              <div key={a.id} className="doc-upload-row">
+                <div className="doc-upload-row-info">
+                  <div className="text-sm text-bold file-name-ellipsis">
+                    {a.file_name || "Attachment"}
+                  </div>
+                  <div className="text-xs text-muted">{fmtShort(a.created_at)}</div>
+                </div>
+                <div className="flex gap-sm">
+                  <a
+                    href={a.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary btn-sm"
+                  >
+                    View
+                  </a>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() => handleDeleteAttachment(a.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}

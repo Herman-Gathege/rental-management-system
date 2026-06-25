@@ -44,6 +44,7 @@ import ExpenseDetail from "../features/expenses/ExpenseDetail";
 /* SPRINT 6 — Tickets */
 import Tickets from "../features/tickets/Tickets";
 import CreateTicket from "../features/tickets/CreateTicket";
+import TicketDetail from "../features/tickets/TicketDetail";
 
 /* Edit Pages */
 import EditProperty from "../features/properties/EditProperty";
@@ -170,9 +171,10 @@ export default function AppRoutes() {
         <Route path="expenses/:expenseId/edit" element={<EditExpense />} />
         <Route path="expenses/:expenseId" element={<ExpenseDetail />} />
 
-        {/* Sprint 6 — Tickets (static before :id) */}
+        {/* Sprint 6 — Tickets (static before :ticketId) */}
         <Route path="tickets" element={<Tickets />} />
         <Route path="tickets/create" element={<CreateTicket />} />
+        <Route path="tickets/:ticketId" element={<TicketDetail />} />
 
         {/* History / Audit */}
         <Route path="history" element={<History />} />
@@ -208,9 +210,7 @@ export default function AppRoutes() {
         <Route path="tenants" element={<ManagerTenants />} />
         <Route path="leases" element={<ManagerLeases />} />
 
-        {/* Lease detail + inspections — PM can open a lease and conduct/view
-            its inspections. The lease detail hides move-out initiation and
-            termination for PMs; ConductInspection enforces the rest. */}
+        {/* Lease detail + inspections */}
         <Route path="leases/:leaseId" element={<LeaseDetail />} />
         <Route
           path="leases/:leaseId/inspections/:inspectionId"
@@ -226,6 +226,7 @@ export default function AppRoutes() {
         {/* Sprint 6 — Tickets */}
         <Route path="tickets" element={<Tickets />} />
         <Route path="tickets/create" element={<CreateTicket />} />
+        <Route path="tickets/:ticketId" element={<TicketDetail />} />
 
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />
@@ -246,8 +247,7 @@ export default function AppRoutes() {
         <Route index element={<FinanceDashboard />} />
         <Route path="dashboard" element={<FinanceDashboard />} />
 
-        {/* Sprint 4.5 Chunk 5 — finance reuses the org-wide financial pages
-            (finance is permitted to see all org money). */}
+        {/* Sprint 4.5 Chunk 5 */}
         <Route path="billing" element={<Billing />} />
         <Route path="payments" element={<PaymentsList />} />
         <Route path="payments/batch" element={<BatchPayments />} />
@@ -261,6 +261,7 @@ export default function AppRoutes() {
 
         {/* Sprint 6 — Tickets (Finance responds but doesn't create) */}
         <Route path="tickets" element={<Tickets />} />
+        <Route path="tickets/:ticketId" element={<TicketDetail />} />
 
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />
@@ -282,15 +283,12 @@ export default function AppRoutes() {
       >
         <Route index element={<TenantDashboard />} />
 
-        {/* Sprint 4.5 tenant portal — all sub-pages now live. */}
+        {/* Sprint 4.5 tenant portal */}
         <Route path="lease" element={<TenantLease />} />
         <Route path="inspections" element={<TenantInspections />} />
         <Route path="payments" element={<TenantPayments />} />
         <Route path="charges" element={<TenantCharges />} />
 
-        {/* Inspections — tenant can conduct a draft move-in and view the rest.
-            Same ConductInspection page as the owner; the backend + the page's
-            read-only logic enforce the move-out restriction. */}
         <Route
           path="leases/:leaseId/inspections/:inspectionId"
           element={<ConductInspection />}
@@ -299,6 +297,7 @@ export default function AppRoutes() {
         {/* Sprint 6 — Tickets (tenant can create + view own) */}
         <Route path="tickets" element={<Tickets />} />
         <Route path="tickets/create" element={<CreateTicket />} />
+        <Route path="tickets/:ticketId" element={<TicketDetail />} />
 
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />
