@@ -1,13 +1,13 @@
 //frontend\src\features\tickets\TicketDetail.jsx
 //
 // Ticket detail (Sprint 6). Shows ticket info, role-aware lifecycle action
-// buttons (Pizza Inn stages), the message thread (internal notes hidden from
-// tenants), and the attachments panel.
+// buttons (Pizza Inn stages), an assignee picker (Landlord/PM), the message
+// thread (internal notes hidden from tenants), and the attachments panel.
 //
 // RBAC summary (mirrors backend):
-//   Landlord  → all actions including close/reopen/delete
+//   Landlord  → all actions including assign/close/reopen/delete
 //   PM        → assign, start, wait, resolve, close; can post messages
-//   Finance   → can post messages; no status transitions
+//   Finance   → can post messages; no status transitions, no assign
 //   Tenant    → can post messages (no internal notes); sees their own ticket
 
 import { useState, useEffect, useRef } from "react";
@@ -28,6 +28,7 @@ import {
   uploadAttachment,
   deleteAttachment,
 } from "../../api/tickets";
+import { getMyOrganization } from "../../api/organizations";
 import { useAuth } from "../../context/AuthContext";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -74,6 +75,9 @@ function dashboardBase(role) {
   }
 }
 
+// Roles assignable to a ticket (staff who can do work). Tenants excluded.
+const ASSIGNABLE_ROLES = ["LANDLORD", "PROPERTY_MANAGER", "FINANCE"];
+
 // ─── Component ───────────────────────────────────────────────────────────
 
 export default function TicketDetail() {
@@ -87,7 +91,8 @@ export default function TicketDetail() {
   const isPM       = role === "property_manager";
   const isFinance  = role === "finance";
   const isTenant   = role === "tenant";
-  const canManage  = isLandlord || isPM;  // can do status transitions
+  const canManage  = isLandlord || isPM;  // status transitions
+  const canAssign  = isLandlord || isPM;
   const canClose   = isLandlord || isPM;
   const canReopen  = isLandlord;
   const canDelete  = isLandlord;
@@ -95,6 +100,7 @@ export default function TicketDetail() {
   const [ticket, setTicket] = useState(null);
   const [messages, setMessages] = useState([]);
   const [attachments, setAttachments] = useState([]);
+  const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -125,7 +131,20 @@ export default function TicketDetail() {
 
   useEffect(() => { load(); }, [ticketId]);
 
-  // Scroll to bottom of thread when messages load/change
+  // Load assignable staff (Landlord/PM only — they're the ones who assign)
+  useEffect(() => {
+    if (!canAssign) return;
+    getMyOrganization()
+      .then((org) => {
+        const assignable = (org.members || []).filter((m) =>
+          ASSIGNABLE_ROLES.includes(m.role)
+        );
+        setStaff(assignable);
+      })
+      .catch(() => setStaff([]));
+  }, [canAssign]);
+
+  // Scroll to bottom of thread when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -139,6 +158,19 @@ export default function TicketDetail() {
       setTicket(updated);
     } catch (err) {
       alert(err.response?.data?.detail || "Action failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleAssign = async (e) => {
+    const assigned_to = e.target.value || null; // "" → unassign
+    setBusy(true);
+    try {
+      const updated = await assignTicket(ticketId, { assigned_to });
+      setTicket(updated);
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to assign");
     } finally {
       setBusy(false);
     }
@@ -304,7 +336,29 @@ export default function TicketDetail() {
       {!isTenant && (
         <div className="card detail-card">
           <h3>Actions</h3>
-          <div className="flex gap-sm flex-wrap">
+
+          {/* Assignment picker — Landlord/PM only */}
+          {canAssign && !isClosed && (
+            <div className="form-group" style={{ maxWidth: 360 }}>
+              <label htmlFor="assignee">Assign to</label>
+              <select
+                id="assignee"
+                className="input"
+                value={ticket.assigned_to || ""}
+                onChange={handleAssign}
+                disabled={busy}
+              >
+                <option value="">Unassigned</option>
+                {staff.map((s) => (
+                  <option key={s.user_id} value={s.user_id}>
+                    {s.name} ({s.role.replace(/_/g, " ").toLowerCase()})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="flex gap-sm flex-wrap mt-sm">
             {/* start: assigned → in_progress */}
             {canManage && status === "assigned" && (
               <button className="btn btn-primary" onClick={handleStart} disabled={busy}>
@@ -342,6 +396,12 @@ export default function TicketDetail() {
               </button>
             )}
           </div>
+
+          {status === "open" && canAssign && (
+            <p className="text-sm text-muted mt-sm">
+              Assign this ticket to a staff member to begin the workflow, or mark it resolved directly.
+            </p>
+          )}
           {isClosed && (
             <p className="text-sm text-muted mt-sm">
               This ticket is closed. {canReopen ? "Reopen it if the issue has recurred." : ""}
@@ -349,7 +409,7 @@ export default function TicketDetail() {
           )}
           {isFinance && (
             <p className="text-sm text-muted">
-              Finance can respond to this ticket but cannot change its status.
+              Finance can respond to this ticket but cannot change its status or assignment.
             </p>
           )}
         </div>
@@ -404,7 +464,6 @@ export default function TicketDetail() {
                   >
                     {m.sender_email || "System"} · {fmtDate(m.created_at)}
                   </div>
-                  {/* Delete own messages (or landlord deletes any) */}
                   {(isOwn || isLandlord) && (
                     <button
                       onClick={() => handleDeleteMessage(m.id)}
@@ -444,7 +503,6 @@ export default function TicketDetail() {
             />
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-sm">
-                {/* Internal note toggle — staff only */}
                 {!isTenant && (
                   <label className="flex items-center gap-sm text-sm" style={{ cursor: "pointer" }}>
                     <input
