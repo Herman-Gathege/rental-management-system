@@ -15,6 +15,7 @@ import {
 } from "../../api/dashboard";
 import MobileCardList from "../../components/ui/MobileCardList";
 import NotificationsCard from "../../components/ui/NotificationsCard";
+import TicketsSummaryCard from "../../components/ui/TicketsSummaryCard";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -157,6 +158,8 @@ export default function TenantDashboard() {
       </div>
 
       <NotificationsCard />
+
+      <TicketsSummaryCard />
 
       {/* ===== Charges ===== */}
       <div className="dash-panel mb-md">

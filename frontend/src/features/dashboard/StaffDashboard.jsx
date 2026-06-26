@@ -19,6 +19,7 @@ import { useProperty } from "../../context/PropertyContext";
 import { getManagerSummary, getManagerProperties } from "../../api/dashboard";
 import { getExpenseSummary, getExpensesByCategory } from "../../api/expenses";
 import NotificationsCard from "../../components/ui/NotificationsCard";
+import TicketsSummaryCard from "../../components/ui/TicketsSummaryCard";
 
 const money = (n) => `KES ${Number(n || 0).toLocaleString()}`;
 
@@ -204,6 +205,8 @@ export default function StaffDashboard() {
               )}
             </div>
           )}
+
+          <TicketsSummaryCard />
 
           <NotificationsCard />
 
