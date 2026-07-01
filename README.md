@@ -108,6 +108,7 @@ alembic upgrade head
 go back to root dir
 change postgres url back
 docker compose up --build
+sudo systemctl start docker
 ```
 
 ### 🔑 Default Architecture Ports
