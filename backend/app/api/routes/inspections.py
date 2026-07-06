@@ -1,6 +1,7 @@
 #backend\app\api\routes\inspections.py
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, date
@@ -12,6 +13,8 @@ from app.api.deps import get_current_user
 from app.models.users import User
 from app.models.organization_member import OrganizationMember
 from app.models.lease import Lease
+from app.models.charge import Charge
+from app.models.payment import Payment
 from app.models.lease_inspection import LeaseInspection
 from app.models.inspection_item import InspectionItem
 from app.models.inspection_note import InspectionNote
@@ -159,6 +162,10 @@ def inspection_dict(inspection: LeaseInspection, db: Session) -> dict:
         "tenant_signed_at": inspection.tenant_signed_at,
         "status": inspection.status,
         "total_deduction_amount": float(inspection.total_deduction_amount) if inspection.total_deduction_amount else 0,
+        # Deposit settlement (Sprint 6.2 #7 Phase 3) — populated at move-out sign.
+        "deposit_held": float(inspection.deposit_held) if inspection.deposit_held is not None else None,
+        "deposit_refunded": float(inspection.deposit_refunded) if inspection.deposit_refunded is not None else None,
+        "deposit_shortfall": float(inspection.deposit_shortfall) if inspection.deposit_shortfall is not None else None,
         "created_at": inspection.created_at,
         "updated_at": inspection.updated_at,
         "items": [item_dict(i) for i in items],
@@ -453,7 +460,7 @@ def sign_inspection(
     inspection.inspection_date = date.today()
     inspection.updated_at = datetime.utcnow()
 
-    # ─── If this is a move-out, also terminate the lease ───
+    # ─── If this is a move-out, also terminate the lease + settle deposit ───
     lease_terminated = False
     if inspection.inspection_type == "move_out":
         lease = db.query(Lease).filter(Lease.id == inspection.lease_id).first()
@@ -471,6 +478,56 @@ def sign_inspection(
                 description=f"Lease terminated via signed move-out inspection",
                 old_values={"status": "active"},
                 new_values={"status": "terminated"},
+            )
+
+        # ─── Deposit reconciliation (Sprint 6.2 #7 Phase 3) ───
+        # deposit_held = total deposit-type payments made on this lease.
+        # refund = max(held - deductions, 0); shortfall = max(deductions - held, 0).
+        # If there's a shortfall (damages exceed the deposit), auto-create a
+        # rent-type charge for the difference so it lands on the tenant's balance
+        # and flows through outstanding / overdue like any other receivable.
+        deductions = float(inspection.total_deduction_amount or 0)
+        deposit_held = float(
+            db.query(func.coalesce(func.sum(Payment.amount), 0))
+            .filter(
+                Payment.lease_id == inspection.lease_id,
+                Payment.payment_type == "deposit",
+            )
+            .scalar()
+        )
+        refunded = max(deposit_held - deductions, 0.0)
+        shortfall = max(deductions - deposit_held, 0.0)
+
+        inspection.deposit_held = deposit_held
+        inspection.deposit_refunded = refunded
+        inspection.deposit_shortfall = shortfall
+
+        if shortfall > 0 and lease:
+            today = date.today()
+            shortfall_charge = Charge(
+                id=str(uuid.uuid4()),
+                organization_id=membership.organization_id,
+                lease_id=lease.id,
+                amount=shortfall,
+                amount_paid=0,
+                charge_type="rent",   # a real receivable — counts toward outstanding
+                due_date=today,
+                billing_month=today,
+                status="pending",
+            )
+            db.add(shortfall_charge)
+            log_action(
+                db=db,
+                organization_id=membership.organization_id,
+                user_id=current_user.id,
+                action="billing",
+                entity_type="charge",
+                entity_id=shortfall_charge.id,
+                description=(
+                    f"Move-out damages ({deductions}) exceeded deposit held "
+                    f"({deposit_held}); billed shortfall of {shortfall} to tenant"
+                ),
+                new_values={"amount": shortfall, "reason": "deposit_shortfall"},
             )
 
     log_action(

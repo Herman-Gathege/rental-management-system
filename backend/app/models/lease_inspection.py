@@ -37,6 +37,17 @@ class LeaseInspection(Base):
     # Only relevant for move_out inspections. Sum of all item deductions.
     total_deduction_amount = Column(Numeric(12, 2), nullable=True, default=0)
 
+    # ─── Deposit settlement (Sprint 6.2 #7 Phase 3) ───
+    # Computed at move-out sign time. A permanent record of the deposit
+    # reconciliation:
+    #   deposit_held      — total deposit payments the tenant made on this lease
+    #   deposit_refunded  — amount owed back to the tenant = max(held - deductions, 0)
+    #   deposit_shortfall — damages beyond the deposit = max(deductions - held, 0)
+    #                       (a matching rent-type charge is auto-created for this)
+    deposit_held = Column(Numeric(12, 2), nullable=True)
+    deposit_refunded = Column(Numeric(12, 2), nullable=True)
+    deposit_shortfall = Column(Numeric(12, 2), nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
