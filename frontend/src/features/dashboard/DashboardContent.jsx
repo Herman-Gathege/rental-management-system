@@ -3,12 +3,18 @@
 // Landlord (owner) dashboard body. Greeting + portfolio/money widgets +
 // notifications + recent payments. Scopes to the property chosen in the navbar
 // switcher (All = org-wide). Refetches when the selection changes.
+//
+// Sprint 6: adds a portfolio-wide Ticket Overview section (open vs closed,
+// critical issues, avg resolution time, by-status, by-category, top properties)
+// fed by GET /tickets/metrics/summary. CSS bars (no chart lib in this stack).
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useProperty } from "../../context/PropertyContext";
 import { getOwnerSummary, getFinanceRecentPayments } from "../../api/dashboard";
+import { getTicketMetrics } from "../../api/ticketMetrics";
 import NotificationsCard from "../../components/ui/NotificationsCard";
+import TicketsSummaryCard from "../../components/ui/TicketsSummaryCard";
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -22,6 +28,52 @@ const fmtDate = (d) =>
       })
     : "—";
 
+// Present avg resolution hours as a human string.
+const fmtResolution = (hours) => {
+  if (hours == null) return "—";
+  if (hours < 1) return `${Math.round(hours * 60)} min`;
+  if (hours < 48) return `${hours.toFixed(1)} hrs`;
+  return `${(hours / 24).toFixed(1)} days`;
+};
+
+const BAR_TRACK = {
+  background: "#eef2f7",
+  borderRadius: 4,
+  height: 10,
+  flex: 1,
+  overflow: "hidden",
+};
+
+function Bar({ label, value, max, color }) {
+  const pct = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
+  return (
+    <div className="flex items-center gap-sm mb-sm">
+      <div className="text-sm" style={{ width: 150, textTransform: "capitalize" }}>
+        {label}
+      </div>
+      <div style={BAR_TRACK}>
+        <div style={{ width: `${pct}%`, background: color, height: "100%" }} />
+      </div>
+      <div className="text-sm text-bold" style={{ width: 44, textAlign: "right" }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+// Color per status for the by-status bars.
+const statusColor = (s) => {
+  switch (s) {
+    case "open":        return "#f59e0b";
+    case "assigned":    return "#2563eb";
+    case "in_progress": return "#0ea5e9";
+    case "waiting":     return "#a855f7";
+    case "resolved":    return "#22c55e";
+    case "closed":      return "#6b7280";
+    default:            return "#94a3b8";
+  }
+};
+
 export default function DashboardContent({ roleLabel }) {
   const { user } = useAuth();
   const { activeProperty } = useProperty();
@@ -29,6 +81,7 @@ export default function DashboardContent({ roleLabel }) {
 
   const [summary, setSummary] = useState(null);
   const [payments, setPayments] = useState([]);
+  const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -50,6 +103,16 @@ export default function DashboardContent({ roleLabel }) {
         setError(err?.response?.data?.detail || "Could not load your dashboard.");
       } finally {
         if (active) setLoading(false);
+      }
+
+      // Ticket metrics — best-effort, portfolio-wide (not property-filtered).
+      try {
+        const m = await getTicketMetrics();
+        if (!active) return;
+        setMetrics(m);
+      } catch {
+        if (!active) return;
+        setMetrics(null);
       }
     };
     load();
@@ -75,6 +138,16 @@ export default function DashboardContent({ roleLabel }) {
         { label: "Outstanding", value: money(summary.outstanding_balance), money: true },
       ]
     : [];
+
+  const maxStatus = metrics
+    ? Math.max(0, ...Object.values(metrics.by_status || {}))
+    : 0;
+  const maxCategory = metrics
+    ? Math.max(0, ...Object.values(metrics.by_category || {}))
+    : 0;
+  const maxProp = metrics
+    ? Math.max(0, ...(metrics.top_properties || []).map((p) => p.count))
+    : 0;
 
   return (
     <div className="p-6">
@@ -108,6 +181,90 @@ export default function DashboardContent({ roleLabel }) {
               </div>
             ))}
           </div>
+
+          {/* ─── Portfolio-wide Ticket Overview (Sprint 6) ─── */}
+          {metrics && (
+            <div className="dash-panel mb-md">
+              <div className="dash-panel-title">Ticket Overview (portfolio-wide)</div>
+
+              <div className="dash-grid mb-md">
+                <div className="dash-stat">
+                  <div className="dash-stat-value">{metrics.open}</div>
+                  <div className="dash-stat-label">Open</div>
+                </div>
+                <div className="dash-stat">
+                  <div className="dash-stat-value">{metrics.closed}</div>
+                  <div className="dash-stat-label">Closed</div>
+                </div>
+                <div className="dash-stat">
+                  <div
+                    className="dash-stat-value"
+                    style={{ color: metrics.critical_open ? "#ef4444" : undefined }}
+                  >
+                    {metrics.critical_open}
+                  </div>
+                  <div className="dash-stat-label">Critical / High open</div>
+                </div>
+                <div className="dash-stat">
+                  <div className="dash-stat-value">{fmtResolution(metrics.avg_resolution_hours)}</div>
+                  <div className="dash-stat-label">Avg resolution time</div>
+                </div>
+              </div>
+
+              {/* Tickets by status */}
+              {Object.keys(metrics.by_status || {}).length > 0 && (
+                <div className="mb-md">
+                  <div className="text-sm text-bold mb-sm">Tickets by Status</div>
+                  {Object.entries(metrics.by_status).map(([s, n]) => (
+                    <Bar
+                      key={s}
+                      label={s.replace(/_/g, " ")}
+                      value={n}
+                      max={maxStatus}
+                      color={statusColor(s)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Tickets by category */}
+              {Object.keys(metrics.by_category || {}).length > 0 && (
+                <div className="mb-md">
+                  <div className="text-sm text-bold mb-sm">Tickets by Category</div>
+                  {Object.entries(metrics.by_category)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([c, n]) => (
+                      <Bar
+                        key={c}
+                        label={c.replace(/_/g, " ")}
+                        value={n}
+                        max={maxCategory}
+                        color="#2563eb"
+                      />
+                    ))}
+                </div>
+              )}
+
+              {/* Top properties by volume */}
+              {(metrics.top_properties || []).length > 0 && (
+                <div>
+                  <div className="text-sm text-bold mb-sm">Top Properties by Ticket Volume</div>
+                  {metrics.top_properties.map((p) => (
+                    <Bar
+                      key={p.property_id}
+                      label={p.property_name}
+                      value={p.count}
+                      max={maxProp}
+                      color="#F7941D"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Compact recent/urgent tickets card */}
+          <TicketsSummaryCard />
 
           <NotificationsCard />
 
