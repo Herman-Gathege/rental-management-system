@@ -24,6 +24,11 @@ charge that is past its due date and still has a balance (amount_paid < amount).
 This matches the Billing page's Overdue tab and catches partially-paid-but-late
 charges too.
 
+Sprint 6.2 (#7) deposit split: money figures (expected_rent, total_collected,
+outstanding, overdue) count RENT ONLY. Deposits are reported separately as
+deposits_held so they never inflate rent-collection figures. Rent filtering:
+Charge.charge_type == "rent" and Payment.payment_type == "rent".
+
 Tenant rows (charges / payments) carry property_id + property_name + unit_name
 + lease_id so the tenant portal can group / filter by property (multi-lease
 tenants rent across more than one property).
@@ -243,7 +248,13 @@ def get_finance_summary(db: Session, org_id: str, property_ids=None) -> dict:
     """Org-wide money summary. If property_ids is provided (a FINANCE user's
     assigned properties), restrict every figure to leases in those properties;
     an empty list => all zeros (strict scoping). property_ids=None => org-wide
-    (landlord / owner summary)."""
+    (landlord / owner summary).
+
+    Sprint 6.2 (#7): all rent money figures count RENT ONLY —
+    Payment.payment_type == "rent" and Charge.charge_type == "rent" — so the
+    security deposit never inflates collected/outstanding. Deposits collected
+    are reported separately as deposits_held.
+    """
     today = date.today()
 
     lease_ids = None
@@ -255,29 +266,38 @@ def get_finance_summary(db: Session, org_id: str, property_ids=None) -> dict:
                 "expected_rent": 0.0,
                 "outstanding_balance": 0.0,
                 "overdue_charges": 0,
+                "deposits_held": 0.0,
             }
 
+    # Expected rent = sum of active leases' monthly rent (already rent-only).
     expected_q = (
         db.query(func.coalesce(func.sum(Lease.rent_amount), 0))
         .filter(Lease.organization_id == org_id, Lease.status == "active")
     )
+    # Collected = RENT payments only.
     collected_q = (
         db.query(func.coalesce(func.sum(Payment.amount), 0))
-        .filter(Payment.organization_id == org_id)
+        .filter(Payment.organization_id == org_id, Payment.payment_type == "rent")
     )
+    # Charged = RENT charges only.
     charged_q = (
         db.query(func.coalesce(func.sum(Charge.amount), 0))
-        .filter(Charge.organization_id == org_id)
+        .filter(Charge.organization_id == org_id, Charge.charge_type == "rent")
     )
-    # Overdue (Option A): past due AND still owing a balance. Counts
-    # partially-paid-but-late charges, matching the Billing Overdue tab.
+    # Overdue (Option A): past due AND still owing a balance — RENT charges only.
     overdue_q = (
         db.query(func.count(Charge.id))
         .filter(
             Charge.organization_id == org_id,
+            Charge.charge_type == "rent",
             Charge.due_date < today,
             Charge.amount_paid < Charge.amount,
         )
+    )
+    # Deposits held = DEPOSIT payments collected (reported separately).
+    deposits_q = (
+        db.query(func.coalesce(func.sum(Payment.amount), 0))
+        .filter(Payment.organization_id == org_id, Payment.payment_type == "deposit")
     )
 
     if lease_ids is not None:
@@ -285,11 +305,13 @@ def get_finance_summary(db: Session, org_id: str, property_ids=None) -> dict:
         collected_q = collected_q.filter(Payment.lease_id.in_(lease_ids))
         charged_q = charged_q.filter(Charge.lease_id.in_(lease_ids))
         overdue_q = overdue_q.filter(Charge.lease_id.in_(lease_ids))
+        deposits_q = deposits_q.filter(Payment.lease_id.in_(lease_ids))
 
     expected_rent = expected_q.scalar()
     total_collected = collected_q.scalar()
     total_charged = charged_q.scalar()
     overdue_charges = overdue_q.scalar() or 0
+    deposits_held = deposits_q.scalar()
 
     outstanding_balance = max(float(total_charged) - float(total_collected), 0.0)
 
@@ -298,6 +320,7 @@ def get_finance_summary(db: Session, org_id: str, property_ids=None) -> dict:
         "expected_rent": float(expected_rent),
         "outstanding_balance": outstanding_balance,
         "overdue_charges": overdue_charges,
+        "deposits_held": float(deposits_held),
     }
 
 
@@ -324,6 +347,7 @@ def get_finance_recent_payments(db: Session, org_id: str, limit: int = 10, prope
             "payment_date": p.payment_date.isoformat() if p.payment_date else None,
             "method": p.payment_method,
             "reference": p.reference,
+            "payment_type": p.payment_type,
         }
         for p, full_name in rows
     ]
@@ -398,6 +422,7 @@ def get_owner_summary(db: Session, org_id: str, property_id: str = None) -> dict
         "total_collected": money["total_collected"],
         "outstanding_balance": money["outstanding_balance"],
         "overdue_charges": money["overdue_charges"],
+        "deposits_held": money["deposits_held"],
     }
 
 
@@ -555,6 +580,7 @@ def get_tenant_payments(db: Session, user_id: str, org_id: str) -> list:
             "reference": p.reference,
             "amount": float(p.amount),
             "method": p.payment_method,
+            "payment_type": p.payment_type,
             "lease_id": p.lease_id,
             "property_id": pid,
             "property_name": pname,
@@ -585,6 +611,7 @@ def get_tenant_charges(db: Session, user_id: str, org_id: str) -> list:
             "amount_paid": float(c.amount_paid or 0),
             "balance": float(c.amount) - float(c.amount_paid or 0),
             "status": c.status,
+            "charge_type": c.charge_type,
             "due_date": c.due_date.isoformat() if c.due_date else None,
             "lease_id": c.lease_id,
             "property_id": pid,

@@ -16,6 +16,13 @@ class Payment(Base):
     amount = Column(Numeric(10, 2), nullable=False)
     payment_method = Column(String, nullable=False, default="cash")  # cash / mpesa / bank
     reference = Column(String, nullable=True)
+
+    # Sprint 6.2 (#7): which obligation this payment settles.
+    # "rent" (default) — settles rent charges; counted in collected/expected.
+    # "deposit" — settles the one-time security-deposit charge; tracked
+    # separately (deposits_held) so it never inflates rent-collection figures.
+    payment_type = Column(String, nullable=False, default="rent")
+
     payment_date = Column(Date, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 

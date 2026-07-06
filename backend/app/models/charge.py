@@ -19,6 +19,13 @@ class Charge(Base):
     # recorded or monthly charges are generated. balance = amount - amount_paid.
     amount_paid = Column(Numeric(10, 2), nullable=False, default=0)
 
+    # Sprint 6.2 (#7): distinguishes rent from a one-time security deposit.
+    # "rent" (default) — recurring monthly rent charges.
+    # "deposit" — the one-time refundable security deposit created at lease start.
+    # Dashboards sum rent-only for expected/collected/outstanding so deposits
+    # never inflate rent figures; deposits are reported separately.
+    charge_type = Column(String, nullable=False, default="rent")
+
     due_date = Column(Date, nullable=False)
     billing_month = Column(Date, nullable=False)
     status = Column(String, nullable=False, default="pending")  # pending / partial / paid / overdue

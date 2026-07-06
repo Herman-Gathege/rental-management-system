@@ -2,6 +2,7 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 import uuid
+from datetime import date
 
 from app.db.deps import get_db
 from app.api.deps import get_current_user
@@ -11,10 +12,12 @@ from app.models.property import Property
 from app.models.unit import Unit
 from app.models.tenant import Tenant
 from app.models.lease import Lease
+from app.models.charge import Charge
 from app.models.lease_inspection import LeaseInspection
 from app.schemas.rental import LeaseCreate, LeaseUpdate
 from app.services.audit_service import log_action
 from app.services.inspection_service import create_inspection_for_lease
+from app.services.billing_service import recompute_lease_settlement
 from app.services.messaging import notify_lease_created
 from app.services.s3_service import upload_file
 
@@ -149,6 +152,30 @@ def create_lease(
     db.add(lease)
     db.flush()
 
+    # ─── Sprint 6.2 (#7): one-time security deposit charge ───
+    # If the lease carries a deposit, create a single deposit-type charge due
+    # immediately (today). It's kept separate from rent charges so dashboards
+    # never count deposit money as rent collected. recompute_lease_settlement
+    # then applies any deposit payments to it (there are none yet at creation,
+    # but this keeps the charge status correct).
+    deposit_amt = float(payload.deposit_amount or 0)
+    if deposit_amt > 0:
+        today = date.today()
+        deposit_charge = Charge(
+            id=str(uuid.uuid4()),
+            organization_id=org_id,
+            lease_id=lease.id,
+            amount=deposit_amt,
+            amount_paid=0,
+            charge_type="deposit",
+            due_date=today,
+            billing_month=today,
+            status="pending",
+        )
+        db.add(deposit_charge)
+        db.flush()
+        recompute_lease_settlement(db, lease.id)
+
     # Auto-create draft move-in inspection
     inspection = create_inspection_for_lease(
         db=db,
@@ -171,6 +198,7 @@ def create_lease(
             "tenant": tenant.full_name,
             "unit": unit.name,
             "rent_amount": payload.rent_amount,
+            "deposit_amount": deposit_amt,
             "start_date": str(payload.start_date),
             "auto_created_inspection_id": inspection.id,
         },
@@ -465,57 +493,6 @@ def terminate_lease(
 
 
 # ─── Upload Signed Lease Document ───
-
-# @router.post("/{lease_id}/signed-document")
-# async def upload_signed_lease(
-#     lease_id: str,
-#     file: UploadFile = File(...),
-#     current_user: User = Depends(get_current_user),
-#     db: Session = Depends(get_db)
-# ):
-#     """Upload the scanned signed lease PDF for a lease."""
-#     membership = get_user_org(current_user, db)
-
-#     lease = (
-#         db.query(Lease)
-#         .filter(
-#             Lease.id == lease_id,
-#             Lease.organization_id == membership.organization_id
-#         )
-#         .first()
-#     )
-#     if not lease:
-#         raise HTTPException(status_code=404, detail="Lease not found")
-
-#     file_bytes = await file.read()
-#     s3_key = f"signed-leases/{lease_id}/{uuid.uuid4()}-{file.filename}"
-
-#     try:
-#         file_url = upload_file(s3_key, file_bytes)
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
-
-#     lease.signed_lease_url = file_url
-
-#     log_action(
-#         db=db,
-#         organization_id=membership.organization_id,
-#         user_id=current_user.id,
-#         action="update",
-#         entity_type="lease",
-#         entity_id=lease.id,
-#         description=f"Uploaded signed lease document for lease {lease.id}",
-#         new_values={"signed_lease_url": file_url},
-#     )
-
-#     db.commit()
-#     db.refresh(lease)
-
-#     return {
-#         "message": "Signed lease uploaded",
-#         "lease_id": lease.id,
-#         "signed_lease_url": file_url,
-#     }
 
 @router.post("/{lease_id}/signed-document")
 async def upload_signed_lease(

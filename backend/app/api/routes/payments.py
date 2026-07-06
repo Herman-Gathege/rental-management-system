@@ -21,6 +21,9 @@ from app.services.finance_scope import assigned_finance_property_ids, lease_ids_
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
 
+# Accepted payment types. Rent is the default for backward compatibility.
+VALID_PAYMENT_TYPES = {"rent", "deposit"}
+
 
 def get_user_org(user: User, db: Session):
     membership = (
@@ -59,6 +62,16 @@ def record_payment(
     if not lease:
         raise HTTPException(status_code=404, detail="Lease not found")
 
+    # Sprint 6.2 (#7): payment_type tags whether this settles rent or the
+    # deposit. Read defensively so it works whether or not the schema field
+    # is present; default "rent" preserves existing behaviour.
+    payment_type = getattr(payload, "payment_type", None) or "rent"
+    if payment_type not in VALID_PAYMENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid payment_type. Choose from: {VALID_PAYMENT_TYPES}",
+        )
+
     payment = Payment(
         id=str(uuid.uuid4()),
         organization_id=org_id,
@@ -68,13 +81,14 @@ def record_payment(
         payment_method=payload.payment_method,
         reference=payload.reference,
         payment_date=payload.payment_date,
+        payment_type=payment_type,
     )
     db.add(payment)
     db.flush()  # make the new payment visible to the settlement sum
 
-    # Re-settle this lease's charges against its cumulative payments,
-    # oldest-first. Sets each charge's amount_paid + status (paid / partial /
-    # pending / overdue). See billing_service for the rule.
+    # Re-settle this lease's charges against its cumulative payments. Rent
+    # payments settle rent charges (oldest-first); deposit payments settle the
+    # deposit charge — the two pools never cross. See billing_service.
     recompute_lease_settlement(db, payload.lease_id)
 
     log_action(
@@ -84,10 +98,11 @@ def record_payment(
         action="payment",
         entity_type="payment",
         entity_id=payment.id,
-        description=f"Payment of {payload.amount} recorded for {tenant.full_name} via {payload.payment_method}",
+        description=f"{payment_type.capitalize()} payment of {payload.amount} recorded for {tenant.full_name} via {payload.payment_method}",
         new_values={
             "amount": payload.amount,
             "payment_method": payload.payment_method,
+            "payment_type": payment_type,
             "reference": payload.reference,
             "tenant": tenant.full_name,
         },
@@ -108,6 +123,7 @@ def record_payment(
         "lease_id": payment.lease_id,
         "amount": float(payment.amount),
         "payment_method": payment.payment_method,
+        "payment_type": payment.payment_type,
         "reference": payment.reference,
         "payment_date": payment.payment_date,
         "created_at": payment.created_at,
@@ -157,6 +173,7 @@ def list_payments(
             "id": p.id, "organization_id": p.organization_id,
             "tenant_id": p.tenant_id, "lease_id": p.lease_id,
             "amount": float(p.amount), "payment_method": p.payment_method,
+            "payment_type": p.payment_type,
             "reference": p.reference, "payment_date": p.payment_date,
             "created_at": p.created_at,
             "tenant_name": tenant.full_name if tenant else None,
@@ -185,6 +202,7 @@ def get_payment(
         "id": payment.id, "organization_id": payment.organization_id,
         "tenant_id": payment.tenant_id, "lease_id": payment.lease_id,
         "amount": float(payment.amount), "payment_method": payment.payment_method,
+        "payment_type": payment.payment_type,
         "reference": payment.reference, "payment_date": payment.payment_date,
         "created_at": payment.created_at,
         "tenant_name": tenant.full_name if tenant else None,
