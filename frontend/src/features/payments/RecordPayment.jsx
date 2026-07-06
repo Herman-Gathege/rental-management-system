@@ -14,6 +14,7 @@ export default function RecordPayment() {
     tenant_id: "",
     lease_id: "",
     amount: "",
+    payment_type: "rent",
     payment_method: "mpesa",
     reference: "",
     payment_date: new Date().toISOString().split("T")[0],
@@ -47,8 +48,26 @@ export default function RecordPayment() {
     }
   }, [form.tenant_id, leases]);
 
+  // Selected lease — used to prefill the amount when the payment type changes.
+  const selectedLease = leases.find((l) => l.id === form.lease_id);
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  // When the user switches type, offer a sensible default amount:
+  // rent -> monthly rent; deposit -> deposit amount on the lease.
+  const handleTypeChange = (e) => {
+    const payment_type = e.target.value;
+    let amount = form.amount;
+    if (selectedLease) {
+      if (payment_type === "deposit" && selectedLease.deposit_amount) {
+        amount = String(selectedLease.deposit_amount);
+      } else if (payment_type === "rent" && selectedLease.rent_amount) {
+        amount = String(selectedLease.rent_amount);
+      }
+    }
+    setForm({ ...form, payment_type, amount });
   };
 
   const handleSubmit = async (e) => {
@@ -97,6 +116,28 @@ export default function RecordPayment() {
                 </option>
               ))}
           </select>
+        </div>
+
+        {/* Payment type — rent vs security deposit. Keeping deposit money
+            tagged separately is what stops it inflating rent-collection totals. */}
+        <div className="form-group">
+          <label htmlFor="payment_type">Payment Type</label>
+          <select
+            id="payment_type"
+            name="payment_type"
+            className="input"
+            value={form.payment_type}
+            onChange={handleTypeChange}
+          >
+            <option value="rent">Rent</option>
+            <option value="deposit">Security Deposit</option>
+          </select>
+          {form.payment_type === "deposit" && (
+            <p className="text-sm text-muted mt-xs">
+              Recorded as a deposit — held separately and refundable at move-out,
+              minus any damages.
+            </p>
+          )}
         </div>
 
         <div className="two-col">

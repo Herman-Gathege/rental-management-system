@@ -5,6 +5,10 @@
 // property chosen in the tenant property switcher (or shows all). A "Property"
 // column appears only in All mode when more than one property is present.
 // Responsive: table on desktop, MobileCardList stacked cards below 768px.
+//
+// Sprint 6.2 (#7): charges are now typed (charge_type: "rent" | "deposit").
+// A Type column/label distinguishes the one-time security deposit from
+// recurring rent so tenants can see what each charge is for.
 
 import { useEffect, useState } from "react";
 import { getTenantCharges } from "../../api/dashboard";
@@ -34,6 +38,8 @@ const startOfToday = () => {
 
 const isLate = (c) =>
   Number(c.balance) > 0 && c.due_date && new Date(c.due_date) < startOfToday();
+
+const typeLabel = (t) => (t === "deposit" ? "Deposit" : "Rent");
 
 export default function TenantCharges() {
   const tp = useTenantProperty() || {};
@@ -97,7 +103,7 @@ export default function TenantCharges() {
       </div>
 
       <div className="dash-panel">
-        <div className="dash-panel-title">Rent Charges</div>
+        <div className="dash-panel-title">Charges</div>
 
         {visible.length === 0 ? (
           <div className="text-muted">No charges yet.</div>
@@ -109,6 +115,7 @@ export default function TenantCharges() {
                 <thead>
                   <tr>
                     {showProperty && <th>Property</th>}
+                    <th>Type</th>
                     <th>Month</th>
                     <th>Due</th>
                     <th>Amount</th>
@@ -121,6 +128,7 @@ export default function TenantCharges() {
                   {visible.map((c, i) => (
                     <tr key={i}>
                       {showProperty && <td>{c.property_name || "—"}</td>}
+                      <td>{typeLabel(c.charge_type)}</td>
                       <td>{fmtMonth(c.month)}</td>
                       <td>{fmtDate(c.due_date)}</td>
                       <td>{money(c.amount)}</td>
@@ -140,7 +148,9 @@ export default function TenantCharges() {
               data={visible}
               renderCard={(c, i) => (
                 <div className="staff-card" key={i}>
-                  <div className="staff-card-title">{fmtMonth(c.month)}</div>
+                  <div className="staff-card-title">
+                    {typeLabel(c.charge_type)} · {fmtMonth(c.month)}
+                  </div>
                   {showProperty && (
                     <div className="staff-card-row">
                       <span>Property</span>

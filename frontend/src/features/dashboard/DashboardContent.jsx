@@ -7,6 +7,9 @@
 // Sprint 6: adds a portfolio-wide Ticket Overview section (open vs closed,
 // critical issues, avg resolution time, by-status, by-category, top properties)
 // fed by GET /tickets/metrics/summary. CSS bars (no chart lib in this stack).
+//
+// Sprint 6.2 (#7): adds a "Deposits Held" money card — deposits are tracked
+// separately from rent so they never inflate collected/expected.
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
@@ -136,6 +139,7 @@ export default function DashboardContent({ roleLabel }) {
         { label: "Expected Rent", value: money(summary.expected_rent), money: true },
         { label: "Collected", value: money(summary.total_collected), money: true },
         { label: "Outstanding", value: money(summary.outstanding_balance), money: true },
+        { label: "Deposits Held", value: money(summary.deposits_held), money: true },
       ]
     : [];
 
@@ -280,6 +284,7 @@ export default function DashboardContent({ roleLabel }) {
                     <div className="text-muted">
                       {fmtDate(p.payment_date)}
                       {p.method ? ` · ${p.method}` : ""}
+                      {p.payment_type === "deposit" ? " · deposit" : ""}
                     </div>
                   </div>
                   <span className="text-bold">{money(p.amount)}</span>

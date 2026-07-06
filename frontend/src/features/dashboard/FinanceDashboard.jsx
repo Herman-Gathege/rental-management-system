@@ -4,6 +4,9 @@
 // Money for the finance user (scoped to assigned properties by the backend),
 // further narrowable to a single property via the navbar switcher (All = every
 // assigned property). Refetches on change. Reuses the shared .dash-* styles.
+//
+// Sprint 6.2 (#7): adds a "Deposits Held" card. Deposits are tracked
+// separately from rent so they don't inflate collected/expected figures.
 
 import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
@@ -64,6 +67,7 @@ export default function FinanceDashboard() {
         { label: "Expected Rent", value: money(summary.expected_rent), money: true },
         { label: "Collected", value: money(summary.total_collected), money: true },
         { label: "Outstanding", value: money(summary.outstanding_balance), money: true },
+        { label: "Deposits Held", value: money(summary.deposits_held), money: true },
         { label: "Overdue Charges", value: summary.overdue_charges, money: false },
       ]
     : [];
@@ -115,6 +119,7 @@ export default function FinanceDashboard() {
                     <div className="text-muted">
                       {p.payment_date}
                       {p.method ? ` · ${p.method}` : ""}
+                      {p.payment_type === "deposit" ? " · deposit" : ""}
                     </div>
                   </div>
                   <span className="text-bold">{money(p.amount)}</span>
