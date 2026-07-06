@@ -13,6 +13,25 @@ const ENTITY_TYPES = [
   "property_manager",
 ];
 
+// Backend stores created_at as naive UTC (datetime.utcnow()), so the string
+// arrives without a timezone (e.g. "2026-06-24T19:58:54"). JS would treat that
+// as LOCAL time and display it shifted by the UTC offset. Append "Z" when no
+// timezone is present so it's parsed as UTC, then format to the browser's
+// local time — matching the navbar clock.
+const parseUTC = (s) => {
+  if (!s) return null;
+  // Already has timezone info (Z or +hh:mm / -hh:mm after the time)?
+  const hasTz = /[zZ]$/.test(s) || /[+-]\d{2}:?\d{2}$/.test(s);
+  const iso = hasTz ? s : `${s}Z`;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const fmtDateTime = (s) => {
+  const d = parseUTC(s);
+  return d ? d.toLocaleString() : "—";
+};
+
 export default function History() {
   const [logs, setLogs] = useState([]);
   const [filter, setFilter] = useState("");
@@ -65,16 +84,16 @@ export default function History() {
               key={log.id}
               className={`card audit-entry action-${log.action}`}
             >
-              {/* Header row */}
-              <div className="flex justify-between items-center">
-                <div>
+              {/* Header row — stacks on mobile, spreads on desktop */}
+              <div className="audit-entry-header">
+                <div className="flex items-center gap-sm flex-wrap">
                   <span className={`audit-action-badge action-${log.action}`}>
                     {log.action}
                   </span>
                   <span className="text-sm text-bold">{log.entity_type}</span>
                 </div>
-                <span className="text-sm text-muted">
-                  {new Date(log.created_at).toLocaleString()}
+                <span className="text-sm text-muted audit-entry-time">
+                  {fmtDateTime(log.created_at)}
                 </span>
               </div>
 
@@ -86,7 +105,7 @@ export default function History() {
                 <div className="text-sm text-muted">By: {log.user_email}</div>
               )}
 
-              {/* Old / New values */}
+              {/* Old / New values — wrap long JSON instead of overflowing */}
               {log.old_values && (
                 <div className="audit-entry-values">
                   <strong>Old:</strong> {JSON.stringify(log.old_values)}

@@ -1178,3 +1178,35 @@
 .staff-card-row > span:first-child { color: var(--color-text-muted, #6c757d); }
 .staff-card-row > span:last-child { text-align: right; }
 
+/* ============================================================
+   ACTIVITY HISTORY — mobile responsiveness (Sprint 6.2)
+   Header stacks on mobile so the timestamp doesn't collide with
+   the action badge; long old/new JSON wraps instead of overflowing.
+   ============================================================ */
+.audit-entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.audit-entry-time {
+  white-space: nowrap;
+}
+
+.audit-entry-values {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 768px) {
+  .audit-entry-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .audit-entry-time {
+    white-space: normal;
+  }
+}

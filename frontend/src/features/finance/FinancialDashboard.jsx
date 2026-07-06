@@ -96,7 +96,7 @@ export default function FinancialDashboard() {
   const noiValue = noi?.noi ?? 0;
   const expenseCards = [
     { label: "Expenses Paid (YTD)", value: money(expenseSummary?.total_paid), color: "#ef4444" },
-    { label: "Approved — Pending Payment", value: money(expenseSummary?.total_approved), color: "#f59e0b" },
+    { label: "Owed to vendors", value: money(expenseSummary?.total_approved), color: "#f59e0b" },
     {
       label: "Net Operating Income (YTD)",
       value: money(noiValue),
