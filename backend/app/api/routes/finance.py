@@ -134,16 +134,18 @@ def get_dashboard_summary(
         db.query(func.coalesce(func.sum(Lease.rent_amount), 0))
         .filter(Lease.organization_id == org_id, Lease.status == "active")
     )
-    # Total collected (all payments)
+    # Total collected — RENT payments only (Sprint 6.2 #7: deposits are tracked
+    # separately and must not inflate rent-collection figures).
     collected_q = (
         db.query(func.coalesce(func.sum(Payment.amount), 0))
-        .filter(Payment.organization_id == org_id)
+        .filter(Payment.organization_id == org_id, Payment.payment_type == "rent")
     )
-    # Total overdue (pending/overdue charges)
+    # Total overdue — RENT charges only, pending/overdue status.
     overdue_q = (
         db.query(func.coalesce(func.sum(Charge.amount), 0))
         .filter(
             Charge.organization_id == org_id,
+            Charge.charge_type == "rent",
             Charge.status.in_(["overdue", "pending"])
         )
     )
