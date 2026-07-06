@@ -46,6 +46,9 @@ import Tickets from "../features/tickets/Tickets";
 import CreateTicket from "../features/tickets/CreateTicket";
 import TicketDetail from "../features/tickets/TicketDetail";
 
+/* SPRINT 6.2 — Reports */
+import Reports from "../features/reports/Reports";
+
 /* Edit Pages */
 import EditProperty from "../features/properties/EditProperty";
 import EditUnit from "../features/units/EditUnit";
@@ -176,6 +179,9 @@ export default function AppRoutes() {
         <Route path="tickets/create" element={<CreateTicket />} />
         <Route path="tickets/:ticketId" element={<TicketDetail />} />
 
+        {/* Sprint 6.2 — Reports */}
+        <Route path="reports" element={<Reports />} />
+
         {/* History / Audit */}
         <Route path="history" element={<History />} />
 
@@ -262,6 +268,9 @@ export default function AppRoutes() {
         {/* Sprint 6 — Tickets (Finance responds but doesn't create) */}
         <Route path="tickets" element={<Tickets />} />
         <Route path="tickets/:ticketId" element={<TicketDetail />} />
+
+        {/* Sprint 6.2 — Reports */}
+        <Route path="reports" element={<Reports />} />
 
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />

@@ -21,6 +21,11 @@ Scoping mirrors the rest of the finance stack:
 
 A scope of None means org-wide; an empty list means "assigned to nothing" =>
 sees nothing (all zeros / empty).
+
+Sprint 6.2 (#1) landlord reports: rent_roll, collection_report, vendor_report
+added at the bottom. These count RENT ONLY for collected/expected figures
+(Payment.payment_type == "rent", Charge.charge_type == "rent") to stay
+consistent with the deposit split from #7.
 """
 from datetime import date
 
@@ -33,6 +38,8 @@ from app.models.organization_member import OrganizationMember
 from app.models.property import Property
 from app.models.unit import Unit
 from app.models.lease import Lease
+from app.models.tenant import Tenant
+from app.models.charge import Charge
 from app.models.payment import Payment
 from app.models.expense import Expense
 from app.models.expense_category import ExpenseCategory
@@ -96,13 +103,13 @@ def _apply_expense_filters(query, *, org_id, property_ids, start_date, end_date,
 
 def _income_by_property(db, org_id, property_ids, start_date, end_date) -> dict:
     """{property_id: collected_income} from payments, joined property via
-    payment -> lease -> unit -> property."""
+    payment -> lease -> unit -> property. RENT payments only (Sprint 6.2 #7)."""
     query = (
         db.query(Property.id, func.coalesce(func.sum(Payment.amount), 0))
         .join(Unit, Unit.property_id == Property.id)
         .join(Lease, Lease.unit_id == Unit.id)
         .join(Payment, Payment.lease_id == Lease.id)
-        .filter(Property.organization_id == org_id)
+        .filter(Property.organization_id == org_id, Payment.payment_type == "rent")
     )
     if property_ids is not None:
         query = query.filter(Property.id.in_(property_ids))
@@ -286,3 +293,228 @@ def noi_summary(db, *, org_id, property_ids, start_date=None, end_date=None) -> 
             for r in by_property
         ],
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Sprint 6.2 (#1) — Landlord financial reports
+# ═══════════════════════════════════════════════════════════════════════
+
+def _scope_lease_ids(db, org_id, property_ids):
+    """Active-and-any lease ids within scope. Returns None for org-wide so
+    callers can skip the .in_() filter entirely."""
+    if property_ids is None:
+        return None
+    if len(property_ids) == 0:
+        return []
+    rows = (
+        db.query(Lease.id)
+        .join(Unit, Unit.id == Lease.unit_id)
+        .filter(Unit.property_id.in_(property_ids))
+        .all()
+    )
+    return [r[0] for r in rows]
+
+
+def rent_roll(db, *, org_id, property_ids, active_only=True) -> list:
+    """
+    Rent roll — one row per lease (active by default): tenant, property, unit,
+    monthly rent, deposit held (deposit-type payments), current rent balance,
+    and status.
+
+    balance = rent charges - rent payments (rent-type only, so the deposit is
+    excluded from the rent balance and shown in its own column instead).
+    """
+    if property_ids is not None and len(property_ids) == 0:
+        return []
+
+    q = (
+        db.query(Lease, Tenant, Property, Unit)
+        .join(Unit, Unit.id == Lease.unit_id)
+        .join(Property, Property.id == Unit.property_id)
+        .outerjoin(Tenant, Tenant.id == Lease.tenant_id)
+        .filter(Lease.organization_id == org_id)
+    )
+    if property_ids is not None:
+        q = q.filter(Unit.property_id.in_(property_ids))
+    if active_only:
+        q = q.filter(Lease.status == "active")
+    q = q.order_by(Property.name.asc(), Unit.name.asc())
+    rows = q.all()
+
+    lease_ids = [l.id for l, _t, _p, _u in rows]
+    rent_charge_map = {}
+    rent_paid_map = {}
+    deposit_paid_map = {}
+    if lease_ids:
+        for lid, total in (
+            db.query(Charge.lease_id, func.coalesce(func.sum(Charge.amount), 0))
+            .filter(Charge.lease_id.in_(lease_ids), Charge.charge_type == "rent")
+            .group_by(Charge.lease_id).all()
+        ):
+            rent_charge_map[lid] = float(total)
+        for lid, total in (
+            db.query(Payment.lease_id, func.coalesce(func.sum(Payment.amount), 0))
+            .filter(Payment.lease_id.in_(lease_ids), Payment.payment_type == "rent")
+            .group_by(Payment.lease_id).all()
+        ):
+            rent_paid_map[lid] = float(total)
+        for lid, total in (
+            db.query(Payment.lease_id, func.coalesce(func.sum(Payment.amount), 0))
+            .filter(Payment.lease_id.in_(lease_ids), Payment.payment_type == "deposit")
+            .group_by(Payment.lease_id).all()
+        ):
+            deposit_paid_map[lid] = float(total)
+
+    result = []
+    for lease, tenant, prop, unit in rows:
+        rent_charged = rent_charge_map.get(lease.id, 0.0)
+        rent_paid = rent_paid_map.get(lease.id, 0.0)
+        balance = round(rent_charged - rent_paid, 2)
+        result.append({
+            "lease_id": lease.id,
+            "tenant_name": tenant.full_name if tenant else None,
+            "property_name": prop.name,
+            "unit_name": unit.name,
+            "monthly_rent": float(lease.rent_amount) if lease.rent_amount is not None else 0.0,
+            "deposit_held": round(deposit_paid_map.get(lease.id, 0.0), 2),
+            "balance": balance,
+            "status": lease.status,
+            "start_date": lease.start_date.isoformat() if lease.start_date else None,
+            "end_date": lease.end_date.isoformat() if lease.end_date else None,
+        })
+    return result
+
+
+def collection_report(db, *, org_id, property_ids, start_date=None, end_date=None) -> list:
+    """
+    Per-property rent collection: expected rent (active leases' monthly rent),
+    collected (rent payments in the date range), outstanding (rent charged −
+    rent paid, all-time), and a collection rate %.
+
+    Note: 'expected' is the monthly rent run-rate (sum of active leases), while
+    'collected' respects the date filter — this mirrors how the dashboards frame
+    it. Outstanding is the true all-time rent balance per property.
+    """
+    if property_ids is not None and len(property_ids) == 0:
+        return []
+
+    properties = _scope_properties(db, org_id, property_ids)
+    if not properties:
+        return []
+    prop_ids = [p.id for p in properties]
+
+    # Expected = sum of active-lease monthly rent per property.
+    expected_map = {}
+    for pid, total in (
+        db.query(Unit.property_id, func.coalesce(func.sum(Lease.rent_amount), 0))
+        .join(Lease, Lease.unit_id == Unit.id)
+        .filter(Unit.property_id.in_(prop_ids), Lease.status == "active")
+        .group_by(Unit.property_id).all()
+    ):
+        expected_map[pid] = float(total)
+
+    # Collected = rent payments (date-filtered) per property.
+    collected_q = (
+        db.query(Unit.property_id, func.coalesce(func.sum(Payment.amount), 0))
+        .join(Lease, Lease.unit_id == Unit.id)
+        .join(Payment, Payment.lease_id == Lease.id)
+        .filter(Unit.property_id.in_(prop_ids), Payment.payment_type == "rent")
+    )
+    if start_date:
+        collected_q = collected_q.filter(Payment.payment_date >= start_date)
+    if end_date:
+        collected_q = collected_q.filter(Payment.payment_date <= end_date)
+    collected_map = {
+        pid: float(total)
+        for pid, total in collected_q.group_by(Unit.property_id).all()
+    }
+
+    # Outstanding = all-time rent charged − rent paid per property.
+    charged_map = {
+        pid: float(total)
+        for pid, total in (
+            db.query(Unit.property_id, func.coalesce(func.sum(Charge.amount), 0))
+            .join(Lease, Lease.unit_id == Unit.id)
+            .join(Charge, Charge.lease_id == Lease.id)
+            .filter(Unit.property_id.in_(prop_ids), Charge.charge_type == "rent")
+            .group_by(Unit.property_id).all()
+        )
+    }
+    paid_all_map = {
+        pid: float(total)
+        for pid, total in (
+            db.query(Unit.property_id, func.coalesce(func.sum(Payment.amount), 0))
+            .join(Lease, Lease.unit_id == Unit.id)
+            .join(Payment, Payment.lease_id == Lease.id)
+            .filter(Unit.property_id.in_(prop_ids), Payment.payment_type == "rent")
+            .group_by(Unit.property_id).all()
+        )
+    }
+
+    result = []
+    for p in properties:
+        expected = round(expected_map.get(p.id, 0.0), 2)
+        collected = round(collected_map.get(p.id, 0.0), 2)
+        outstanding = round(charged_map.get(p.id, 0.0) - paid_all_map.get(p.id, 0.0), 2)
+        rate = round((collected / expected * 100), 1) if expected > 0 else 0.0
+        result.append({
+            "property_id": p.id,
+            "property_name": p.name,
+            "expected_rent": expected,
+            "collected": collected,
+            "outstanding": outstanding,
+            "collection_rate": rate,
+        })
+    return result
+
+
+def vendor_report(db, *, org_id, property_ids, start_date=None, end_date=None) -> list:
+    """
+    Per-vendor spend: number of expenses (invoices), total billed (all non-draft
+    expenses), total paid (status paid), outstanding (billed − paid), and average
+    cost per expense. Ordered by total billed, largest first.
+    """
+    if property_ids is not None and len(property_ids) == 0:
+        return []
+
+    # Billed = all expenses with a vendor that are past draft (submitted,
+    # approved, or paid). Paid = subset with status paid.
+    def _sum(status=None, count=False):
+        col = func.count(Expense.id) if count else func.coalesce(func.sum(Expense.amount), 0)
+        q = db.query(Vendor.id, Vendor.vendor_name, col).join(Expense, Expense.vendor_id == Vendor.id)
+        q = q.filter(Expense.organization_id == org_id)
+        if status is not None:
+            q = q.filter(Expense.status == status)
+        else:
+            q = q.filter(Expense.status != STATUS_DRAFT)
+        if property_ids is not None:
+            q = q.filter(Expense.property_id.in_(property_ids))
+        if start_date:
+            q = q.filter(Expense.expense_date >= start_date)
+        if end_date:
+            q = q.filter(Expense.expense_date <= end_date)
+        return q.group_by(Vendor.id, Vendor.vendor_name).all()
+
+    billed_rows = _sum()                       # (vid, name, sum) non-draft
+    count_rows = _sum(count=True)              # (vid, name, count) non-draft
+    paid_rows = _sum(status=STATUS_PAID)       # (vid, name, sum) paid
+
+    billed_map = {vid: (name, float(total)) for vid, name, total in billed_rows}
+    count_map = {vid: int(c) for vid, _n, c in count_rows}
+    paid_map = {vid: float(total) for vid, _n, total in paid_rows}
+
+    result = []
+    for vid, (name, billed) in billed_map.items():
+        paid = paid_map.get(vid, 0.0)
+        cnt = count_map.get(vid, 0)
+        result.append({
+            "vendor_id": vid,
+            "vendor_name": name,
+            "invoices": cnt,
+            "total_billed": round(billed, 2),
+            "total_paid": round(paid, 2),
+            "outstanding": round(billed - paid, 2),
+            "average_cost": round(billed / cnt, 2) if cnt else 0.0,
+        })
+    result.sort(key=lambda r: r["total_billed"], reverse=True)
+    return result

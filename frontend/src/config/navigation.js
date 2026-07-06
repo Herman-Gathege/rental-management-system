@@ -82,6 +82,7 @@ export const ownerNavigation = [
   },
 
   { label: "Expenses", icon: FiCreditCard, path: "/owner/expenses" },
+  { label: "Reports", icon: FiBarChart2, path: "/owner/reports" },
   { label: "Tickets", icon: FiAlertCircle, path: "/owner/tickets" },
 
   { label: "Team", icon: FiKey, path: "/owner/team" },
@@ -118,6 +119,7 @@ export const financeNavigation = [
   { label: "Payments", icon: FiDollarSign, path: "/finance/payments" },
   { label: "Batch Upload", icon: FiUploadCloud, path: "/finance/payments/batch" },
   { label: "Expenses", icon: FiCreditCard, path: "/finance/expenses" },
+  { label: "Reports", icon: FiBarChart2, path: "/finance/reports" },
   { label: "Tickets", icon: FiAlertCircle, path: "/finance/tickets" },
   { label: "Finance", icon: FiBarChart2, path: "/finance/finance" },
   { label: "Profile", icon: FiUser, path: "/finance/profile" },
