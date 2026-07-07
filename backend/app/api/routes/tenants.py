@@ -13,6 +13,7 @@ from app.models.lease import Lease
 from app.schemas.rental import TenantCreate, TenantUpdate
 from app.services.audit_service import log_action
 from app.services.s3_service import upload_file
+from app.services.tenant_validation import check_tenant_uniqueness
 
 router = APIRouter(prefix="/tenants", tags=["Tenants"])
 
@@ -139,6 +140,17 @@ def create_tenant(
     db: Session = Depends(get_db)
 ):
     membership = get_user_org(current_user, db)
+
+    # Sprint 6.2 (#5): reject duplicate phone / alt phone / email / id_number
+    # within this organization (non-empty values only).
+    check_tenant_uniqueness(
+        db,
+        membership.organization_id,
+        phone=payload.phone,
+        alternative_phone=payload.alternative_phone,
+        email=payload.email,
+        id_number=payload.id_number,
+    )
 
     tenant = Tenant(
         id=str(uuid.uuid4()),
@@ -393,6 +405,23 @@ def update_tenant(
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
+    # Apply updates first (to a dict) so we can validate the RESULTING values.
+    update_data = payload.dict(exclude_unset=True)
+
+    # Sprint 6.2 (#5): reject duplicate phone / alt phone / email / id_number
+    # within this org. Check the value AFTER the update (fall back to the
+    # tenant's current value for fields not being changed), excluding this
+    # tenant so it isn't flagged against itself.
+    check_tenant_uniqueness(
+        db,
+        membership.organization_id,
+        phone=update_data.get("phone", tenant.phone),
+        alternative_phone=update_data.get("alternative_phone", tenant.alternative_phone),
+        email=update_data.get("email", tenant.email),
+        id_number=update_data.get("id_number", tenant.id_number),
+        exclude_tenant_id=tenant.id,
+    )
+
     # Capture old values for audit
     old_values = {
         "full_name": tenant.full_name,
@@ -402,7 +431,6 @@ def update_tenant(
     }
 
     # Apply updates
-    update_data = payload.dict(exclude_unset=True)
     for key, value in update_data.items():
         setattr(tenant, key, value)
 
