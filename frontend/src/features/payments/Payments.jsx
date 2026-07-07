@@ -4,6 +4,10 @@ import { getPayments } from "../../api/payments";
 import { useProperty } from "../../context/PropertyContext";
 import { useAuth } from "../../context/AuthContext";
 import { Link } from "react-router-dom";
+import Pagination from "../../components/Pagination";
+import useServerPagination from "../../hooks/useServerPagination";
+
+const PER_PAGE = 25;
 
 export default function Payments() {
   const { activeProperty } = useProperty();
@@ -12,18 +16,35 @@ export default function Payments() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const pg = useServerPagination(PER_PAGE);
+  const { page, setPage, total, setTotal, totalPages, limit, offset, reset } = pg;
+
   // Only the landlord records payments. Finance has a read-only view of this
   // page (and no /finance/payments/record route exists), so the button is
   // hidden for them. The record link is owner-scoped, so gating on LANDLORD
   // also keeps it from showing anywhere it wouldn't work.
   const canRecord = user?.role === "LANDLORD";
 
+  // Reset to page 1 whenever the property filter changes.
+  useEffect(() => {
+    reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProperty]);
+
   useEffect(() => {
     const fetch = async () => {
       try {
         setLoading(true);
-        const data = await getPayments(null, null, activeProperty?.id || null);
-        setPayments(data);
+        const res = await getPayments(
+          null,
+          null,
+          activeProperty?.id || null,
+          limit,
+          offset
+        );
+        // Paginated envelope { items, total, ... }.
+        setPayments(res.items || []);
+        setTotal(res.total || 0);
       } catch (err) {
         setError(err.response?.data?.detail || "Failed to load payments");
       } finally {
@@ -31,7 +52,11 @@ export default function Payments() {
       }
     };
     fetch();
-  }, [activeProperty]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProperty, page]);
+
+  const showingFrom = total === 0 ? 0 : offset + 1;
+  const showingTo = Math.min(offset + limit, total);
 
   return (
     <section className="properties-page">
@@ -48,7 +73,7 @@ export default function Payments() {
 
       {loading ? (
         <p>Loading payments...</p>
-      ) : payments.length === 0 ? (
+      ) : total === 0 ? (
         <div className="empty-state">
           <p>No payments recorded yet.</p>
           {canRecord && (
@@ -59,6 +84,10 @@ export default function Payments() {
         </div>
       ) : (
         <>
+          <div className="text-sm text-muted mb-sm">
+            Showing {showingFrom}–{showingTo} of {total}
+          </div>
+
           <div className="properties-table-wrapper hidden-mobile">
             <table className="properties-table">
               <thead>
@@ -94,6 +123,12 @@ export default function Payments() {
               </div>
             ))}
           </div>
+
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         </>
       )}
     </section>

@@ -131,14 +131,35 @@ def record_payment(
     }
 
 
+def _serialize(p: Payment, tenant_name: str) -> dict:
+    return {
+        "id": p.id, "organization_id": p.organization_id,
+        "tenant_id": p.tenant_id, "lease_id": p.lease_id,
+        "amount": float(p.amount), "payment_method": p.payment_method,
+        "payment_type": p.payment_type,
+        "reference": p.reference, "payment_date": p.payment_date,
+        "created_at": p.created_at,
+        "tenant_name": tenant_name,
+    }
+
+
 @router.get("/")
 def list_payments(
     tenant_id: str = Query(None),
     lease_id: str = Query(None),
     property_id: str = Query(None),
+    limit: int = Query(None, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """
+    List payments.
+
+    Pagination (Sprint 6.2 #3): when `limit` is provided, returns a paginated
+    envelope { items, total, limit, offset }. When `limit` is omitted, returns
+    the bare list (unchanged) so existing callers keep working.
+    """
     membership = get_user_org(current_user, db)
     org_id = membership.organization_id
     role = membership.role.name if membership.role else None
@@ -162,23 +183,36 @@ def list_payments(
         prop_ids = assigned_finance_property_ids(db, current_user.id, org_id)
         scoped_lease_ids = lease_ids_for_properties(db, prop_ids)
         if not scoped_lease_ids:
-            return []
+            return {"items": [], "total": 0, "limit": limit, "offset": offset} if limit is not None else []
         query = query.filter(Payment.lease_id.in_(scoped_lease_ids))
 
-    payments = query.order_by(Payment.payment_date.desc()).all()
-    result = []
-    for p in payments:
-        tenant = db.query(Tenant).filter(Tenant.id == p.tenant_id).first()
-        result.append({
-            "id": p.id, "organization_id": p.organization_id,
-            "tenant_id": p.tenant_id, "lease_id": p.lease_id,
-            "amount": float(p.amount), "payment_method": p.payment_method,
-            "payment_type": p.payment_type,
-            "reference": p.reference, "payment_date": p.payment_date,
-            "created_at": p.created_at,
-            "tenant_name": tenant.full_name if tenant else None,
-        })
-    return result
+    query = query.order_by(Payment.payment_date.desc())
+
+    # Resolve tenant names in one query to avoid N+1.
+    def _rows_to_dicts(rows):
+        tenant_ids = {p.tenant_id for p in rows}
+        name_map = {}
+        if tenant_ids:
+            name_map = {
+                t.id: t.full_name
+                for t in db.query(Tenant).filter(Tenant.id.in_(tenant_ids)).all()
+            }
+        return [_serialize(p, name_map.get(p.tenant_id)) for p in rows]
+
+    # Paginated envelope when limit is given.
+    if limit is not None:
+        total = query.count()
+        rows = query.offset(offset).limit(limit).all()
+        return {
+            "items": _rows_to_dicts(rows),
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+
+    # Backward-compatible bare list.
+    rows = query.all()
+    return _rows_to_dicts(rows)
 
 
 @router.get("/{payment_id}")
@@ -198,12 +232,4 @@ def get_payment(
         raise HTTPException(status_code=404, detail="Payment not found")
 
     tenant = db.query(Tenant).filter(Tenant.id == payment.tenant_id).first()
-    return {
-        "id": payment.id, "organization_id": payment.organization_id,
-        "tenant_id": payment.tenant_id, "lease_id": payment.lease_id,
-        "amount": float(payment.amount), "payment_method": payment.payment_method,
-        "payment_type": payment.payment_type,
-        "reference": payment.reference, "payment_date": payment.payment_date,
-        "created_at": payment.created_at,
-        "tenant_name": tenant.full_name if tenant else None,
-    }
+    return _serialize(payment, tenant.full_name if tenant else None)

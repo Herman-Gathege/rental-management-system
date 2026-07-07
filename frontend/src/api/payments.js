@@ -6,11 +6,22 @@ export const recordPayment = async (payload) => {
   return data;
 };
 
-export const getPayments = async (tenantId = null, leaseId = null, propertyId = null) => {
+// getPayments supports optional pagination. When `limit` is passed, the backend
+// returns { items, total, limit, offset }; otherwise it returns a bare array
+// (backward compatible). Callers that pass a limit should read `.items`/`.total`.
+export const getPayments = async (
+  tenantId = null,
+  leaseId = null,
+  propertyId = null,
+  limit = null,
+  offset = null
+) => {
   const params = {};
   if (tenantId) params.tenant_id = tenantId;
   if (leaseId) params.lease_id = leaseId;
   if (propertyId) params.property_id = propertyId;
+  if (limit != null) params.limit = limit;
+  if (offset != null) params.offset = offset;
   const { data } = await API.get("/payments/", { params });
   return data;
 };
