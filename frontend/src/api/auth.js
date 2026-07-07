@@ -33,3 +33,17 @@ export const changePassword = async (payload) => {
   const { data } = await API.post("/auth/change-password", payload);
   return data;
 };
+
+/* ─── Phone verification OTP (Sprint 6.2 #6) ─── */
+
+/* Verify the 6-digit WhatsApp code for the signed-in user. */
+export const verifyOtp = async (code) => {
+  const { data } = await API.post("/auth/verify-otp", { code });
+  return data;
+};
+
+/* Resend the OTP (60s throttle server-side). Optionally correct the phone. */
+export const resendOtp = async (phone = null) => {
+  const { data } = await API.post("/auth/resend-otp", phone ? { phone } : {});
+  return data;
+};

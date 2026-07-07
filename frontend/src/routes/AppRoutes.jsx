@@ -7,6 +7,7 @@ import Register from "../features/auth/Register";
 import DashboardDecision from "../features/dashboard/DashboardDecision";
 import AcceptInvitation from "../features/team/AcceptInvitation";
 import RegisterInvite from "../features/auth/RegisterInvite";
+import VerifyPhone from "../features/auth/VerifyPhone";
 
 /* LANDLORD LAYOUT */
 import DashboardLayout from "../features/dashboard/layout/DashboardLayout";
@@ -104,6 +105,17 @@ export default function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/accept-invite/:token" element={<AcceptInvitation />} />
       <Route path="/register-invite/:token" element={<RegisterInvite />} />
+
+      {/* PHONE VERIFICATION (Sprint 6.2 #6) — authenticated but pre-verification.
+          skipPhoneGate stops ProtectedRoute redirecting this route onto itself. */}
+      <Route
+        path="/verify-phone"
+        element={
+          <ProtectedRoute skipPhoneGate>
+            <VerifyPhone />
+          </ProtectedRoute>
+        }
+      />
 
       {/* ROLE DECIDER AFTER LOGIN */}
       <Route

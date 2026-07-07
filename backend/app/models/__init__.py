@@ -34,3 +34,6 @@ from app.models.ticket_attachment import TicketAttachment
 from app.models.ticket_assignment import TicketAssignment
 from app.models.notification import Notification
 from app.models.notification_preference import NotificationPreference
+
+# Phone verification (Sprint 6.2 #6)
+from app.models.otp_verification import OtpVerification

@@ -7,7 +7,7 @@ from typing import Optional
 from app.db.deps import get_db
 from app.models.users import User
 from app.models.organization import Organization
-from app.schemas.user import UserRegister
+from app.schemas.user import UserRegister, OtpVerifyRequest, OtpResendRequest
 from app.core.security import hash_password
 from app.schemas.user import UserLogin
 from app.core.security import verify_password
@@ -21,6 +21,7 @@ from app.core.roles import LANDLORD, TENANT
 from app.models.organization_member import OrganizationMember
 from app.services.tenant_linking import link_tenant_to_user
 from app.services.expense_category_seed import seed_expense_categories_for_org
+from app.services import otp_service
 
 
 
@@ -49,6 +50,8 @@ def _me_payload(user: User, db: Session) -> dict:
         "id": user.id,
         "email": user.email,
         "full_name": user.full_name,
+        "phone": user.phone,
+        "phone_verified": bool(user.phone_verified),
         "organization_id": membership.organization_id if membership else None,
         "role": membership.role.name.upper() if membership and membership.role else None,
     }
@@ -67,6 +70,8 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         new_user = User(
             email=user.email,
             password_hash=hash_password(user.password),
+            phone=user.phone,
+            phone_verified=False,   # Sprint 6.2 #6: must verify via WhatsApp OTP
         )
         db.add(new_user)
         db.flush()  # ✅ now we have new_user.id
@@ -98,14 +103,34 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         # (added to this same transaction; committed together below)
         seed_expense_categories_for_org(db, org.id)
 
-        # 7️⃣ commit everything
+        # 7️⃣ generate + send the phone-verification OTP over WhatsApp.
+        # Added to this same transaction so the OTP row + message are committed
+        # together with the user. cooldown not enforced on the very first send.
+        otp_sent = True
+        try:
+            otp_service.generate_and_send(
+                db,
+                new_user,
+                organization_id=org.id,
+                phone=user.phone,
+                enforce_cooldown=False,
+            )
+        except HTTPException:
+            # A send/validation problem must not abort account creation — the
+            # user can hit "Resend" from the verify screen.
+            otp_sent = False
+
+        # 8️⃣ commit everything
         db.commit()
 
         return {
             "message": "User registered successfully",
             "user_id": new_user.id,
             "organization_id": org.id,
-            "role": LANDLORD
+            "role": LANDLORD,
+            "phone": new_user.phone,
+            "phone_verified": False,
+            "otp_sent": otp_sent,
         }
 
     except Exception as e:
@@ -161,8 +186,64 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "token_type": "bearer"
+        "token_type": "bearer",
+        # Sprint 6.2 #6: let the frontend gate on verification without a
+        # second round-trip. The full flag is also on GET /me.
+        "phone_verified": bool(db_user.phone_verified),
     }
+
+
+# ─── Phone verification (Sprint 6.2 #6) ───
+
+@router.post("/verify-otp")
+def verify_otp(
+    payload: OtpVerifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Confirm the WhatsApp OTP for the signed-in user's phone."""
+    if current_user.phone_verified:
+        return {"message": "Phone already verified", "phone_verified": True}
+
+    otp_service.verify(db, current_user, code=payload.code)
+    db.commit()
+    return {"message": "Phone verified successfully", "phone_verified": True}
+
+
+@router.post("/resend-otp")
+def resend_otp(
+    payload: OtpResendRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Resend the OTP (60s throttle). Optionally correct the destination phone."""
+    if current_user.phone_verified:
+        return {"message": "Phone already verified", "phone_verified": True}
+
+    membership = (
+        db.query(OrganizationMember)
+        .filter(OrganizationMember.user_id == current_user.id)
+        .first()
+    )
+    if not membership:
+        raise HTTPException(status_code=403, detail="No organization found")
+
+    phone = (payload.phone or "").strip() or current_user.phone
+    if not phone:
+        raise HTTPException(status_code=400, detail="No phone number on file. Provide one to receive the code.")
+
+    # If the user corrected their number, persist it.
+    if phone != current_user.phone:
+        current_user.phone = phone
+
+    otp_service.generate_and_send(
+        db,
+        current_user,
+        organization_id=membership.organization_id,
+        phone=phone,
+    )
+    db.commit()
+    return {"message": "Verification code sent", "phone": phone}
 
 
 @router.get("/me")

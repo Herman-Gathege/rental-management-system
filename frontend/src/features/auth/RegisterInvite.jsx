@@ -1,3 +1,4 @@
+//frontend\src\features\auth\RegisterInvite.jsx
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../../api/client";
