@@ -2,8 +2,12 @@
 import { useEffect, useState } from "react";
 import { generateMonthlyCharges, getCharges } from "../../api/charges";
 import { useProperty } from "../../context/PropertyContext";
+import Pagination from "../../components/Pagination";
+import useServerPagination from "../../hooks/useServerPagination";
 
 const money = (n) => Number(n || 0).toLocaleString();
+
+const PER_PAGE = 25;
 
 // A charge is "late" for display purposes if it still owes a balance and its
 // due date is strictly before today (a charge due *today* is not yet late).
@@ -47,11 +51,21 @@ export default function Billing() {
   const [success, setSuccess] = useState("");
   const [generating, setGenerating] = useState(false);
 
+  const pg = useServerPagination(PER_PAGE);
+  const { page, setPage, total, setTotal, totalPages, limit, offset, reset } = pg;
+
   const fetchCharges = async () => {
     try {
       setLoading(true);
-      const data = await getCharges(statusFilter || null, null, activeProperty?.id || null);
-      setCharges(data);
+      const res = await getCharges(
+        statusFilter || null,
+        null,
+        activeProperty?.id || null,
+        limit,
+        offset
+      );
+      setCharges(res.items || []);
+      setTotal(res.total || 0);
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to load charges");
     } finally {
@@ -59,9 +73,16 @@ export default function Billing() {
     }
   };
 
+  // Reset to page 1 when the filter or property changes.
+  useEffect(() => {
+    reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, activeProperty]);
+
   useEffect(() => {
     fetchCharges();
-  }, [statusFilter, activeProperty]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, activeProperty, page]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -69,6 +90,7 @@ export default function Billing() {
     try {
       const result = await generateMonthlyCharges();
       setSuccess(result.message);
+      reset();
       await fetchCharges();
       setTimeout(() => setSuccess(""), 4000);
     } catch (err) {
@@ -77,6 +99,9 @@ export default function Billing() {
       setGenerating(false);
     }
   };
+
+  const showingFrom = total === 0 ? 0 : offset + 1;
+  const showingTo = Math.min(offset + limit, total);
 
   return (
     <section className="properties-page">
@@ -110,13 +135,17 @@ export default function Billing() {
 
       {loading ? (
         <p>Loading charges...</p>
-      ) : charges.length === 0 ? (
+      ) : total === 0 ? (
         <div className="empty-state">
           <p>No charges yet.</p>
           <p className="text-muted">Click "Generate Monthly Charges" to bill all active leases.</p>
         </div>
       ) : (
         <>
+          <div className="text-sm text-muted mb-sm mt-sm">
+            Showing {showingFrom}–{showingTo} of {total}
+          </div>
+
           <div className="properties-table-wrapper hidden-mobile">
             <table className="properties-table">
               <thead>
@@ -167,6 +196,12 @@ export default function Billing() {
               </div>
             ))}
           </div>
+
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         </>
       )}
     </section>

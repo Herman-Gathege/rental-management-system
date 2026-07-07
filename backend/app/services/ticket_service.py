@@ -187,7 +187,15 @@ def _enrich(ticket: Ticket) -> dict:
 # ─── CRUD ────────────────────────────────────────────────────────────────
 
 def list_tickets(db, org_id, user_id, membership, *, status=None, priority=None,
-                 property_id=None, category=None, tenant_id=None):
+                 property_id=None, category=None, tenant_id=None,
+                 limit=None, offset=0):
+    """
+    List tickets, role-scoped.
+
+    Pagination (Sprint 6.2 #3): when `limit` is provided, returns a dict
+    { items, total, limit, offset }. When `limit` is omitted, returns the
+    bare list (unchanged) so existing callers keep working.
+    """
     role = _role(membership)
     q = _scoped_query(db, org_id, role, user_id, tenant_id=tenant_id)
     if status:
@@ -198,7 +206,20 @@ def list_tickets(db, org_id, user_id, membership, *, status=None, priority=None,
         q = q.filter(Ticket.property_id == property_id)
     if category:
         q = q.filter(Ticket.category == category)
-    tickets = q.order_by(Ticket.created_at.desc()).all()
+
+    q = q.order_by(Ticket.created_at.desc())
+
+    if limit is not None:
+        total = q.count()
+        tickets = q.offset(offset).limit(limit).all()
+        return {
+            "items": [_enrich(t) for t in tickets],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+
+    tickets = q.all()
     return [_enrich(t) for t in tickets]
 
 

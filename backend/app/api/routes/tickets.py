@@ -80,8 +80,17 @@ def list_tickets(
     priority: Optional[str] = Query(None),
     property_id: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
+    limit: Optional[int] = Query(None, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     deps=Depends(get_user_org),
 ):
+    """
+    List tickets, role-scoped.
+
+    Pagination (Sprint 6.2 #3): when `limit` is provided, the service returns a
+    { items, total, limit, offset } envelope. When `limit` is omitted, it
+    returns the bare list (unchanged) so existing callers keep working.
+    """
     user, membership, db = deps
     tid = _tenant_id(user, membership, db)
     return ticket_service.list_tickets(
@@ -94,6 +103,8 @@ def list_tickets(
         property_id=property_id,
         category=category,
         tenant_id=tid,
+        limit=limit,
+        offset=offset,
     )
 
 

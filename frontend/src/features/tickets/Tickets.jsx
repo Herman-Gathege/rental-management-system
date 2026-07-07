@@ -9,9 +9,13 @@ import { Link } from "react-router-dom";
 import { getTickets } from "../../api/tickets";
 import { useAuth } from "../../context/AuthContext";
 import { useProperty } from "../../context/PropertyContext";
+import Pagination from "../../components/Pagination";
+import useServerPagination from "../../hooks/useServerPagination";
 
 const STATUSES = ["", "open", "assigned", "in_progress", "waiting", "resolved", "closed"];
 const PRIORITIES = ["", "low", "medium", "high", "critical"];
+
+const PER_PAGE = 25;
 
 const statusClass = (s) => {
   switch (s) {
@@ -57,16 +61,20 @@ export default function Tickets() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const pg = useServerPagination(PER_PAGE);
+  const { page, setPage, total, setTotal, totalPages, limit, offset, reset } = pg;
+
   const fetchTickets = async () => {
     try {
       setLoading(true);
       setError("");
-      const filters = {};
+      const filters = { limit, offset };
       if (statusFilter) filters.status = statusFilter;
       if (priorityFilter) filters.priority = priorityFilter;
       if (activeProperty?.id) filters.property_id = activeProperty.id;
-      const data = await getTickets(filters);
-      setTickets(data);
+      const res = await getTickets(filters);
+      setTickets(res.items || []);
+      setTotal(res.total || 0);
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to load tickets");
     } finally {
@@ -74,7 +82,19 @@ export default function Tickets() {
     }
   };
 
-  useEffect(() => { fetchTickets(); }, [statusFilter, priorityFilter, activeProperty]);
+  // Reset to page 1 when any filter changes.
+  useEffect(() => {
+    reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, priorityFilter, activeProperty]);
+
+  useEffect(() => {
+    fetchTickets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, priorityFilter, activeProperty, page]);
+
+  const showingFrom = total === 0 ? 0 : offset + 1;
+  const showingTo = Math.min(offset + limit, total);
 
   return (
     <section className="properties-page">
@@ -116,7 +136,7 @@ export default function Tickets() {
         <p>Loading tickets...</p>
       ) : error ? (
         <p className="error-text">{error}</p>
-      ) : tickets.length === 0 ? (
+      ) : total === 0 ? (
         <div className="empty-state">
           <p>No tickets found.</p>
           {canCreate && (
@@ -130,6 +150,10 @@ export default function Tickets() {
         </div>
       ) : (
         <>
+          <div className="text-sm text-muted mb-sm">
+            Showing {showingFrom}–{showingTo} of {total}
+          </div>
+
           {/* Desktop table */}
           <div className="properties-table-wrapper hidden-mobile">
             <table className="properties-table">
@@ -202,6 +226,12 @@ export default function Tickets() {
               </div>
             ))}
           </div>
+
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         </>
       )}
     </section>

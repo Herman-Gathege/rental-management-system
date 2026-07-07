@@ -7,11 +7,22 @@ export const generateMonthlyCharges = async (billingDate = null) => {
   return data;
 };
 
-export const getCharges = async (status = null, leaseId = null, propertyId = null) => {
+// getCharges supports optional pagination. When `limit` is passed, the backend
+// returns { items, total, limit, offset }; otherwise a bare array (backward
+// compatible). Callers that pass a limit should read `.items`/`.total`.
+export const getCharges = async (
+  status = null,
+  leaseId = null,
+  propertyId = null,
+  limit = null,
+  offset = null
+) => {
   const params = {};
   if (status) params.status = status;
   if (leaseId) params.lease_id = leaseId;
   if (propertyId) params.property_id = propertyId;
+  if (limit != null) params.limit = limit;
+  if (offset != null) params.offset = offset;
   const { data } = await API.get("/charges/", { params });
   return data;
 };

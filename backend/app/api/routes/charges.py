@@ -144,7 +144,22 @@ def generate_monthly_charges(
 
 
 @router.get("/")
-def list_charges(status: str = Query(None), lease_id: str = Query(None), property_id: str = Query(None), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def list_charges(
+    status: str = Query(None),
+    lease_id: str = Query(None),
+    property_id: str = Query(None),
+    limit: int = Query(None, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    List charges.
+
+    Pagination (Sprint 6.2 #3): when `limit` is provided, returns a paginated
+    envelope { items, total, limit, offset }. When `limit` is omitted, returns
+    the bare list (unchanged) so existing callers keep working.
+    """
     membership = get_user_org(current_user, db)
     org_id = membership.organization_id
     role = membership.role.name if membership.role else None
@@ -171,22 +186,40 @@ def list_charges(status: str = Query(None), lease_id: str = Query(None), propert
         prop_ids = assigned_finance_property_ids(db, current_user.id, org_id)
         scoped_lease_ids = lease_ids_for_properties(db, prop_ids)
         if not scoped_lease_ids:
-            return []
+            return {"items": [], "total": 0, "limit": limit, "offset": offset} if limit is not None else []
         query = query.filter(Charge.lease_id.in_(scoped_lease_ids))
 
-    charges = query.order_by(Charge.due_date.desc()).all()
+    query = query.order_by(Charge.due_date.desc())
 
-    # A fully-unpaid charge that has aged past its due date displays as
-    # "overdue". Partially-paid charges keep their "partial" status (their
-    # balance is shown and flagged in the UI instead).
-    for c in charges:
-        if c.status == "pending" and c.due_date < today:
-            c.status = "overdue"
-    db.commit()
+    def _process(charges):
+        # A fully-unpaid charge that has aged past its due date displays as
+        # "overdue". Partially-paid charges keep their "partial" status (their
+        # balance is shown and flagged in the UI instead).
+        mutated = False
+        for c in charges:
+            if c.status == "pending" and c.due_date < today:
+                c.status = "overdue"
+                mutated = True
+        if mutated:
+            db.commit()
+        # Compute each lease's credit once, not once per charge row.
+        credit_cache: dict = {}
+        return [enrich_charge(c, db, credit_cache) for c in charges]
 
-    # Compute each lease's credit once, not once per charge row.
-    credit_cache: dict = {}
-    return [enrich_charge(c, db, credit_cache) for c in charges]
+    # Paginated envelope when limit is given.
+    if limit is not None:
+        total = query.count()
+        charges = query.offset(offset).limit(limit).all()
+        return {
+            "items": _process(charges),
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+
+    # Backward-compatible bare list.
+    charges = query.all()
+    return _process(charges)
 
 
 @router.get("/{charge_id}")
