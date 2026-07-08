@@ -1,5 +1,5 @@
 #backend/app/api/routes/auth.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -22,6 +22,11 @@ from app.models.organization_member import OrganizationMember
 from app.services.tenant_linking import link_tenant_to_user
 from app.services.expense_category_seed import seed_expense_categories_for_org
 from app.services import otp_service
+
+# Sprint 7 (MVP-1) — Rate limiting.
+# The `request: Request` parameter is required on any endpoint slowapi
+# decorates; the limiter reads it to derive the rate-limit key.
+from app.core.rate_limit import limiter, get_user_id_or_ip
 
 
 
@@ -58,7 +63,8 @@ def _me_payload(user: User, db: Session) -> dict:
 
 
 @router.post("/register")
-def register(user: UserRegister, db: Session = Depends(get_db)):
+@limiter.limit("5/hour")
+def register(request: Request, user: UserRegister, db: Session = Depends(get_db)):
 
     try:
         # 1️⃣ check existing user
@@ -139,7 +145,8 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(user: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, user: UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
 
     if not db_user:
@@ -196,7 +203,9 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
 # ─── Phone verification (Sprint 6.2 #6) ───
 
 @router.post("/verify-otp")
+@limiter.limit("20/hour", key_func=get_user_id_or_ip)
 def verify_otp(
+    request: Request,
     payload: OtpVerifyRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -211,7 +220,9 @@ def verify_otp(
 
 
 @router.post("/resend-otp")
+@limiter.limit("5/hour", key_func=get_user_id_or_ip)
 def resend_otp(
+    request: Request,
     payload: OtpResendRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -306,7 +317,8 @@ def refresh_token(token: str, db: Session = Depends(get_db)):
 
 
 @router.post("/forgot-password")
-def forgot_password(email: str, db: Session = Depends(get_db)):
+@limiter.limit("5/hour")
+def forgot_password(request: Request, email: str, db: Session = Depends(get_db)):
 
     user = db.query(User).filter(User.email == email).first()
 

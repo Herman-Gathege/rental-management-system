@@ -68,6 +68,8 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 import os
 
 from app.db.session import SessionLocal
@@ -98,7 +100,18 @@ from app.api.routes.ticket_metrics import router as ticket_metrics_router
 
 from app.services.expense_category_seed import seed_expense_categories_for_all_orgs
 
+# Sprint 7 (MVP-1) — Rate limiting on auth endpoints
+from app.core.rate_limit import limiter, rate_limit_exceeded_handler
+
 app = FastAPI(title="Rental Management API")
+
+# ─── Rate limiter wiring (Sprint 7 MVP-1) ───
+# The limiter itself lives in app.core.rate_limit; we register it on app.state
+# so slowapi's decorators can find it, add a friendly JSON handler for 429s,
+# and install the middleware that actually intercepts requests.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
