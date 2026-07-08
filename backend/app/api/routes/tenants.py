@@ -1,10 +1,13 @@
 #backend\app\api\routes\tenants.py
+import re
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 import uuid
 
 from app.db.deps import get_db
 from app.api.deps import get_current_user
+from app.core.encryption import blind_index
 from app.models.users import User
 from app.models.organization_member import OrganizationMember
 from app.models.tenant import Tenant
@@ -180,7 +183,9 @@ def create_tenant(
     db.add(tenant)
     db.flush()
 
-    # Audit log
+    # Audit log — note: phone/email are the plaintext payload values here, not
+    # the encrypted DB values. The audit_logs table itself is not encrypted;
+    # if it needs to be, that's a Sprint 8 exercise.
     log_action(
         db=db,
         organization_id=membership.organization_id,
@@ -203,10 +208,65 @@ def create_tenant(
 
 
 # ─── List Tenants ───
+#
+# Sprint 7 MVP-1 note on search: phone / email / id_number are now encrypted
+# with a random IV each write, so `Tenant.phone.ilike(...)` no longer works.
+# We now do:
+#   - name search: unchanged, plain ilike on full_name
+#   - phone/email/id search: hash lookup on the *_hash columns when the query
+#     "looks like" a phone number, email, or ID (heuristic below)
+# Substring/partial matches on encrypted fields are gone — that's the honest
+# cost of encryption. Users searching "0712" will now only get name matches;
+# users typing the whole phone number will still find the tenant.
+
+_PHONE_RE = re.compile(r"^\+?[\d\s\-]{7,20}$")
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_ID_RE = re.compile(r"^\d{5,10}$")  # Kenyan national IDs are 7-8 digits; leave slack
+
+
+def _search_filters(search: str):
+    """
+    Given a search term, return a list of SQLAlchemy filter clauses to OR
+    together. Always includes an ilike on full_name; also includes a hash
+    equality on whichever encrypted field the term "looks like".
+
+    A stripped phone (digits only, ignoring spaces/dashes/leading +) is what
+    we hash — matching how the tenant would have typed it on entry (users
+    aren't consistent about spacing).
+    """
+    clauses = [Tenant.full_name.ilike(f"%{search}%")]
+
+    s = search.strip()
+    if not s:
+        return clauses
+
+    # Email
+    if _EMAIL_RE.match(s):
+        h = blind_index(s)
+        if h:
+            clauses.append(Tenant.email_hash == h)
+
+    # Phone: normalise to digits-only for hashing (blind_index will also lower,
+    # which is a no-op on digits). We hash BOTH the raw and the digits-only
+    # form because tenants might have been entered with either.
+    if _PHONE_RE.match(s):
+        clauses.append(Tenant.phone_hash == blind_index(s))
+        clauses.append(Tenant.alternative_phone_hash == blind_index(s))
+        digits_only = re.sub(r"[\s\-+]", "", s)
+        if digits_only and digits_only != s:
+            clauses.append(Tenant.phone_hash == blind_index(digits_only))
+            clauses.append(Tenant.alternative_phone_hash == blind_index(digits_only))
+
+    # National ID (numeric-only, short)
+    if _ID_RE.match(s):
+        clauses.append(Tenant.id_number_hash == blind_index(s))
+
+    return clauses
+
 
 @router.get("/")
 def list_tenants(
-    search: str = Query(None, description="Search by name, phone, ID, or email"),
+    search: str = Query(None, description="Search by name; exact match on full phone / email / ID"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -217,13 +277,9 @@ def list_tenants(
     )
 
     if search:
-        s = f"%{search}%"
-        query = query.filter(
-            (Tenant.full_name.ilike(s))
-            | (Tenant.phone.ilike(s))
-            | (Tenant.id_number.ilike(s))
-            | (Tenant.email.ilike(s))
-        )
+        clauses = _search_filters(search)
+        if clauses:
+            query = query.filter(or_(*clauses))
 
     tenants = query.order_by(Tenant.created_at.desc()).all()
 

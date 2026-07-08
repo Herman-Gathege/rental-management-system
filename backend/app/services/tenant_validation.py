@@ -1,6 +1,7 @@
 #backend\app\services\tenant_validation.py
 """
-Tenant uniqueness validation (Sprint 6.2 #5).
+Tenant uniqueness validation (Sprint 6.2 #5, updated for Sprint 7 PII
+encryption).
 
 Enforces, PER ORGANIZATION, that these tenant fields don't collide:
   - phone / alternative_phone  (checked together — a number used as anyone's
@@ -8,14 +9,14 @@ Enforces, PER ORGANIZATION, that these tenant fields don't collide:
   - email
   - id_number
 
-Enforcement is application-level only for now. The DB-level unique constraint is
-deliberately deferred to Sprint 7, where these fields get encrypted at rest
-(guide Module 3 — Data Protection). A plaintext unique index would have to be
-torn out and reworked as a hashed/blind-index once the columns are encrypted, so
-building it now would be throwaway work.
-
-Blanks are ignored: only non-empty values are checked, so a tenant may leave a
+Blanks are ignored: only non-empty values are checked. A tenant may leave a
 field blank, but any value they do provide must be unique within the org.
+
+Sprint 7 change: the underlying columns are now encrypted (Fernet ciphertext),
+which means `Tenant.phone == '0712...'` no longer works — two encryptions of
+the same value produce different ciphertexts. We now query the *_hash columns
+(deterministic HMAC-SHA256, populated by the model's before_insert /
+before_update listeners) and compare against blind_index(candidate).
 """
 
 from typing import Optional
@@ -23,6 +24,7 @@ from fastapi import HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.core.encryption import blind_index
 from app.models.tenant import Tenant
 
 
@@ -50,9 +52,10 @@ def check_tenant_uniqueness(
 
     Pass `exclude_tenant_id` on update so a tenant isn't flagged against itself.
 
-    Phone checks span BOTH phone columns: the candidate phone and
-    alternative_phone are each checked against existing phone AND
-    alternative_phone, so a number can't be reused across either slot.
+    Phone checks span BOTH phone slots (phone + alternative_phone): the
+    candidate phone and alternative_phone are each hashed and checked against
+    existing phone_hash AND alternative_phone_hash, so a number can't be
+    reused across either slot.
     """
     phone = _clean(phone)
     alternative_phone = _clean(alternative_phone)
@@ -64,22 +67,26 @@ def check_tenant_uniqueness(
         base = base.filter(Tenant.id != exclude_tenant_id)
 
     # ─── Phone / alternative phone (shared pool) ───
-    phone_values = {p for p in (phone, alternative_phone) if p}
-    if phone_values:
+    # Compute hashes for each provided phone candidate. blind_index normalises
+    # (strip + lower) internally so callers don't have to.
+    phone_hashes = {blind_index(p) for p in (phone, alternative_phone) if p}
+    phone_hashes.discard(None)
+    if phone_hashes:
         conflict = (
             base.filter(
                 or_(
-                    Tenant.phone.in_(phone_values),
-                    Tenant.alternative_phone.in_(phone_values),
+                    Tenant.phone_hash.in_(phone_hashes),
+                    Tenant.alternative_phone_hash.in_(phone_hashes),
                 )
             ).first()
         )
         if conflict:
-            # Identify which candidate collided for a precise message.
+            # Which candidate collided? Compare hashes back to the source
+            # inputs to produce a specific message.
+            existing_hashes = {conflict.phone_hash, conflict.alternative_phone_hash}
             clashed = None
-            existing_numbers = {conflict.phone, conflict.alternative_phone}
             for cand in (phone, alternative_phone):
-                if cand and cand in existing_numbers:
+                if cand and blind_index(cand) in existing_hashes:
                     clashed = cand
                     break
             raise HTTPException(
@@ -92,7 +99,7 @@ def check_tenant_uniqueness(
 
     # ─── Email ───
     if email:
-        conflict = base.filter(Tenant.email == email).first()
+        conflict = base.filter(Tenant.email_hash == blind_index(email)).first()
         if conflict:
             raise HTTPException(
                 status_code=400,
@@ -101,7 +108,7 @@ def check_tenant_uniqueness(
 
     # ─── ID number ───
     if id_number:
-        conflict = base.filter(Tenant.id_number == id_number).first()
+        conflict = base.filter(Tenant.id_number_hash == blind_index(id_number)).first()
         if conflict:
             raise HTTPException(
                 status_code=400,
