@@ -28,6 +28,9 @@ from app.services import otp_service
 # decorates; the limiter reads it to derive the rate-limit key.
 from app.core.rate_limit import limiter, get_user_id_or_ip
 
+# Sprint 7 (MVP-1) — Password strength policy.
+from app.core.password_policy import validate_password
+
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -67,6 +70,10 @@ def _me_payload(user: User, db: Session) -> dict:
 def register(request: Request, user: UserRegister, db: Session = Depends(get_db)):
 
     try:
+        # Sprint 7 MVP-1: enforce password policy before hashing/storing.
+        # Passing email lets the policy reject "anne1234!!" for anne@x.com.
+        validate_password(user.password, email=user.email)
+
         # 1️⃣ check existing user
         existing = db.query(User).filter(User.email == user.email).first()
         if existing:
@@ -289,10 +296,14 @@ def change_password(
     """Change the signed-in user's password. Requires the current password."""
     if not verify_password(payload.current_password, current_user.password_hash):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
-    if len(payload.new_password) < 8:
+    # Sprint 7 MVP-1: enforce the full password policy (replaces the old
+    # `len < 8` check). Prevent no-op changes too.
+    if payload.new_password == payload.current_password:
         raise HTTPException(
-            status_code=400, detail="New password must be at least 8 characters"
+            status_code=400,
+            detail="New password must be different from the current password.",
         )
+    validate_password(payload.new_password, email=current_user.email)
     current_user.password_hash = hash_password(payload.new_password)
     db.commit()
     return {"message": "Password updated successfully"}
@@ -359,6 +370,10 @@ def reset_password(token: str, new_password: str, db: Session = Depends(get_db))
     # check expiry
     if not user.reset_token_expiry or user.reset_token_expiry < datetime.utcnow():
         raise HTTPException(status_code=400, detail="Token expired")
+
+    # Sprint 7 MVP-1: enforce password policy on reset (was previously
+    # unchecked — a real gap since a leaked reset link could set any pw).
+    validate_password(new_password, email=user.email)
 
     # update password
     user.password_hash = hash_password(new_password)

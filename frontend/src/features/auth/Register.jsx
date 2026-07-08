@@ -1,7 +1,8 @@
 //frontend/src/features/auth/Register.jsx
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { checkPasswordStrength } from "../../utils/passwordStrength";
 
 export default function Register() {
   const { register, login } = useAuth();
@@ -16,9 +17,22 @@ export default function Register() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  // Live password checks. Purely a UX aid — the backend enforces the same
+  // rules and rejects on submit if anything's off.
+  const pw = useMemo(
+    () => checkPasswordStrength(form.password, form.email),
+    [form.password, form.email]
+  );
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (!pw.allPassed) {
+      setError("Please meet the password requirements below.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       // Create the account (backend sends a WhatsApp OTP to the phone).
@@ -77,13 +91,76 @@ export default function Register() {
           placeholder="Password"
           autoComplete="new-password"
           required
+          value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
         />
 
-        <button type="submit" className="btn btn-primary" disabled={submitting}>
+        {/* Password strength gauge — only shows once the user starts typing. */}
+        {form.password && <PasswordStrength pw={pw} />}
+
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={submitting || !pw.allPassed}
+        >
           {submitting ? "Creating account…" : "Register"}
         </button>
       </form>
     </div>
+  );
+}
+
+
+/* ─── Password strength gauge ─── */
+
+function PasswordStrength({ pw }) {
+  const barColor =
+    pw.score >= 4 ? "#16a34a" : pw.score >= 3 ? "#f59e0b" : "#ef4444";
+  const barWidth = `${(pw.score / 5) * 100}%`;
+
+  return (
+    <div style={{ marginTop: "-0.25rem" }}>
+      <div
+        style={{
+          height: "6px",
+          background: "#e5e7eb",
+          borderRadius: "3px",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            height: "100%",
+            width: barWidth,
+            background: barColor,
+            transition: "width 0.2s ease, background 0.2s ease",
+          }}
+        />
+      </div>
+      <ul
+        style={{
+          listStyle: "none",
+          padding: 0,
+          margin: "0.5rem 0 0 0",
+          fontSize: "0.8125rem",
+          lineHeight: 1.5,
+        }}
+      >
+        <Check ok={pw.checks.length}>At least 10 characters</Check>
+        <Check ok={pw.checks.classes}>
+          3 of: uppercase, lowercase, digit, symbol
+        </Check>
+        <Check ok={pw.checks.notCommon}>Not a common password</Check>
+        <Check ok={pw.checks.notEmail}>Doesn't contain your email</Check>
+      </ul>
+    </div>
+  );
+}
+
+function Check({ ok, children }) {
+  return (
+    <li style={{ color: ok ? "#16a34a" : "#6b7280" }}>
+      {ok ? "✓" : "○"} {children}
+    </li>
   );
 }
