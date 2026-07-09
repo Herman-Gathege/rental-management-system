@@ -52,6 +52,22 @@ def enrich_lease(lease, db):
     move_in_inspection = next((i for i in inspections if i.inspection_type == "move_in"), None)
     move_out_inspection = next((i for i in inspections if i.inspection_type == "move_out"), None)
 
+    # ─── Sprint 7 polish: deposit_outstanding ───
+    # Lets the record-payment form default sensibly: if this lease's deposit
+    # charge is still unpaid, the form pre-selects "Deposit" and prefills the
+    # deposit amount. Once the deposit is paid, the same form defaults to
+    # "Rent" for subsequent monthly payments. True iff a deposit-type charge
+    # exists for this lease and its status is not "paid".
+    deposit_charge = (
+        db.query(Charge)
+        .filter(
+            Charge.lease_id == lease.id,
+            Charge.charge_type == "deposit",
+        )
+        .first()
+    )
+    deposit_outstanding = bool(deposit_charge and deposit_charge.status != "paid")
+
     return {
         "id": lease.id,
         "organization_id": lease.organization_id,
@@ -62,6 +78,7 @@ def enrich_lease(lease, db):
         "move_in_date": lease.move_in_date,
         "rent_amount": float(lease.rent_amount),
         "deposit_amount": float(lease.deposit_amount) if lease.deposit_amount else 0,
+        "deposit_outstanding": deposit_outstanding,
         "billing_day": lease.billing_day,
         "signed_on_behalf_of": lease.signed_on_behalf_of,
         # "signed_lease_url": lease.signed_lease_url,

@@ -51,6 +51,33 @@ export default function RecordPayment() {
   // Selected lease — used to prefill the amount when the payment type changes.
   const selectedLease = leases.find((l) => l.id === form.lease_id);
 
+  // ─── Sprint 7 polish: smart default when a lease is picked ───
+  // Business rule: the security deposit is paid at move-in. So the first
+  // payment on a lease is almost always the deposit; every payment after
+  // that is rent. Rather than default to "Rent" for every payment (which
+  // is what caused a landlord to accidentally record the deposit as rent),
+  // we ask the backend whether this lease's deposit charge is still unpaid
+  // (lease.deposit_outstanding) and pre-select accordingly. The user can
+  // still switch the type manually — this only changes the default.
+  useEffect(() => {
+    if (!selectedLease) return;
+
+    const shouldDefaultToDeposit =
+      selectedLease.deposit_outstanding &&
+      Number(selectedLease.deposit_amount) > 0;
+
+    const nextType = shouldDefaultToDeposit ? "deposit" : "rent";
+    const nextAmount = shouldDefaultToDeposit
+      ? String(selectedLease.deposit_amount || "")
+      : String(selectedLease.rent_amount || "");
+
+    setForm((prev) => ({
+      ...prev,
+      payment_type: nextType,
+      amount: nextAmount,
+    }));
+  }, [form.lease_id, leases]);
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
