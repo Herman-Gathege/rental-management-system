@@ -2,7 +2,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { getLease, initiateMoveOut, uploadSignedLease } from "../../api/leases";
+import {
+  getLease,
+  initiateMoveIn,
+  initiateMoveOut,
+  uploadSignedLease,
+} from "../../api/leases";
 
 export default function LeaseDetail() {
   const { leaseId } = useParams();
@@ -21,6 +26,7 @@ export default function LeaseDetail() {
   const [error, setError] = useState("");
   const [uploadingSigned, setUploadingSigned] = useState(false);
   const [initiating, setInitiating] = useState(false);
+  const [initiatingMoveIn, setInitiatingMoveIn] = useState(false);
 
   const fetchLease = async () => {
     try {
@@ -37,6 +43,23 @@ export default function LeaseDetail() {
   useEffect(() => {
     fetchLease();
   }, [leaseId]);
+
+  /* Initiate move-in → creates the move-in inspection, redirects to it.
+     Only reachable when the auto-created move-in is missing (recovery
+     path). No confirmation dialog — this is a routine action, unlike
+     move-out which is a termination decision. */
+  const handleInitiateMoveIn = async () => {
+    setInitiatingMoveIn(true);
+    try {
+      const result = await initiateMoveIn(leaseId);
+      // Redirect straight to the move-in inspection page
+      navigate(`${base}/leases/${leaseId}/inspections/${result.inspection_id}`);
+    } catch (err) {
+      alert(err.response?.data?.detail || "Failed to start move-in inspection");
+    } finally {
+      setInitiatingMoveIn(false);
+    }
+  };
 
   /* Initiate move-out → creates the move-out inspection, redirects to it */
   const handleInitiateMoveOut = async () => {
@@ -272,13 +295,21 @@ export default function LeaseDetail() {
               )}
             </div>
           </div>
-          {moveIn && (
+          {moveIn ? (
             <Link
               to={`${base}/leases/${leaseId}/inspections/${moveIn.id}`}
               className="btn btn-primary btn-sm"
             >
               {moveIn.status === "draft" ? "Conduct" : "View"}
             </Link>
+          ) : (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleInitiateMoveIn}
+              disabled={initiatingMoveIn}
+            >
+              {initiatingMoveIn ? "Starting..." : "Start Move-In"}
+            </button>
           )}
         </div>
 

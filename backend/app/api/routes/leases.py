@@ -327,6 +327,90 @@ def update_lease(
     return enrich_lease(lease, db)
 
 
+# ─── Initiate Move-In ───
+#
+# Normally, a draft move-in inspection is auto-created when a lease is
+# created (see create_lease above). This endpoint is a recovery path
+# for leases whose auto-created move-in inspection is missing — either
+# because it was deleted, or because the auto-create step ran while
+# the org had no checklist template items yet (producing an empty
+# inspection that had to be discarded). Idempotent: if a move-in
+# inspection already exists for the lease, return it instead of
+# creating a duplicate.
+
+@router.post("/{lease_id}/initiate-move-in")
+def initiate_move_in(
+    lease_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Start (or resume) a draft move-in inspection for a lease.
+
+    Idempotent — if a move-in inspection already exists (draft or signed),
+    it is returned as-is; no duplicate is created.
+    """
+    membership = get_user_org(current_user, db)
+
+    lease = (
+        db.query(Lease)
+        .filter(
+            Lease.id == lease_id,
+            Lease.organization_id == membership.organization_id
+        )
+        .first()
+    )
+
+    if not lease:
+        raise HTTPException(status_code=404, detail="Lease not found")
+
+    # If a move-in inspection already exists, return it (idempotent)
+    existing_move_in = (
+        db.query(LeaseInspection)
+        .filter(
+            LeaseInspection.lease_id == lease_id,
+            LeaseInspection.inspection_type == "move_in"
+        )
+        .first()
+    )
+
+    if existing_move_in:
+        return {
+            "message": "Move-in inspection already exists",
+            "inspection_id": existing_move_in.id,
+            "status": existing_move_in.status,
+        }
+
+    # Create the move-in inspection (seeded with checklist items)
+    inspection = create_inspection_for_lease(
+        db=db,
+        lease_id=lease_id,
+        organization_id=membership.organization_id,
+        inspection_type="move_in",
+        inspector_user_id=current_user.id,
+    )
+
+    # Audit log
+    log_action(
+        db=db,
+        organization_id=membership.organization_id,
+        user_id=current_user.id,
+        action="create",
+        entity_type="inspection",
+        entity_id=inspection.id,
+        description=f"Initiated move-in inspection for lease {lease_id}",
+    )
+
+    db.commit()
+    db.refresh(inspection)
+
+    return {
+        "message": "Move-in inspection created. Conduct and sign it with the tenant.",
+        "inspection_id": inspection.id,
+        "status": inspection.status,
+    }
+
+
 # ─── Initiate Move-Out ───
 #
 # This is the new entry point that replaces direct termination.
