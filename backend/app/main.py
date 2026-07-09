@@ -82,10 +82,13 @@ from app.api.routes.tenants import router as tenants_router
 from app.api.routes.leases import router as leases_router
 from app.api.routes.charges import router as charges_router
 from app.api.routes.payments import router as payments_router
+from app.api.routes import payment_batch
 from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.finance import router as finance_router
 from app.api.routes.audit import router as audit_router
 from app.api.routes.inspections import router as inspections_router
+from app.api.routes.checklist_template import router as checklist_template_router
+from app.api.routes.messages import router as messages_router
 from app.api.routes.webhooks import router as webhooks_router
 from app.api.routes.expenses import router as expenses_router
 from app.api.routes.expense_categories import router as expense_categories_router
@@ -98,6 +101,9 @@ from app.api.routes.ticket_conversation import router as ticket_conversation_rou
 from app.api.routes.notifications import router as notifications_router
 from app.api.routes.ticket_metrics import router as ticket_metrics_router
 
+# Startup seeds
+from app.db.seed_roles import seed_roles
+from app.services.checklist_seed import seed_checklist_for_all_orgs
 from app.services.expense_category_seed import seed_expense_categories_for_all_orgs
 
 # Sprint 7 (MVP-1) — Rate limiting on auth endpoints
@@ -133,10 +139,13 @@ app.include_router(tenants_router)
 app.include_router(leases_router)
 app.include_router(charges_router)
 app.include_router(payments_router)
+app.include_router(payment_batch.router)
 app.include_router(dashboard_router)
 app.include_router(finance_router)
 app.include_router(audit_router)
 app.include_router(inspections_router)
+app.include_router(checklist_template_router)
+app.include_router(messages_router)
 app.include_router(webhooks_router)
 app.include_router(expenses_router)
 app.include_router(expense_categories_router)
@@ -150,14 +159,50 @@ app.include_router(notifications_router)
 app.include_router(ticket_metrics_router)
 
 
+# ─── Health endpoints ───
+# Restored: previously present in main.py, silently dropped during a Sprint
+# 5/6 merge. Useful for uptime probes, load balancer health checks, and a
+# quick smoke test that the API is up.
+
+@app.get("/")
+def root():
+    return {"message": "API running"}
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+
+# ─── Startup seeds ───
+# Restored (Sprint 7 audit): seed_roles and seed_checklist_for_all_orgs were
+# present on the sprint-4.5-spinoff-checklist-batch branch but silently
+# dropped in a later merge, leaving orgs created after that point with no
+# default roles or checklist template items. Each seed is wrapped in its
+# own try/except so one seed failing doesn't kill the others — the app
+# should always start even if a seed can't run.
+
 @app.on_event("startup")
 async def startup_event():
     db = SessionLocal()
     try:
-        cats = seed_expense_categories_for_all_orgs(db)
-        if cats:
-            print(f"[startup] seeded {cats} expense categories")
-    except Exception as e:
-        print(f"[startup] category seed failed (non-fatal): {e}")
+        try:
+            seed_roles(db)
+        except Exception as e:
+            print(f"[startup] role seed failed (non-fatal): {e}")
+
+        try:
+            checklist_created = seed_checklist_for_all_orgs(db)
+            if checklist_created:
+                print(f"[startup] seeded {checklist_created} default checklist items across orgs")
+        except Exception as e:
+            print(f"[startup] checklist seed failed (non-fatal): {e}")
+
+        try:
+            cats = seed_expense_categories_for_all_orgs(db)
+            if cats:
+                print(f"[startup] seeded {cats} expense categories")
+        except Exception as e:
+            print(f"[startup] category seed failed (non-fatal): {e}")
     finally:
         db.close()
