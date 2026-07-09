@@ -18,7 +18,7 @@
   padding: 1rem;
 } */
 
-.sidebar {
+/* .sidebar {
   width: 260px;
   height: 100vh;
   background: white;
@@ -30,7 +30,21 @@
   position: sticky;
   top: 0;
 
-  overflow: hidden; /* prevents spill */
+  overflow-y:hidden;
+  overflow-x:hidden;
+} */
+
+.sidebar {
+  width: 260px;
+  height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+
+  position: relative;   /* <-- change */
+
+  overflow-y: auto;     /* <-- change */
+  overflow-x: hidden;
 }
 
 .sidebar-collapsed {
@@ -40,7 +54,8 @@
 .sidebar-nav {
   flex: 1;                  /* fills remaining space */
   overflow-y: auto;         /* scroll instead of spill */
-  padding: 1rem 0.5rem;
+  /* padding: 1rem 0.5rem; */
+  min-height:0;
 }
 
 /* .sidebar {

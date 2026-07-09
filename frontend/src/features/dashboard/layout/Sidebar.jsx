@@ -31,7 +31,7 @@ export default function Sidebar() {
 
   /* ===== Collapse state (persisted) ===== */
   const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem("sidebarCollapsed") === "true"
+    () => localStorage.getItem("sidebarCollapsed") === "true",
   );
   useEffect(() => {
     localStorage.setItem("sidebarCollapsed", collapsed);
@@ -43,16 +43,29 @@ export default function Sidebar() {
     setOpenMenus((prev) => ({ ...prev, [label]: !prev[label] }));
 
   if (!user) return null;
+  console.group("===== Sidebar Debug =====");
+  console.log("User:", user);
+  console.log("Role:", user.role);
 
   // Unknown role falls back to the most-restricted menu (tenant) rather than
   // exposing management links.
   const navigation = NAV_BY_ROLE[user.role] || tenantNavigation;
 
+  console.log("Navigation array:", navigation);
+  console.log(
+    "Navigation labels:",
+    navigation.map((item) => item.label),
+  );
+  console.log("Navigation count:", navigation.length);
+  console.groupEnd();
+
   const linkClass = ({ isActive }) =>
     `sidebar-link ${isActive ? "active" : ""}`;
 
   return (
-    <aside className={`sidebar hidden-mobile ${collapsed ? "sidebar-collapsed" : ""}`}>
+    <aside
+      className={`sidebar hidden-mobile ${collapsed ? "sidebar-collapsed" : ""}`}
+    >
       {/* ===== HEADER ===== */}
       <div className="sidebar-header">
         {!collapsed && (
@@ -70,8 +83,14 @@ export default function Sidebar() {
 
       {/* ===== NAV ===== */}
       <nav className="sidebar-nav flex flex-col gap-sm p-sm">
-        {navigation.map((item) => {
-          const Icon = item.icon;
+        {navigation.map((item, index) => {
+  console.log(
+    `Rendering menu ${index + 1}/${navigation.length}:`,
+    item.label,
+    item.path || "(group)"
+  );
+
+  const Icon = item.icon;
 
           // Collapsible group (has children)
           if (item.children) {
@@ -84,7 +103,9 @@ export default function Sidebar() {
                 >
                   {Icon && <Icon />} {!collapsed && <span>{item.label}</span>}
                   {!collapsed && (
-                    <FiChevronDown className={`chevron ${open ? "rotated" : ""}`} />
+                    <FiChevronDown
+                      className={`chevron ${open ? "rotated" : ""}`}
+                    />
                   )}
                 </button>
 

@@ -315,14 +315,99 @@ def _scope_lease_ids(db, org_id, property_ids):
     return [r[0] for r in rows]
 
 
+# def rent_roll(db, *, org_id, property_ids, active_only=True) -> list:
+#     """
+#     Rent roll — one row per lease (active by default): tenant, property, unit,
+#     monthly rent, deposit held (deposit-type payments), current rent balance,
+#     and status.
+
+#     balance = rent charges - rent payments (rent-type only, so the deposit is
+#     excluded from the rent balance and shown in its own column instead).
+#     """
+#     if property_ids is not None and len(property_ids) == 0:
+#         return []
+
+#     q = (
+#         db.query(Lease, Tenant, Property, Unit)
+#         .join(Unit, Unit.id == Lease.unit_id)
+#         .join(Property, Property.id == Unit.property_id)
+#         .outerjoin(Tenant, Tenant.id == Lease.tenant_id)
+#         .filter(Lease.organization_id == org_id)
+#     )
+#     if property_ids is not None:
+#         q = q.filter(Unit.property_id.in_(property_ids))
+#     # if active_only:
+#     #     q = q.filter(Lease.status == "active")
+#     if active_only:
+#           q = q.filter(Lease.status.in_(["active", "terminated"]))
+#     q = q.order_by(Property.name.asc(), Unit.name.asc())
+#     rows = q.all()
+
+#     lease_ids = [l.id for l, _t, _p, _u in rows]
+#     rent_charge_map = {}
+#     rent_paid_map = {}
+#     deposit_paid_map = {}
+#     if lease_ids:
+#         for lid, total in (
+#             db.query(Charge.lease_id, func.coalesce(func.sum(Charge.amount), 0))
+#             .filter(Charge.lease_id.in_(lease_ids), Charge.charge_type == "rent")
+#             .group_by(Charge.lease_id).all()
+#         ):
+#             rent_charge_map[lid] = float(total)
+#         for lid, total in (
+#             db.query(Payment.lease_id, func.coalesce(func.sum(Payment.amount), 0))
+#             .filter(Payment.lease_id.in_(lease_ids), Payment.payment_type == "rent")
+#             .group_by(Payment.lease_id).all()
+#         ):
+#             rent_paid_map[lid] = float(total)
+#         for lid, total in (
+#             db.query(Payment.lease_id, func.coalesce(func.sum(Payment.amount), 0))
+#             .filter(Payment.lease_id.in_(lease_ids), Payment.payment_type == "deposit")
+#             .group_by(Payment.lease_id).all()
+#         ):
+#             deposit_paid_map[lid] = float(total)
+
+#     result = []
+#     for lease, tenant, prop, unit in rows:
+#         rent_charged = rent_charge_map.get(lease.id, 0.0)
+#         rent_paid = rent_paid_map.get(lease.id, 0.0)
+#         balance = round(rent_charged - rent_paid, 2)
+#         result.append({
+#             "lease_id": lease.id,
+#             "tenant_name": tenant.full_name if tenant else None,
+#             "property_name": prop.name,
+#             "unit_name": unit.name,
+#             "monthly_rent": float(lease.rent_amount) if lease.rent_amount is not None else 0.0,
+#             # "deposit_held": round(deposit_paid_map.get(lease.id, 0.0), 2),
+#             "deposit_held": float(lease.deposit_amount or 0),
+#             "balance": balance,
+#             "status": lease.status,
+#             "start_date": lease.start_date.isoformat() if lease.start_date else None,
+#             "end_date": lease.end_date.isoformat() if lease.end_date else None,
+#         })
+#     return result
+
+
 def rent_roll(db, *, org_id, property_ids, active_only=True) -> list:
     """
-    Rent roll — one row per lease (active by default): tenant, property, unit,
-    monthly rent, deposit held (deposit-type payments), current rent balance,
-    and status.
+    Rent Roll
 
-    balance = rent charges - rent payments (rent-type only, so the deposit is
-    excluded from the rent balance and shown in its own column instead).
+    Shows both active and terminated leases (by default), including:
+      - Tenant
+      - Property
+      - Unit
+      - Monthly Rent
+      - Deposit Held
+      - Rent Balance
+      - Lease Status
+
+    Deposit Held:
+      - Active lease      -> lease.deposit_amount
+      - Terminated lease  -> 0.00 (assumes deposit has been settled)
+
+    Rent Balance:
+      Total rent charged - Total rent paid
+      (Deposit payments are excluded.)
     """
     if property_ids is not None and len(property_ids) == 0:
         return []
@@ -334,54 +419,86 @@ def rent_roll(db, *, org_id, property_ids, active_only=True) -> list:
         .outerjoin(Tenant, Tenant.id == Lease.tenant_id)
         .filter(Lease.organization_id == org_id)
     )
+
     if property_ids is not None:
         q = q.filter(Unit.property_id.in_(property_ids))
+
+    # Show active and terminated leases.
     if active_only:
-        q = q.filter(Lease.status == "active")
+        q = q.filter(Lease.status.in_(["active", "terminated"]))
+
     q = q.order_by(Property.name.asc(), Unit.name.asc())
+
     rows = q.all()
 
-    lease_ids = [l.id for l, _t, _p, _u in rows]
+    lease_ids = [lease.id for lease, _, _, _ in rows]
+
     rent_charge_map = {}
     rent_paid_map = {}
-    deposit_paid_map = {}
+
     if lease_ids:
-        for lid, total in (
-            db.query(Charge.lease_id, func.coalesce(func.sum(Charge.amount), 0))
-            .filter(Charge.lease_id.in_(lease_ids), Charge.charge_type == "rent")
-            .group_by(Charge.lease_id).all()
+
+        # Total rent charged
+        for lease_id, total in (
+            db.query(
+                Charge.lease_id,
+                func.coalesce(func.sum(Charge.amount), 0),
+            )
+            .filter(
+                Charge.lease_id.in_(lease_ids),
+                Charge.charge_type == "rent",
+            )
+            .group_by(Charge.lease_id)
+            .all()
         ):
-            rent_charge_map[lid] = float(total)
-        for lid, total in (
-            db.query(Payment.lease_id, func.coalesce(func.sum(Payment.amount), 0))
-            .filter(Payment.lease_id.in_(lease_ids), Payment.payment_type == "rent")
-            .group_by(Payment.lease_id).all()
+            rent_charge_map[lease_id] = float(total)
+
+        # Total rent paid
+        for lease_id, total in (
+            db.query(
+                Payment.lease_id,
+                func.coalesce(func.sum(Payment.amount), 0),
+            )
+            .filter(
+                Payment.lease_id.in_(lease_ids),
+                Payment.payment_type == "rent",
+            )
+            .group_by(Payment.lease_id)
+            .all()
         ):
-            rent_paid_map[lid] = float(total)
-        for lid, total in (
-            db.query(Payment.lease_id, func.coalesce(func.sum(Payment.amount), 0))
-            .filter(Payment.lease_id.in_(lease_ids), Payment.payment_type == "deposit")
-            .group_by(Payment.lease_id).all()
-        ):
-            deposit_paid_map[lid] = float(total)
+            rent_paid_map[lease_id] = float(total)
 
     result = []
+
     for lease, tenant, prop, unit in rows:
+
         rent_charged = rent_charge_map.get(lease.id, 0.0)
         rent_paid = rent_paid_map.get(lease.id, 0.0)
         balance = round(rent_charged - rent_paid, 2)
+
+        status = (lease.status or "").lower()
+
+        # Deposit currently held
+        deposit_held = float(lease.deposit_amount or 0)
+
+        # Once the lease has been terminated,
+        # assume the deposit has been settled/refunded.
+        if status == "terminated":
+            deposit_held = 0.0
+
         result.append({
             "lease_id": lease.id,
             "tenant_name": tenant.full_name if tenant else None,
             "property_name": prop.name,
             "unit_name": unit.name,
-            "monthly_rent": float(lease.rent_amount) if lease.rent_amount is not None else 0.0,
-            "deposit_held": round(deposit_paid_map.get(lease.id, 0.0), 2),
+            "monthly_rent": float(lease.rent_amount or 0),
+            "deposit_held": deposit_held,
             "balance": balance,
-            "status": lease.status,
+            "status": status.title(),
             "start_date": lease.start_date.isoformat() if lease.start_date else None,
             "end_date": lease.end_date.isoformat() if lease.end_date else None,
         })
+
     return result
 
 
