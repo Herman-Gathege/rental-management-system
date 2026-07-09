@@ -14,6 +14,7 @@ from app.models.organization_invitation import OrganizationInvitation
 from app.schemas.organization import InviteRequest, InvitationOut
 from app.schemas.auth import RegisterInviteSchema
 from app.core.roles import LANDLORD, ALL_ROLES, TENANT
+from app.core.password_policy import validate_password
 from app.services.messaging import notify_org_invite
 from app.services.tenant_linking import link_tenant_to_user
 from app.core.security import hash_password
@@ -270,6 +271,13 @@ def register_invited_user(
             status_code=400,
             detail="User already exists"
         )
+
+    # ─── Sprint 7 MVP-1: enforce password policy on invited signups ───
+    # Same rules as /auth/register and password reset: min 10 chars,
+    # 3-of-4 character classes, blocklist, no overlap with the email.
+    # Passing invitation.email lets the policy reject passwords that
+    # contain the local-part of the email (e.g. "annewaithaka2026").
+    validate_password(payload.password, email=invitation.email)
 
     # 3. Create user (FIXED PASSWORD BUG)
     user = User(
