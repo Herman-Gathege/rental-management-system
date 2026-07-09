@@ -5,6 +5,10 @@
 // property chosen in the tenant property switcher (or shows all). A "Property"
 // column appears only in All mode when more than one property is present.
 // Responsive: table on desktop, MobileCardList stacked cards below 768px.
+//
+// Sprint 7 polish: added a "Type" column so the tenant can see at a glance
+// which payments settled rent vs the security deposit. The backend already
+// returns payment_type on every row (see dashboard_service.get_tenant_payments).
 
 import { useEffect, useState } from "react";
 import { getTenantPayments } from "../../api/dashboard";
@@ -22,6 +26,11 @@ const fmtDate = (d) =>
         year: "numeric",
       })
     : "—";
+
+// "rent" -> "Rent", "deposit" -> "Deposit". Fallback dash if the row is old
+// data with no payment_type set.
+const typeLabel = (t) =>
+  t ? t.charAt(0).toUpperCase() + t.slice(1) : "—";
 
 export default function TenantPayments() {
   const tp = useTenantProperty() || {};
@@ -98,6 +107,7 @@ export default function TenantPayments() {
                   <tr>
                     {showProperty && <th>Property</th>}
                     <th>Date</th>
+                    <th>Type</th>
                     <th>Reference</th>
                     <th>Method</th>
                     <th>Amount</th>
@@ -108,6 +118,7 @@ export default function TenantPayments() {
                     <tr key={i}>
                       {showProperty && <td>{p.property_name || "—"}</td>}
                       <td>{fmtDate(p.date)}</td>
+                      <td>{typeLabel(p.payment_type)}</td>
                       <td>{p.reference || "—"}</td>
                       <td>{p.method ? p.method.toUpperCase() : "—"}</td>
                       <td>{money(p.amount)}</td>
@@ -129,6 +140,10 @@ export default function TenantPayments() {
                       <span>{p.property_name || "—"}</span>
                     </div>
                   )}
+                  <div className="staff-card-row">
+                    <span>Type</span>
+                    <span>{typeLabel(p.payment_type)}</span>
+                  </div>
                   <div className="staff-card-row">
                     <span>Reference</span>
                     <span>{p.reference || "—"}</span>
