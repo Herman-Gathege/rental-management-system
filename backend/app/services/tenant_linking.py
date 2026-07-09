@@ -11,10 +11,17 @@ in exactly one place and the three can never drift apart.
 Matching rule: same organization, email equal after trimming + lowercasing
 (so 'Essy@Gmail.com ' still matches 'essy@gmail.com'), and not already linked.
 Best-effort and non-committing: the caller owns the transaction / commit.
+
+Sprint 7 MVP-1 update: tenants.email is now Fernet-encrypted with a random IV,
+so `LOWER(TRIM(email)) == 'essy@gmail.com'` in SQL matches ciphertext against
+plaintext and always returns nothing. We now query the tenants.email_hash
+column (deterministic HMAC-SHA256, populated by the model's before_insert/
+before_update listeners) using blind_index(email) — which already normalises
+by strip+lower, matching the original semantics exactly.
 """
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.encryption import blind_index
 from app.models.tenant import Tenant
 
 
@@ -31,15 +38,15 @@ def link_tenant_to_user(
     Returns True if a link was made, False if no eligible tenant was found.
     Does NOT commit -- the caller commits as part of its own transaction.
     """
-    normalized = (email or "").strip().lower()
-    if not normalized:
+    normalized_hash = blind_index(email)
+    if not normalized_hash:
         return False
 
     tenant = (
         db.query(Tenant)
         .filter(
             Tenant.organization_id == organization_id,
-            func.lower(func.trim(Tenant.email)) == normalized,
+            Tenant.email_hash == normalized_hash,
             Tenant.user_id.is_(None),
         )
         .first()
