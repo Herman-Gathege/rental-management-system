@@ -1,5 +1,5 @@
 #backend/app/api/routes/auth.py
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
@@ -41,6 +41,12 @@ from app.services import password_history_service
 # Every login (success/failure), registration, and password change/reset
 # writes a row to audit_logs with the client IP.
 from app.services import audit_service
+
+# Sprint 7 (MVP-1 follow-up) — Account lockout after 5 failed logins.
+# is_locked() checked before password verify (no user-enumeration leak);
+# record_failure()/record_success() maintain the counter + lock window.
+from app.services import account_lockout_service
+from app.services.messaging.notifications import notify_account_locked
 
 
 
@@ -192,12 +198,15 @@ def register(request: Request, user: UserRegister, db: Session = Depends(get_db)
 
 @router.post("/login")
 @limiter.limit("10/minute")
-def login(request: Request, user: UserLogin, db: Session = Depends(get_db)):
-    # ─── Sprint 7 follow-up: audit failed / successful logins ───
-    # Failed-login audits are wrapped in try/except so an audit hiccup can
-    # never turn the intended 400 into a 500. Successful-login audit is
-    # inline — if the DB is truly broken, the whole login response is going
-    # to fail anyway; we don't want to swallow that.
+def login(
+    request: Request,
+    user: UserLogin,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Sign in with email + password. Enforces account lockout after 5 failed
+    attempts (15-minute window). All outcomes — success, failure, blocked-by-
+    lock — audit to audit_logs with the client IP."""
     client_ip = audit_service.get_client_ip(request)
 
     db_user = db.query(User).filter(User.email == user.email).first()
@@ -206,7 +215,8 @@ def login(request: Request, user: UserLogin, db: Session = Depends(get_db)):
         # Failed attempt: unknown email. No user_id, no org context.
         # entity_id gets the attempted email because it's NOT NULL and this
         # is the only identifier we have. Useful for spotting credential-
-        # stuffing patterns against email lists.
+        # stuffing patterns against email lists. No lockout tracking — there's
+        # nothing to lock on a non-existent account.
         try:
             audit_service.log_action(
                 db=db,
@@ -223,9 +233,36 @@ def login(request: Request, user: UserLogin, db: Session = Depends(get_db)):
             db.rollback()
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
+    # ─── Sprint 7 follow-up: account lockout check ───
+    # Denied with the SAME generic 400 as any other bad attempt — no
+    # user-enumeration signal ("account is locked" would tell an attacker
+    # the email exists). The real user is notified out-of-band via the
+    # WhatsApp/email message queued when the lock was set.
+    if account_lockout_service.is_locked(db_user):
+        try:
+            audit_service.log_action(
+                db=db,
+                organization_id=_first_org_id(db, db_user.id),
+                user_id=db_user.id,
+                action="failed_login",
+                entity_type="user",
+                entity_id=db_user.id,
+                description=f"Blocked login attempt on locked account: {db_user.email}",
+                ip_address=client_ip,
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+        raise HTTPException(status_code=400, detail="Invalid credentials")
+
     if not verify_password(user.password, db_user.password_hash):
-        # Failed attempt: wrong password. Log with the real user_id so an
-        # investigator can see repeated failures against a specific account.
+        # Sprint 7 follow-up: bump the failure counter. If this failure
+        # crossed the MAX_FAILURES threshold, just_locked is True and we
+        # queue the one-time lockout notification. Repeated failures inside
+        # an existing lock return False → no notification spam.
+        just_locked = account_lockout_service.record_failure(db, db_user)
+
+        audited = False
         try:
             audit_service.log_action(
                 db=db,
@@ -238,9 +275,20 @@ def login(request: Request, user: UserLogin, db: Session = Depends(get_db)):
                 ip_address=client_ip,
             )
             db.commit()
+            audited = True
         except Exception:
+            # A failed audit/commit rolled back the failure-counter bump too.
+            # Don't notify — the DB state doesn't actually reflect a lockout.
             db.rollback()
+
+        if just_locked and audited:
+            background_tasks.add_task(notify_account_locked, db_user.id)
+
         raise HTTPException(status_code=400, detail="Invalid credentials")
+
+    # ─── Successful login ───
+    # Reset any pending failure counter / stale lock before minting tokens.
+    account_lockout_service.record_success(db, db_user)
 
     access_token = create_access_token({"sub": db_user.id})
     refresh_token = create_refresh_token({"sub": db_user.id})
@@ -511,6 +559,11 @@ def reset_password(
     # invalidate token after use
     user.reset_token = None
     user.reset_token_expiry = None
+
+    # Sprint 7 follow-up: successful reset also clears any pending lockout —
+    # the user has just proven they control the email account, so any
+    # counter or lock from earlier failed logins should not follow them.
+    account_lockout_service.record_success(db, user)
 
     # Sprint 7 follow-up: audit the password reset. Distinct action name so
     # investigators can separate "user changed their own password" from

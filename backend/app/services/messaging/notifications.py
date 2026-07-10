@@ -47,10 +47,13 @@ from app.db.session import SessionLocal
 from app.models.charge import Charge
 from app.models.lease import Lease
 from app.models.organization import Organization
+from app.models.organization_member import OrganizationMember
 from app.models.payment import Payment
 from app.models.property import Property
 from app.models.tenant import Tenant
 from app.models.unit import Unit
+from app.models.users import User
+from app.services.email_service import send_email
 from app.services.messaging import send_notification
 
 logger = logging.getLogger(__name__)
@@ -362,5 +365,90 @@ def notify_org_invite(
             message_type="invite",
         )
         db.commit()
+    finally:
+        db.close()
+
+
+def notify_account_locked(user_id: str) -> None:
+    """
+    Send an 'account_locked' alert to a user whose account was just
+    temporarily locked after 5 failed login attempts.
+
+    Template: account_locked (WhatsApp) or plain HTML email fallback.
+    Vars:     user_email, unlock_time
+
+    Channel priority:
+      1. WhatsApp — if the user has a verified phone AND at least one
+         organization membership (needed for the messaging service to
+         attach the Message row to an org for audit).
+      2. Email — otherwise, using send_email() from email_service.
+
+    Called from auth.login() as a background task ONLY on the failure
+    that crossed the threshold. Subsequent failures during the same lock
+    window do not re-notify.
+    """
+    db = _db()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            logger.warning("notify_account_locked: user %s not found", user_id)
+            return
+        if not user.locked_until:
+            logger.warning(
+                "notify_account_locked: user %s has no locked_until "
+                "(lockout was cleared before notification ran)",
+                user_id,
+            )
+            return
+
+        unlock_str = user.locked_until.strftime("%d %b %Y %H:%M UTC")
+
+        # Look up org for messaging service context. If none, fall back
+        # to email since send_notification requires an organization_id.
+        membership = (
+            db.query(OrganizationMember)
+            .filter(OrganizationMember.user_id == user.id)
+            .first()
+        )
+        org_id = membership.organization_id if membership else None
+
+        # Prefer WhatsApp when possible.
+        if user.phone and user.phone_verified and org_id:
+            _safe_send(
+                send_notification,
+                "account_locked",
+                db=db,
+                organization_id=org_id,
+                phone_number=user.phone,
+                template_name="account_locked",
+                variables={
+                    "user_email": user.email,
+                    "unlock_time": unlock_str,
+                },
+                message_type="notification",
+            )
+            db.commit()
+            return
+
+        # Fall back to email. Failure here is logged but not raised —
+        # this is a best-effort notification.
+        try:
+            send_email(
+                user.email,
+                "Your account was temporarily locked",
+                (
+                    "<p>Hi,</p>"
+                    f"<p>Someone tried to sign in to your account ({user.email}) "
+                    "and failed too many times. Your account has been "
+                    f"temporarily locked until <b>{unlock_str}</b>.</p>"
+                    "<p>If this wasn't you, we recommend resetting your "
+                    "password once the lock lifts.</p>"
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001 — background task
+            logger.exception(
+                "notify_account_locked: email fallback failed for %s: %s",
+                user.email, exc,
+            )
     finally:
         db.close()

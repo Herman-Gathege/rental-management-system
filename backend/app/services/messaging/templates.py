@@ -195,6 +195,30 @@ TEMPLATES = {
         ),
         "language_code": "en_US",
     },
+
+    # ─── Account lockout alert (Sprint 7 follow-up) ───
+    # Sent to a user whose account has just been temporarily locked after
+    # 5 failed login attempts. The generic 400 response to the attacker
+    # gives no signal that the account was locked; this out-of-band
+    # notification is how the real user finds out.
+    "account_locked": {
+        "param_order": ["user_email", "unlock_time"],
+        "template_body_freeform": (
+            "🔒 Security alert\n\n"
+            "Someone tried to sign in to {user_email} and failed too many times. "
+            "Your account is temporarily locked until {unlock_time}.\n\n"
+            "If this wasn't you, we recommend resetting your password once the "
+            "lock lifts."
+        ),
+        "template_body_meta": (
+            "🔒 Security alert\n\n"
+            "Someone tried to sign in to {{1}} and failed too many times. "
+            "Your account is temporarily locked until {{2}}.\n\n"
+            "If this wasn't you, we recommend resetting your password once the "
+            "lock lifts."
+        ),
+        "language_code": "en_US",
+    },
 }
 
 
