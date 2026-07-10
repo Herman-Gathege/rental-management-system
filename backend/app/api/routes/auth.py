@@ -458,6 +458,15 @@ def change_password(
     # Record the accepted password to history and prune older entries.
     password_history_service.record(db, current_user.id, new_hash)
 
+    # ─── Sprint 7 follow-up: invalidate active sessions on password change ───
+    # Clearing refresh_token means any device holding a stale refresh token
+    # can no longer mint fresh access tokens — every session dies as its
+    # access token expires (short-lived by design). Access tokens themselves
+    # remain valid until their natural expiry (typically ~15 min); a full
+    # instant-revocation would need a JWT blocklist and per-request lookup,
+    # which is out of scope for this MVP.
+    current_user.refresh_token = None
+
     # Sprint 7 follow-up: audit the password change.
     audit_service.log_action(
         db=db,
@@ -559,6 +568,14 @@ def reset_password(
     # invalidate token after use
     user.reset_token = None
     user.reset_token_expiry = None
+
+    # ─── Sprint 7 follow-up: invalidate active sessions on password reset ───
+    # Password reset is the primary "I think my account is compromised" flow.
+    # Every other device holding a refresh token loses the ability to mint
+    # new access tokens — active sessions die as their short-lived access
+    # tokens expire (typically ~15 min). Full instant revocation would need
+    # a JWT blocklist and per-request lookup, out of scope for MVP.
+    user.refresh_token = None
 
     # Sprint 7 follow-up: successful reset also clears any pending lockout —
     # the user has just proven they control the email account, so any
