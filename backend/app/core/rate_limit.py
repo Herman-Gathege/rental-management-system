@@ -8,10 +8,19 @@ python-limits) backed by Redis so counters survive backend restarts and are
 shared across containers if we ever scale horizontally.
 
 Keys:
-  - IP-based for unauthenticated endpoints (login, register, forgot-password)
-  - user-id-based for authenticated endpoints (resend-otp, verify-otp), which
-    is fairer than IP for users behind shared NATs (common in Kenya on mobile
-    carriers and shared home routers)
+  - Default is per-user (JWT sub claim) for authenticated requests; falls
+    back to per-IP for anonymous ones. See get_user_id_or_ip below.
+  - Explicit @limiter.limit(...) decorators on specific routes inherit this
+    default unless they pass their own key_func.
+
+Sprint 7 follow-up (Module 3 rate limits): a global default cap of
+200 requests/minute applies to EVERY endpoint that isn't already covered by
+a stricter explicit decorator. Rationale for 200 instead of the guide's
+suggested 100: an active landlord dashboard with several polling widgets
+(notifications, tickets summary, dashboard stats) can legitimately hit
+60–80 req/min without any abuse. 200 leaves comfortable headroom for real
+users while still blocking scraping / credential-stuffing (which run at
+thousands/min). Bump lower once we have usage data if abuse is observed.
 
 Fail-open behavior: if Redis is unreachable, slowapi silently degrades to
 letting requests through rather than 500'ing. We prefer a temporarily-open
@@ -72,9 +81,19 @@ def get_user_id_or_ip(request: Request) -> str:
     return f"ip:{get_remote_address(request)}"
 
 
-# The global limiter. Endpoints opt in via @limiter.limit("N/period") decorators.
+# The global limiter. Endpoints opt in via @limiter.limit("N/period") decorators;
+# every endpoint also inherits the default_limits below unless a stricter
+# explicit decorator overrides.
+#
+# Sprint 7 follow-up: key_func changed from get_remote_address to
+# get_user_id_or_ip so the default limit is per-user for authenticated
+# traffic (fairer for users behind shared NATs — common on Kenyan mobile
+# carriers). Existing per-endpoint decorators on unauthenticated routes
+# (register / login / forgot-password) still function correctly because
+# unauthenticated requests fall through to IP inside get_user_id_or_ip.
 limiter = Limiter(
-    key_func=get_remote_address,     # default: per-IP; individual routes override
+    key_func=get_user_id_or_ip,
+    default_limits=["200/minute"],
     storage_uri=STORAGE_URI,
     strategy="fixed-window",          # simple + cheap; sliding window not needed for these limits
 )
