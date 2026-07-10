@@ -8,6 +8,7 @@ import uuid
 from app.db.deps import get_db
 from app.api.deps import get_current_user
 from app.core.encryption import blind_index
+from app.core.file_validation import read_document_upload
 from app.models.users import User
 from app.models.organization_member import OrganizationMember
 from app.models.tenant import Tenant
@@ -327,11 +328,16 @@ async def upload_my_document(
             detail=f"Document type must be one of: {ALLOWED_DOCUMENT_TYPES}",
         )
 
-    file_bytes = await file.read()
-    s3_key = f"tenant-documents/{tenant.id}/{uuid.uuid4()}-{file.filename}"
+    # Sprint 7 follow-up: bounded read + extension + magic-byte + filename
+    # sanitization. Rejects oversize / mismatched / renamed / path-traversal
+    # filenames before we hit S3. See app/core/file_validation.py.
+    validated = await read_document_upload(file)
+    s3_key = (
+        f"tenant-documents/{tenant.id}/{uuid.uuid4()}-{validated.safe_filename}"
+    )
 
     try:
-        file_url = upload_file(s3_key, file_bytes)
+        file_url = upload_file(s3_key, validated.content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
@@ -352,7 +358,7 @@ async def upload_my_document(
         tenant_id=tenant.id,
         document_type=document_type,
         file_url=file_url,
-        original_filename=file.filename,
+        original_filename=validated.display_filename,
         uploaded_by_user_id=current_user.id,
     )
     db.add(document)
@@ -366,7 +372,10 @@ async def upload_my_document(
         entity_type="tenant_document",
         entity_id=document.id,
         description=f"Tenant self-uploaded {document_type}",
-        new_values={"filename": file.filename, "document_type": document_type},
+        new_values={
+            "filename": validated.display_filename,
+            "document_type": document_type,
+        },
     )
 
     db.commit()
@@ -585,15 +594,16 @@ async def upload_tenant_document(
     if document_type not in ALLOWED_DOCUMENT_TYPES:
         raise HTTPException(status_code=400, detail=f"Document type must be one of: {ALLOWED_DOCUMENT_TYPES}")
 
-    # Read file bytes
-    file_bytes = await file.read()
-
-    # Build a unique S3 key
-    s3_key = f"tenant-documents/{tenant_id}/{uuid.uuid4()}-{file.filename}"
+    # Sprint 7 follow-up: bounded read + extension + magic-byte + filename
+    # sanitization. Same rules as the tenant self-service upload.
+    validated = await read_document_upload(file)
+    s3_key = (
+        f"tenant-documents/{tenant_id}/{uuid.uuid4()}-{validated.safe_filename}"
+    )
 
     # Upload to S3
     try:
-        file_url = upload_file(s3_key, file_bytes)
+        file_url = upload_file(s3_key, validated.content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
@@ -615,7 +625,7 @@ async def upload_tenant_document(
         tenant_id=tenant_id,
         document_type=document_type,
         file_url=file_url,
-        original_filename=file.filename,
+        original_filename=validated.display_filename,
         uploaded_by_user_id=current_user.id,
     )
     db.add(document)
@@ -630,7 +640,10 @@ async def upload_tenant_document(
         entity_type="tenant_document",
         entity_id=document.id,
         description=f"Uploaded {document_type} for tenant {tenant.full_name}",
-        new_values={"filename": file.filename, "document_type": document_type},
+        new_values={
+            "filename": validated.display_filename,
+            "document_type": document_type,
+        },
     )
 
     db.commit()

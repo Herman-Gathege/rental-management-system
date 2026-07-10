@@ -10,6 +10,7 @@ import json
 
 from app.db.deps import get_db
 from app.api.deps import get_current_user
+from app.core.file_validation import read_image_upload
 from app.models.users import User
 from app.models.organization_member import OrganizationMember
 from app.models.lease import Lease
@@ -341,11 +342,17 @@ async def upload_item_photo(
     if len(existing_photos) >= 5:
         raise HTTPException(status_code=400, detail="Maximum 5 photos per item")
 
-    file_bytes = await file.read()
-    s3_key = f"inspection-photos/{inspection_id}/{item_id}/{uuid.uuid4()}-{file.filename}"
+    # Sprint 7 follow-up: bounded read + extension + magic-byte + filename
+    # sanitization. Images only (jpg/jpeg/png/webp) — inspection evidence is
+    # never a PDF. See app/core/file_validation.py.
+    validated = await read_image_upload(file)
+    s3_key = (
+        f"inspection-photos/{inspection_id}/{item_id}/"
+        f"{uuid.uuid4()}-{validated.safe_filename}"
+    )
 
     try:
-        file_url = upload_file(s3_key, file_bytes)
+        file_url = upload_file(s3_key, validated.content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
