@@ -13,11 +13,16 @@ RBAC contract (from guide):
   System      → notifications only (no direct CRUD).
 
 Lifecycle:  open → assigned → in_progress → waiting → resolved → closed
+
+Sprint 7 follow-up (audit): lifecycle transitions now log distinct action
+verbs (`start`, `wait`, `resolve`, `close`, `reopen`) rather than a generic
+`status_change`, so the audit log is filterable by specific event — per
+the guide's Module 3 list ("Ticket Closed" is a named event). Also fixes
+a bug in update_ticket that was double-JSON-encoding old/new values.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime
 from typing import Optional
@@ -43,6 +48,17 @@ VALID_CATEGORIES = {
 }
 VALID_STATUSES = {"open", "assigned", "in_progress", "waiting", "resolved", "closed"}
 MANAGER_ROLES = {LANDLORD, PROPERTY_MANAGER}
+
+# Sprint 7 follow-up: each status transition audits under its own action
+# verb so the log is filterable per event. Reaching "open" via _transition
+# is always a reopen (initial create doesn't go through _transition).
+_TRANSITION_ACTION = {
+    "in_progress": "start",
+    "waiting": "wait",
+    "resolved": "resolve",
+    "closed": "close",
+    "open": "reopen",
+}
 
 
 def _role(membership: OrganizationMember) -> str:
@@ -320,11 +336,27 @@ def update_ticket(db, ticket_id, org_id, user_id, membership, payload):
         raise HTTPException(status_code=400, detail="Invalid priority")
     if "category" in updates and updates["category"] not in VALID_CATEGORIES:
         raise HTTPException(status_code=400, detail="Invalid category")
-    old = {k: getattr(ticket, k) for k in updates}
+
+    # Sprint 7 follow-up: pass DICTS to log_action, not JSON strings. The
+    # previous code did `json.dumps(old)` then log_action did another
+    # `json.dumps()` around it — producing escaped-string JSON in the
+    # audit table. Values are coerced to str so datetime / UUID objects
+    # (if any ever appear) don't break the second json.dumps() inside
+    # log_action.
+    old_dict = {
+        k: (str(getattr(ticket, k)) if getattr(ticket, k) is not None else None)
+        for k in updates
+    }
+    new_dict = {k: (str(v) if v is not None else None) for k, v in updates.items()}
+
     for k, v in updates.items():
         setattr(ticket, k, v)
-    log_action(db, org_id, user_id, "update", "ticket", ticket.id,
-               f"Ticket updated", old_values=json.dumps(old), new_values=json.dumps(updates))
+
+    log_action(
+        db, org_id, user_id, "update", "ticket", ticket.id,
+        "Ticket updated",
+        old_values=old_dict, new_values=new_dict,
+    )
     db.commit()
     db.refresh(ticket)
     return _enrich(ticket)
@@ -389,7 +421,12 @@ def _transition(db, ticket_id, org_id, user_id, membership, new_status,
     if note:
         db.add(TicketMessage(ticket_id=ticket.id, sender_id=user_id,
                              message=note, is_internal=True))
-    log_action(db, org_id, user_id, "status_change", "ticket", ticket.id,
+
+    # Sprint 7 follow-up: distinct action verb per transition so audit
+    # filters can find "all closes" or "all reopens" without parsing
+    # description strings.
+    action = _TRANSITION_ACTION.get(new_status, "status_change")
+    log_action(db, org_id, user_id, action, "ticket", ticket.id,
                f"Ticket status: {old_status} → {new_status}")
     db.commit()
     db.refresh(ticket)

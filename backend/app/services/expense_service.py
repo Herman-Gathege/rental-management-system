@@ -17,6 +17,13 @@ Permissions:
                          properties only; cannot approve, reject, or pay, and
                          cannot delete an approved/paid expense.
     Tenant             : no access.
+
+Audit action names (Sprint 7 follow-up):
+    Workflow transitions each use a distinct verb so the audit log is
+    filterable by the specific event, per the guide's Module 3 audit list
+    ("Expense Approved" is a named event, not a generic "update"):
+        submit / approve / reject / pay
+    Plain edits stay as `update`; create/delete keep their own names.
 """
 import uuid
 from datetime import datetime
@@ -361,6 +368,10 @@ def delete_expense(db: Session, current_user: User, membership: OrganizationMemb
 
 
 # ─── Workflow transitions ───
+#
+# Sprint 7 follow-up: each transition uses its own action verb so audit
+# consumers can filter for a specific event ("show all approvals in the
+# last week") without parsing description strings.
 
 def submit_expense(db: Session, current_user: User, membership: OrganizationMember, expense_id: str) -> Expense:
     org_id = membership.organization_id
@@ -379,7 +390,7 @@ def submit_expense(db: Session, current_user: User, membership: OrganizationMemb
 
     log_action(
         db=db, organization_id=org_id, user_id=current_user.id,
-        action="update", entity_type="expense", entity_id=expense.id,
+        action="submit", entity_type="expense", entity_id=expense.id,
         description=f"Submitted expense for approval: {expense.title}",
         old_values={"status": STATUS_DRAFT}, new_values={"status": STATUS_SUBMITTED},
     )
@@ -406,7 +417,7 @@ def approve_expense(db: Session, current_user: User, membership: OrganizationMem
 
     log_action(
         db=db, organization_id=org_id, user_id=current_user.id,
-        action="update", entity_type="expense", entity_id=expense.id,
+        action="approve", entity_type="expense", entity_id=expense.id,
         description=f"Approved expense: {expense.title}",
         old_values={"status": STATUS_SUBMITTED}, new_values={"status": STATUS_APPROVED},
     )
@@ -434,7 +445,7 @@ def reject_expense(db: Session, current_user: User, membership: OrganizationMemb
 
     log_action(
         db=db, organization_id=org_id, user_id=current_user.id,
-        action="update", entity_type="expense", entity_id=expense.id,
+        action="reject", entity_type="expense", entity_id=expense.id,
         description=f"Rejected expense: {expense.title}" + (f" — {reason}" if reason else ""),
         old_values={"status": STATUS_SUBMITTED},
         new_values={"status": STATUS_DRAFT, "reason": reason},
@@ -468,7 +479,7 @@ def pay_expense(db: Session, current_user: User, membership: OrganizationMember,
 
     log_action(
         db=db, organization_id=org_id, user_id=current_user.id,
-        action="update", entity_type="expense", entity_id=expense.id,
+        action="pay", entity_type="expense", entity_id=expense.id,
         description=f"Marked expense paid: {expense.title}",
         old_values={"status": STATUS_APPROVED}, new_values={"status": STATUS_PAID},
     )

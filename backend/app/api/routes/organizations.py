@@ -1,6 +1,6 @@
 #backend\app\api\routes\organizations.py
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 import uuid
 
@@ -18,6 +18,7 @@ from app.core.password_policy import validate_password
 from app.services.messaging import notify_org_invite
 from app.services.tenant_linking import link_tenant_to_user
 from app.services import password_history_service
+from app.services import audit_service
 from app.core.security import hash_password
 from app.core.jwt import create_access_token
 
@@ -77,6 +78,7 @@ def get_my_organization(
 def invite_user(
     invite: InviteRequest,
     background_tasks: BackgroundTasks,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -145,6 +147,25 @@ def invite_user(
         status="pending"
     )
     db.add(invitation)
+    db.flush()
+
+    # Sprint 7 follow-up: audit the invitation creation.
+    audit_service.log_action(
+        db=db,
+        organization_id=org_id,
+        user_id=current_user.id,
+        action="invite",
+        entity_type="invitation",
+        entity_id=invitation.id,
+        description=f"Invited {invite.email} as {invite.role}",
+        new_values={
+            "email": invite.email,
+            "role": invite.role,
+            "phone_provided": bool(invite.phone),
+        },
+        ip_address=audit_service.get_client_ip(request),
+    )
+
     db.commit()
 
     # Fire WhatsApp invite (best-effort, background). If phone is
@@ -169,6 +190,7 @@ def invite_user(
 @router.post("/accept-invite/{token}")
 def accept_invitation(
     token: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     invitation = (
@@ -227,6 +249,25 @@ def accept_invitation(
 
     # Mark invitation as accepted
     invitation.status = "accepted"
+
+    # Sprint 7 follow-up: audit the existing user joining the organization.
+    # The actor is the user themselves (they clicked the accept link) — this
+    # endpoint has no logged-in `current_user` so we attribute self-service.
+    audit_service.log_action(
+        db=db,
+        organization_id=invitation.organization_id,
+        user_id=user.id,
+        action="create",
+        entity_type="membership",
+        entity_id=user.id,
+        description=f"{invitation.email} joined organization as {invitation.role.name}",
+        new_values={
+            "email": invitation.email,
+            "role": invitation.role.name,
+        },
+        ip_address=audit_service.get_client_ip(request),
+    )
+
     db.commit()
 
     org = db.query(Organization).filter(Organization.id == invitation.organization_id).first()
@@ -242,6 +283,7 @@ def accept_invitation(
 def register_invited_user(
     token: str,
     payload: RegisterInviteSchema,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     # 1. Validate invitation
@@ -321,6 +363,24 @@ def register_invited_user(
 
     # 5. Mark invitation as accepted
     invitation.status = "accepted"
+
+    # Sprint 7 follow-up: audit user creation via invite. This was the
+    # biggest gap — accounts created through the invite flow (as opposed
+    # to /auth/register) previously left no user_created row in audit_logs.
+    audit_service.log_action(
+        db=db,
+        organization_id=invitation.organization_id,
+        user_id=user.id,
+        action="create",
+        entity_type="user",
+        entity_id=user.id,
+        description=f"New account registered via invite: {invitation.email}",
+        new_values={
+            "email": invitation.email,
+            "role": invitation.role.name,
+        },
+        ip_address=audit_service.get_client_ip(request),
+    )
 
     db.commit()
 
