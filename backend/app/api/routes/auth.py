@@ -37,6 +37,11 @@ from app.core.password_policy import validate_password
 # older entries. See app/services/password_history_service.py.
 from app.services import password_history_service
 
+# Sprint 7 (MVP-1 follow-up) — Auth event audit logging.
+# Every login (success/failure), registration, and password change/reset
+# writes a row to audit_logs with the client IP.
+from app.services import audit_service
+
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -69,6 +74,17 @@ def _me_payload(user: User, db: Session) -> dict:
         "organization_id": membership.organization_id if membership else None,
         "role": membership.role.name.upper() if membership and membership.role else None,
     }
+
+
+def _first_org_id(db: Session, user_id: str) -> Optional[str]:
+    """Return this user's first (only, in most cases) organization_id, or None.
+    Small helper so audit calls consistently attach org context when available."""
+    m = (
+        db.query(OrganizationMember)
+        .filter(OrganizationMember.user_id == user_id)
+        .first()
+    )
+    return m.organization_id if m else None
 
 
 @router.post("/register")
@@ -144,6 +160,18 @@ def register(request: Request, user: UserRegister, db: Session = Depends(get_db)
             # user can hit "Resend" from the verify screen.
             otp_sent = False
 
+        # Sprint 7 follow-up: audit the successful registration.
+        audit_service.log_action(
+            db=db,
+            organization_id=org.id,
+            user_id=new_user.id,
+            action="create",
+            entity_type="user",
+            entity_id=new_user.id,
+            description=f"New account registered: {user.email}",
+            ip_address=audit_service.get_client_ip(request),
+        )
+
         # 8️⃣ commit everything
         db.commit()
 
@@ -165,12 +193,53 @@ def register(request: Request, user: UserRegister, db: Session = Depends(get_db)
 @router.post("/login")
 @limiter.limit("10/minute")
 def login(request: Request, user: UserLogin, db: Session = Depends(get_db)):
+    # ─── Sprint 7 follow-up: audit failed / successful logins ───
+    # Failed-login audits are wrapped in try/except so an audit hiccup can
+    # never turn the intended 400 into a 500. Successful-login audit is
+    # inline — if the DB is truly broken, the whole login response is going
+    # to fail anyway; we don't want to swallow that.
+    client_ip = audit_service.get_client_ip(request)
+
     db_user = db.query(User).filter(User.email == user.email).first()
 
     if not db_user:
+        # Failed attempt: unknown email. No user_id, no org context.
+        # entity_id gets the attempted email because it's NOT NULL and this
+        # is the only identifier we have. Useful for spotting credential-
+        # stuffing patterns against email lists.
+        try:
+            audit_service.log_action(
+                db=db,
+                organization_id=None,
+                user_id=None,
+                action="failed_login",
+                entity_type="user",
+                entity_id=user.email or "unknown",
+                description=f"Failed login attempt (unknown email): {user.email}",
+                ip_address=client_ip,
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
     if not verify_password(user.password, db_user.password_hash):
+        # Failed attempt: wrong password. Log with the real user_id so an
+        # investigator can see repeated failures against a specific account.
+        try:
+            audit_service.log_action(
+                db=db,
+                organization_id=_first_org_id(db, db_user.id),
+                user_id=db_user.id,
+                action="failed_login",
+                entity_type="user",
+                entity_id=db_user.id,
+                description=f"Failed login attempt (invalid password): {db_user.email}",
+                ip_address=client_ip,
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
     access_token = create_access_token({"sub": db_user.id})
@@ -178,6 +247,20 @@ def login(request: Request, user: UserLogin, db: Session = Depends(get_db)):
 
     # store refresh token (critical login path — commit this first)
     db_user.refresh_token = refresh_token
+
+    # Sprint 7 follow-up: audit the successful login in the same transaction
+    # as the refresh_token write.
+    audit_service.log_action(
+        db=db,
+        organization_id=_first_org_id(db, db_user.id),
+        user_id=db_user.id,
+        action="login",
+        entity_type="user",
+        entity_id=db_user.id,
+        description=f"User logged in: {db_user.email}",
+        ip_address=client_ip,
+    )
+
     db.commit()
 
     # ─── Sprint 4.5 safety net: self-heal tenant linking on login ───
@@ -300,6 +383,7 @@ def update_me(
 
 @router.post("/change-password")
 def change_password(
+    request: Request,
     payload: PasswordChange,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -325,6 +409,19 @@ def change_password(
     current_user.password_hash = new_hash
     # Record the accepted password to history and prune older entries.
     password_history_service.record(db, current_user.id, new_hash)
+
+    # Sprint 7 follow-up: audit the password change.
+    audit_service.log_action(
+        db=db,
+        organization_id=_first_org_id(db, current_user.id),
+        user_id=current_user.id,
+        action="password_change",
+        entity_type="user",
+        entity_id=current_user.id,
+        description=f"Password changed: {current_user.email}",
+        ip_address=audit_service.get_client_ip(request),
+    )
+
     db.commit()
     return {"message": "Password updated successfully"}
 
@@ -379,7 +476,12 @@ def forgot_password(request: Request, email: str, db: Session = Depends(get_db))
 
 
 @router.post("/reset-password")
-def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
+def reset_password(
+    request: Request,
+    token: str,
+    new_password: str,
+    db: Session = Depends(get_db),
+):
 
     # find user by token
     user = db.query(User).filter(User.reset_token == token).first()
@@ -409,6 +511,20 @@ def reset_password(token: str, new_password: str, db: Session = Depends(get_db))
     # invalidate token after use
     user.reset_token = None
     user.reset_token_expiry = None
+
+    # Sprint 7 follow-up: audit the password reset. Distinct action name so
+    # investigators can separate "user changed their own password" from
+    # "user reset via email link (potentially recovered from a lockout)".
+    audit_service.log_action(
+        db=db,
+        organization_id=_first_org_id(db, user.id),
+        user_id=user.id,
+        action="password_reset",
+        entity_type="user",
+        entity_id=user.id,
+        description=f"Password reset via email link: {user.email}",
+        ip_address=audit_service.get_client_ip(request),
+    )
 
     db.commit()
 
