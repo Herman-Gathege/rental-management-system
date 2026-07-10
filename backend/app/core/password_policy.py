@@ -3,8 +3,7 @@
 Password strength policy (Sprint 7 MVP-1).
 
 Practical subset of the guide's Module 1 rules — the ones that materially move
-security without needing a wordlist file or new schema. What's included and
-why:
+security without needing a wordlist file. What's included and why:
 
   1. Length ≥ 10   — the single most effective control. 8 was the old floor;
                      10 pushes offline brute-force from hours to years for a
@@ -19,20 +18,26 @@ why:
                      the latter forces predictable substitutions ("P@ssw0rd!")
                      without adding entropy.
 
-  4. Small bad list — the classics ("password", "12345678", "qwerty",
-                     "letmein", "admin", "welcome"…). Anything on the list
+  4. Weak-password blocklist — the classics ("password", "12345678",
+                     "qwerty", "letmein", "admin", "welcome"…) plus common
+                     first-name / sports-team / pop-culture picks that show
+                     up repeatedly in breach corpora. Anything on the list
                      is rejected regardless of whether it passes the class
-                     rule (`Password1` would otherwise sneak through).
+                     rule ("Password1" would otherwise sneak through).
 
   5. No email derivative — the user's email local-part can't be the entire
                      password (Anne with email anne@x.com can't use
                      "Anne1234!!"). Cheap, catches a common weak choice.
 
-What's deliberately NOT included, and would move to a Sprint 8 pass if we
-see weak-password abuse in the wild:
-  - Full top-10k common-password list (needs a shipped wordlist)
-  - Dictionary-word detection
-  - Password history / no-reuse rules (needs schema)
+Password history (no-reuse) is enforced separately by
+app.services.password_history_service — the check runs against a database
+table, so it lives outside this pure-validation module. Auth routes call
+check_no_reuse() before accepting a new password.
+
+What's still deliberately NOT included, and would move to a Sprint 8+ pass:
+  - Full top-10k common-password list (needs a shipped wordlist file)
+  - Substring dictionary detection (e.g. rejecting "MyPasswordIsStrong")
+  - Password expiry / rotation (needs a schema for last_changed_at)
 
 Public entry points:
   validate_password(password, email=None) -> None (raises HTTPException 400)
@@ -47,20 +52,51 @@ MIN_LEN = 10
 MAX_LEN = 128
 REQUIRED_CLASS_COUNT = 3
 
-# A tiny, obviously-bad set. Kept small on purpose — a big blocklist belongs
-# in a shipped file, not a source module. Lowercased for case-insensitive
-# compare.
+# Blocklist of common weak passwords (lowercased for case-insensitive compare).
+# Sources: SecLists rockyou top-N, HaveIBeenPwned frequently-seen list, plus
+# region-specific picks (Kenya, East Africa) unlikely to appear in generic
+# lists. Kept in-source deliberately — a proper multi-thousand-entry list
+# would ship as a data file loaded at startup.
 _BAD_PASSWORDS = {
-    "password", "password1", "password123", "passw0rd",
+    # "Password" variants
+    "password", "password1", "password12", "password123",
+    "passw0rd", "p@ssword", "p@ssw0rd", "password!",
+    # Sequential digits
     "12345678", "123456789", "1234567890", "1234567",
+    "87654321", "01234567",
+    # Repeated digits
+    "11111111", "22222222", "00000000", "88888888",
+    "111111", "222222", "000000", "666666", "999999",
+    # Keyboard walks
     "qwerty", "qwerty123", "qwertyui", "qwertyuiop",
-    "abcdef", "abc12345", "abcdefgh",
-    "letmein", "welcome", "welcome1", "welcome123",
-    "admin", "administrator", "admin123", "root", "root123",
-    "iloveyou", "monkey", "dragon", "master",
-    "1qaz2wsx", "zaq12wsx",
-    # Kenya-flavored bad picks worth catching:
-    "kenya", "nairobi", "mombasa", "safaricom",
+    "asdfghjkl", "zxcvbnm", "qazwsx", "asdfgh",
+    "1qaz2wsx", "zaq12wsx", "1q2w3e4r", "1q2w3e4r5t",
+    # Alpha sequences
+    "abcdef", "abcdefg", "abcdefgh", "abc12345", "abcd1234",
+    "a1b2c3d4",
+    # "Let me in / welcome / admin" classics
+    "letmein", "letmein1", "letmein123",
+    "welcome", "welcome1", "welcome123", "welcome!",
+    "admin", "administrator", "admin123", "admin!",
+    "root", "root123", "rootroot",
+    "changeme", "changeit", "temppass",
+    # Emotion classics
+    "iloveyou", "iloveyou1", "iloveyou123", "iloveu",
+    "loveyou", "lovelove",
+    # Fantasy / pop-culture
+    "monkey", "dragon", "master", "shadow", "starwars",
+    "batman", "superman", "harry", "harrypotter",
+    "trustno1", "sunshine", "princess", "computer",
+    # Sports
+    "football", "baseball", "soccer", "basketball",
+    # Common first names
+    "michael", "jennifer", "jessica", "michelle", "ashley",
+    "matthew", "nicholas", "anthony", "andrew",
+    # Test/demo accounts
+    "test1234", "demo1234", "guest123", "user1234",
+    # Kenya-flavored bad picks
+    "kenya", "nairobi", "mombasa", "kisumu", "eldoret",
+    "safaricom", "kenyapower", "harambee", "jomokenyatta",
 }
 
 _UPPER_RE = re.compile(r"[A-Z]")

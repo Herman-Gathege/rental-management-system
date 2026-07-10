@@ -31,6 +31,12 @@ from app.core.rate_limit import limiter, get_user_id_or_ip
 # Sprint 7 (MVP-1) — Password strength policy.
 from app.core.password_policy import validate_password
 
+# Sprint 7 (MVP-1 follow-up) — Password history / no-reuse enforcement.
+# check_no_reuse() blocks a new password that matches any of the user's
+# last KEEP_LAST bcrypt hashes; record() appends the new hash and prunes
+# older entries. See app/services/password_history_service.py.
+from app.services import password_history_service
+
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -88,6 +94,11 @@ def register(request: Request, user: UserRegister, db: Session = Depends(get_db)
         )
         db.add(new_user)
         db.flush()  # ✅ now we have new_user.id
+
+        # Sprint 7 follow-up: record this initial password to the history
+        # table so future change/reset can reject reuse. No history to check
+        # against yet (this IS the first entry).
+        password_history_service.record(db, new_user.id, new_user.password_hash)
 
         # 3️⃣ create organization WITH owner_id
         org = Organization(
@@ -304,7 +315,16 @@ def change_password(
             detail="New password must be different from the current password.",
         )
     validate_password(payload.new_password, email=current_user.email)
-    current_user.password_hash = hash_password(payload.new_password)
+
+    # Sprint 7 follow-up: reject reuse of any of the user's last KEEP_LAST
+    # passwords. Runs after validate_password so we don't waste bcrypt cycles
+    # on obviously-bad candidates.
+    password_history_service.check_no_reuse(db, current_user.id, payload.new_password)
+
+    new_hash = hash_password(payload.new_password)
+    current_user.password_hash = new_hash
+    # Record the accepted password to history and prune older entries.
+    password_history_service.record(db, current_user.id, new_hash)
     db.commit()
     return {"message": "Password updated successfully"}
 
@@ -375,8 +395,16 @@ def reset_password(token: str, new_password: str, db: Session = Depends(get_db))
     # unchecked — a real gap since a leaked reset link could set any pw).
     validate_password(new_password, email=user.email)
 
+    # Sprint 7 follow-up: reject reuse of the user's last KEEP_LAST passwords.
+    # Especially important on reset — a leaked link plus a memorable old
+    # password would otherwise round-trip the user back to a known-compromised
+    # credential.
+    password_history_service.check_no_reuse(db, user.id, new_password)
+
     # update password
-    user.password_hash = hash_password(new_password)
+    new_hash = hash_password(new_password)
+    user.password_hash = new_hash
+    password_history_service.record(db, user.id, new_hash)
 
     # invalidate token after use
     user.reset_token = None

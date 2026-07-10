@@ -17,6 +17,7 @@ from app.core.roles import LANDLORD, ALL_ROLES, TENANT
 from app.core.password_policy import validate_password
 from app.services.messaging import notify_org_invite
 from app.services.tenant_linking import link_tenant_to_user
+from app.services import password_history_service
 from app.core.security import hash_password
 from app.core.jwt import create_access_token
 
@@ -289,6 +290,11 @@ def register_invited_user(
 
     db.add(user)
     db.flush()  # ensures user.id is available
+
+    # Sprint 7 follow-up: record this initial password to the history table.
+    # First-time set → nothing to check against, but this seeds the history
+    # so future change/reset can reject reuse.
+    password_history_service.record(db, user.id, user.password_hash)
 
     # 4. Create organization membership
     membership = OrganizationMember(
