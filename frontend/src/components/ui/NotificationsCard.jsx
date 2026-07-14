@@ -1,7 +1,7 @@
 //frontend\src\components\ui\NotificationsCard.jsx
 //
 // Notifications dashboard card — connected to the real /notifications API.
-// Shows the 5 most recent unread notifications; each row marks itself read
+// Shows the 4 most recent unread notifications; each row marks itself read
 // on click. A "Mark all read" link clears the badge in one tap.
 
 import { useEffect, useState } from "react";
@@ -12,6 +12,11 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
 } from "../../api/notifications";
+
+// Cap on dashboard-preview rows. The full list is still reachable via the
+// "View all" link — this just keeps the card compact so it fits alongside
+// other widgets without dominating the page.
+const PREVIEW_LIMIT = 4;
 
 const fmtDate = (d) =>
   d
@@ -39,7 +44,7 @@ export default function NotificationsCard() {
   const load = async () => {
     try {
       const data = await getNotifications(true); // unread only
-      setItems(data.slice(0, 5));
+      setItems(data.slice(0, PREVIEW_LIMIT));
     } catch {
       setItems([]);
     } finally {

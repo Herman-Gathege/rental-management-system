@@ -10,14 +10,23 @@
 //
 // Sprint 6.2 (#7): adds a "Deposits Held" money card — deposits are tracked
 // separately from rent so they never inflate collected/expected.
+//
+// Sprint 7 cleanup: Recent Payments trimmed to a 4-row preview with a
+// "View all" link, matching the NotificationsCard pattern so the dashboard
+// stays compact.
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useProperty } from "../../context/PropertyContext";
 import { getOwnerSummary, getFinanceRecentPayments } from "../../api/dashboard";
 import { getTicketMetrics } from "../../api/ticketMetrics";
 import NotificationsCard from "../../components/ui/NotificationsCard";
 import TicketsSummaryCard from "../../components/ui/TicketsSummaryCard";
+
+// Cap on dashboard-preview rows for Recent Payments. Full history is still
+// reachable via the "View all" link — this keeps the card compact.
+const RECENT_PAYMENTS_LIMIT = 4;
 
 const money = (n) =>
   "KES " + Number(n || 0).toLocaleString("en-US", { maximumFractionDigits: 0 });
@@ -76,6 +85,19 @@ const statusColor = (s) => {
     default:            return "#94a3b8";
   }
 };
+
+// Where to send "View all" from the Recent Payments preview. The full-history
+// route is different per role even though this component is currently only
+// used from the landlord dashboard — future-proofed the same way
+// NotificationsCard is.
+function paymentsHistoryPath(role) {
+  switch ((role || "").toLowerCase()) {
+    case "property_manager": return "/manager/payments/history";
+    case "finance":          return "/finance/payments";
+    case "tenant":           return "/tenant/payments";
+    default:                 return "/owner/payments/history";
+  }
+}
 
 export default function DashboardContent({ roleLabel }) {
   const { user } = useAuth();
@@ -152,6 +174,12 @@ export default function DashboardContent({ roleLabel }) {
   const maxProp = metrics
     ? Math.max(0, ...(metrics.top_properties || []).map((p) => p.count))
     : 0;
+
+  // Sprint 7 cleanup: preview only the newest RECENT_PAYMENTS_LIMIT rows.
+  // The API can return more; we slice client-side so this widget stays
+  // compact on the dashboard while the full list remains one click away.
+  const paymentsPreview = payments.slice(0, RECENT_PAYMENTS_LIMIT);
+  const paymentsPath = paymentsHistoryPath(user?.role);
 
   return (
     <div className="p-6">
@@ -273,11 +301,18 @@ export default function DashboardContent({ roleLabel }) {
           <NotificationsCard />
 
           <div className="dash-panel">
-            <div className="dash-panel-title">Recent Payments</div>
-            {payments.length === 0 ? (
+            <div className="flex items-center justify-between mb-sm">
+              <div className="dash-panel-title">Recent Payments</div>
+              {payments.length > 0 && (
+                <Link to={paymentsPath} className="btn btn-secondary btn-sm">
+                  View all
+                </Link>
+              )}
+            </div>
+            {paymentsPreview.length === 0 ? (
               <div className="text-muted">No payments recorded yet.</div>
             ) : (
-              payments.map((p, i) => (
+              paymentsPreview.map((p, i) => (
                 <div className="dash-row" key={i}>
                   <div>
                     <div className="text-bold">{p.tenant_name}</div>
