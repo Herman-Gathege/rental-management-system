@@ -5,15 +5,19 @@
 // switcher (All = org-wide). Refetches when the selection changes.
 //
 // Sprint 6: adds a portfolio-wide Ticket Overview section (open vs closed,
-// critical issues, avg resolution time, by-status, by-category, top properties)
-// fed by GET /tickets/metrics/summary. CSS bars (no chart lib in this stack).
+// critical issues, avg resolution time, by-category, top properties) fed by
+// GET /tickets/metrics/summary. CSS bars (no chart lib in this stack).
 //
 // Sprint 6.2 (#7): adds a "Deposits Held" money card — deposits are tracked
 // separately from rent so they never inflate collected/expected.
 //
-// Sprint 7 cleanup: Recent Payments trimmed to a 4-row preview with a
-// "View all" link, matching the NotificationsCard pattern so the dashboard
-// stays compact.
+// Sprint 7 cleanup:
+//   - Recent Payments trimmed to a 4-row preview with a "View all" link
+//     matching the NotificationsCard pattern so the dashboard stays compact.
+//   - Removed the "Tickets by Status" bar chart from the Ticket Overview
+//     panel. The four headline stats (Open, Closed, Critical/High, Avg
+//     resolution) already summarise state well; the redundant bar chart
+//     was crowding the page.
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -72,19 +76,6 @@ function Bar({ label, value, max, color }) {
     </div>
   );
 }
-
-// Color per status for the by-status bars.
-const statusColor = (s) => {
-  switch (s) {
-    case "open":        return "#f59e0b";
-    case "assigned":    return "#2563eb";
-    case "in_progress": return "#0ea5e9";
-    case "waiting":     return "#a855f7";
-    case "resolved":    return "#22c55e";
-    case "closed":      return "#6b7280";
-    default:            return "#94a3b8";
-  }
-};
 
 // Where to send "View all" from the Recent Payments preview. The full-history
 // route is different per role even though this component is currently only
@@ -165,9 +156,6 @@ export default function DashboardContent({ roleLabel }) {
       ]
     : [];
 
-  const maxStatus = metrics
-    ? Math.max(0, ...Object.values(metrics.by_status || {}))
-    : 0;
   const maxCategory = metrics
     ? Math.max(0, ...Object.values(metrics.by_category || {}))
     : 0;
@@ -242,22 +230,6 @@ export default function DashboardContent({ roleLabel }) {
                   <div className="dash-stat-label">Avg resolution time</div>
                 </div>
               </div>
-
-              {/* Tickets by status */}
-              {Object.keys(metrics.by_status || {}).length > 0 && (
-                <div className="mb-md">
-                  <div className="text-sm text-bold mb-sm">Tickets by Status</div>
-                  {Object.entries(metrics.by_status).map(([s, n]) => (
-                    <Bar
-                      key={s}
-                      label={s.replace(/_/g, " ")}
-                      value={n}
-                      max={maxStatus}
-                      color={statusColor(s)}
-                    />
-                  ))}
-                </div>
-              )}
 
               {/* Tickets by category */}
               {Object.keys(metrics.by_category || {}).length > 0 && (
