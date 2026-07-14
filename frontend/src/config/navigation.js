@@ -27,6 +27,12 @@ import {
 /* ================= LANDLORD / PORTFOLIO OWNER =================
  * Reconciled to match the existing landlord sidebar exactly so this
  * refactor doesn't change the owner experience.
+ *
+ * Sprint 7 polish: added "Finance Overview" at /owner/finance so the
+ * landlord can see the same income / expenses / NOI dashboard the
+ * finance user has. The route was already declared in AppRoutes —
+ * this just surfaces it in the sidebar. Placed between Expenses and
+ * Reports so all financial menu items sit together.
  */
 export const ownerNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/owner/dashboard" },
@@ -82,6 +88,7 @@ export const ownerNavigation = [
   },
 
   { label: "Expenses", icon: FiCreditCard, path: "/owner/expenses" },
+  { label: "Finance Overview", icon: FiBarChart2, path: "/owner/finance" },
   { label: "Reports", icon: FiBarChart2, path: "/owner/reports" },
   { label: "Tickets", icon: FiAlertCircle, path: "/owner/tickets" },
 
