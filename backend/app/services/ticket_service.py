@@ -19,6 +19,10 @@ verbs (`start`, `wait`, `resolve`, `close`, `reopen`) rather than a generic
 `status_change`, so the audit log is filterable by specific event — per
 the guide's Module 3 list ("Ticket Closed" is a named event). Also fixes
 a bug in update_ticket that was double-JSON-encoding old/new values.
+
+Sprint 7 cleanup: _enrich() now takes db and returns property_name,
+unit_name, tenant_name so the ticket detail header can show context
+without the frontend having to make additional lookups.
 """
 
 from __future__ import annotations
@@ -172,13 +176,42 @@ def _scoped_query(db, org_id, role, user_id, tenant_id=None):
     return q
 
 
-def _enrich(ticket: Ticket) -> dict:
+def _enrich(ticket: Ticket, db: Session) -> dict:
+    """Serialize a Ticket for API responses.
+
+    Sprint 7 cleanup: also looks up and includes property_name, unit_name,
+    and tenant_name so the frontend detail header can show "Kanywers Estates
+    · Unit A2 · John Doe · maintenance" without extra network round-trips.
+    Lookups are lazy — null id → null name, no query issued.
+    """
+    # Lazy imports to keep this module's top-level import cost light and
+    # avoid any circular-import surprises across the models package.
+    from app.models.property import Property
+    from app.models.unit import Unit
+    from app.models.tenant import Tenant
+
+    prop = (
+        db.query(Property).filter(Property.id == ticket.property_id).first()
+        if ticket.property_id else None
+    )
+    unit = (
+        db.query(Unit).filter(Unit.id == ticket.unit_id).first()
+        if ticket.unit_id else None
+    )
+    tenant = (
+        db.query(Tenant).filter(Tenant.id == ticket.tenant_id).first()
+        if ticket.tenant_id else None
+    )
+
     return {
         "id": ticket.id,
         "organization_id": ticket.organization_id,
         "property_id": ticket.property_id,
+        "property_name": prop.name if prop else None,
         "unit_id": ticket.unit_id,
+        "unit_name": unit.name if unit else None,
         "tenant_id": ticket.tenant_id,
+        "tenant_name": tenant.full_name if tenant else None,
         "created_by": ticket.created_by,
         "assigned_to": ticket.assigned_to,
         "title": ticket.title,
@@ -229,14 +262,14 @@ def list_tickets(db, org_id, user_id, membership, *, status=None, priority=None,
         total = q.count()
         tickets = q.offset(offset).limit(limit).all()
         return {
-            "items": [_enrich(t) for t in tickets],
+            "items": [_enrich(t, db) for t in tickets],
             "total": total,
             "limit": limit,
             "offset": offset,
         }
 
     tickets = q.all()
-    return [_enrich(t) for t in tickets]
+    return [_enrich(t, db) for t in tickets]
 
 
 def get_ticket(db, ticket_id, org_id, user_id, membership, tenant_id=None):
@@ -256,7 +289,7 @@ def get_ticket(db, ticket_id, org_id, user_id, membership, tenant_id=None):
             raise HTTPException(status_code=403, detail="Not your ticket")
     else:
         raise HTTPException(status_code=403, detail="Insufficient permissions")
-    return _enrich(ticket)
+    return _enrich(ticket, db)
 
 
 def create_ticket(db, org_id, user_id, membership, payload, tenant_id=None):
@@ -319,7 +352,7 @@ def create_ticket(db, org_id, user_id, membership, payload, tenant_id=None):
                f"Ticket created: {ticket.title}")
     db.commit()
     db.refresh(ticket)
-    return _enrich(ticket)
+    return _enrich(ticket, db)
 
 
 def update_ticket(db, ticket_id, org_id, user_id, membership, payload):
@@ -359,7 +392,7 @@ def update_ticket(db, ticket_id, org_id, user_id, membership, payload):
     )
     db.commit()
     db.refresh(ticket)
-    return _enrich(ticket)
+    return _enrich(ticket, db)
 
 
 def delete_ticket(db, ticket_id, org_id, user_id, membership):
@@ -395,7 +428,7 @@ def assign_ticket(db, ticket_id, org_id, user_id, membership, payload):
                f"Ticket assigned to {payload.assigned_to or 'nobody'}")
     db.commit()
     db.refresh(ticket)
-    return _enrich(ticket)
+    return _enrich(ticket, db)
 
 
 def _transition(db, ticket_id, org_id, user_id, membership, new_status,
@@ -430,7 +463,7 @@ def _transition(db, ticket_id, org_id, user_id, membership, new_status,
                f"Ticket status: {old_status} → {new_status}")
     db.commit()
     db.refresh(ticket)
-    return _enrich(ticket)
+    return _enrich(ticket, db)
 
 
 def start_ticket(db, ticket_id, org_id, user_id, membership, note=None):

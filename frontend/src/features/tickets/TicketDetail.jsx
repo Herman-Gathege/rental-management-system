@@ -277,13 +277,17 @@ export default function TicketDetail() {
         </Link>
       </div>
 
-      {/* Header */}
+      {/* Header — Sprint 7 cleanup: added tenant_name so the top-of-page
+          context line shows Property · Unit · Tenant · Category. Backend's
+          _enrich() populates these; falls through gracefully when a field
+          is missing (e.g. tickets without a tenant, or older data). */}
       <div className="properties-header">
         <div>
           <h2>{ticket.title}</h2>
           <p className="text-muted text-sm">
             {ticket.property_name || "No property"}
             {ticket.unit_name ? ` · ${ticket.unit_name}` : ""}
+            {ticket.tenant_name ? ` · ${ticket.tenant_name}` : ""}
             {ticket.category ? ` · ${ticket.category.replace(/_/g, " ")}` : ""}
           </p>
         </div>
