@@ -29,6 +29,15 @@ outstanding, overdue) count RENT ONLY. Deposits are reported separately as
 deposits_held so they never inflate rent-collection figures. Rent filtering:
 Charge.charge_type == "rent" and Payment.payment_type == "rent".
 
+Sprint 7 cleanup: deposits_held was ambiguous — it was actually "deposits
+expected" (sum of active-lease deposit amounts). Split into two figures:
+  - deposits_expected  → sum of active-lease deposit_amount (what we're
+                          supposed to be holding)
+  - deposits_collected → sum of active-lease deposit-typed payments (what
+                          we've actually received)
+The gap between them is uncollected deposit. `deposits_held` is retained as
+an alias for `deposits_expected` so consumers not yet updated keep working.
+
 Tenant rows (charges / payments) carry property_id + property_name + unit_name
 + lease_id so the tenant portal can group / filter by property (multi-lease
 tenants rent across more than one property).
@@ -252,8 +261,13 @@ def get_finance_summary(db: Session, org_id: str, property_ids=None) -> dict:
 
     Sprint 6.2 (#7): all rent money figures count RENT ONLY —
     Payment.payment_type == "rent" and Charge.charge_type == "rent" — so the
-    security deposit never inflates collected/outstanding. Deposits collected
-    are reported separately as deposits_held.
+    security deposit never inflates collected/outstanding.
+
+    Sprint 7 cleanup: deposits reported as two figures:
+      - deposits_expected  = active-lease deposit_amount sum (obligation)
+      - deposits_collected = deposit-typed payments on active leases (received)
+    `deposits_held` retained as an alias for deposits_expected for consumers
+    (e.g. FinanceSummaryResponse schema) not yet updated.
     """
     today = date.today()
 
@@ -266,7 +280,9 @@ def get_finance_summary(db: Session, org_id: str, property_ids=None) -> dict:
                 "expected_rent": 0.0,
                 "outstanding_balance": 0.0,
                 "overdue_charges": 0,
-                "deposits_held": 0.0,
+                "deposits_expected": 0.0,
+                "deposits_collected": 0.0,
+                "deposits_held": 0.0,  # legacy alias — see docstring
             }
 
     # Expected rent = sum of active leases' monthly rent (already rent-only).
@@ -294,13 +310,25 @@ def get_finance_summary(db: Session, org_id: str, property_ids=None) -> dict:
             Charge.amount_paid < Charge.amount,
         )
     )
-    # Deposits currently held.
-    # Active leases only. Once a lease is terminated,
-    # the deposit is assumed refunded or settled.
-    deposits_q = (
+    # Deposits EXPECTED = obligation across all active leases. Once a lease is
+    # terminated the deposit is assumed refunded / settled, so terminated
+    # leases don't count.
+    deposits_expected_q = (
         db.query(func.coalesce(func.sum(Lease.deposit_amount), 0))
         .filter(
             Lease.organization_id == org_id,
+            Lease.status == "active",
+        )
+    )
+    # Deposits COLLECTED = sum of deposit-typed payments on ACTIVE leases.
+    # Scoping to active leases matches deposits_expected — if a lease is
+    # terminated we consider its deposit no longer held (refunded).
+    deposits_collected_q = (
+        db.query(func.coalesce(func.sum(Payment.amount), 0))
+        .join(Lease, Lease.id == Payment.lease_id)
+        .filter(
+            Payment.organization_id == org_id,
+            Payment.payment_type == "deposit",
             Lease.status == "active",
         )
     )
@@ -310,13 +338,15 @@ def get_finance_summary(db: Session, org_id: str, property_ids=None) -> dict:
         collected_q = collected_q.filter(Payment.lease_id.in_(lease_ids))
         charged_q = charged_q.filter(Charge.lease_id.in_(lease_ids))
         overdue_q = overdue_q.filter(Charge.lease_id.in_(lease_ids))
-        deposits_q = deposits_q.filter(Lease.id.in_(lease_ids))
+        deposits_expected_q = deposits_expected_q.filter(Lease.id.in_(lease_ids))
+        deposits_collected_q = deposits_collected_q.filter(Payment.lease_id.in_(lease_ids))
 
     expected_rent = expected_q.scalar()
     total_collected = collected_q.scalar()
     total_charged = charged_q.scalar()
     overdue_charges = overdue_q.scalar() or 0
-    deposits_held = deposits_q.scalar()
+    deposits_expected = float(deposits_expected_q.scalar())
+    deposits_collected = float(deposits_collected_q.scalar())
 
     outstanding_balance = max(float(total_charged) - float(total_collected), 0.0)
 
@@ -325,7 +355,12 @@ def get_finance_summary(db: Session, org_id: str, property_ids=None) -> dict:
         "expected_rent": float(expected_rent),
         "outstanding_balance": outstanding_balance,
         "overdue_charges": overdue_charges,
-        "deposits_held": float(deposits_held),
+        "deposits_expected": deposits_expected,
+        "deposits_collected": deposits_collected,
+        # Legacy alias: some consumers (FinanceSummaryResponse schema, older
+        # frontend bundles) still read `deposits_held`. It maps to the
+        # expected figure, matching the pre-split behaviour of this endpoint.
+        "deposits_held": deposits_expected,
     }
 
 
@@ -427,6 +462,9 @@ def get_owner_summary(db: Session, org_id: str, property_id: str = None) -> dict
         "total_collected": money["total_collected"],
         "outstanding_balance": money["outstanding_balance"],
         "overdue_charges": money["overdue_charges"],
+        "deposits_expected": money["deposits_expected"],
+        "deposits_collected": money["deposits_collected"],
+        # Legacy alias retained for older frontend bundles.
         "deposits_held": money["deposits_held"],
     }
 
