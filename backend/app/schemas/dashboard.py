@@ -26,6 +26,13 @@ class FinanceSummaryResponse(BaseModel):
     expected_rent: float
     outstanding_balance: float
     overdue_charges: int
+    # Sprint 7 cleanup: deposits reported as two separate figures.
+    # - deposits_expected  = sum of active-lease deposit_amount (obligation)
+    # - deposits_collected = deposit-typed payments on active leases (received)
+    # Default 0 so an older backend that only returns the legacy `deposits_held`
+    # field still validates cleanly against this schema.
+    deposits_expected: float = 0
+    deposits_collected: float = 0
 
 
 class TenantDashboardResponse(BaseModel):
