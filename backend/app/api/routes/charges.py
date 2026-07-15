@@ -71,22 +71,36 @@ def enrich_charge(charge, db, credit_cache=None):
     amount = float(charge.amount)
     amount_paid = float(charge.amount_paid or 0)
 
+    # Sprint 7 cleanup: charge_type on every row (with 'rent' fallback for any
+    # historical rent charges that might have NULL — deposit charges have
+    # always been created with an explicit type).
+    ctype = charge.charge_type or "rent"
+
+    # Sprint 7 cleanup: lease-level credit surfaces ONLY on rent rows.
+    #
+    # `account_credit` is a lease-wide sum (total paid - total charged, when
+    # positive). Previously we stamped it on every charge of the lease, which
+    # made a fully-settled deposit row still show a phantom "-5,000" credit
+    # whenever the tenant had over-paid or under-paid rent elsewhere.
+    #
+    # Now deposit rows always show their own per-charge balance (0 when fully
+    # paid, positive when unpaid). Any lease-level surplus is confined to the
+    # rent row — that's where deficit / overpayment belongs, and it stops
+    # deposit rows from lying about their own state.
+    if ctype == "deposit":
+        credit = 0.0
+    else:
+        credit = lease_account_credit(db, charge.lease_id, credit_cache)
+
     return {
         "id": charge.id, "organization_id": charge.organization_id,
         "lease_id": charge.lease_id, "amount": amount,
         "amount_paid": amount_paid,
         "balance": amount - amount_paid,
-        # Lease-level overpayment (0 unless the tenant has paid beyond their
-        # total charges). The rent dashboard shows this in green.
-        "account_credit": lease_account_credit(db, charge.lease_id, credit_cache),
+        "account_credit": credit,
         "due_date": charge.due_date, "billing_month": charge.billing_month,
         "status": charge.status,
-        # Sprint 7 cleanup: expose charge_type so the UI can distinguish a
-        # rent charge from a deposit charge (they otherwise look identical
-        # in the billing table). Falls back to "rent" for any pre-existing
-        # rows written before charge_type was populated on rent charges;
-        # deposit charges have always been created with an explicit type.
-        "charge_type": charge.charge_type or "rent",
+        "charge_type": ctype,
         "created_at": charge.created_at,
         "tenant_name": tenant.full_name if tenant else None,
         "unit_name": unit.name if unit else None,
