@@ -162,8 +162,11 @@ def rent_roll(
 ):
     membership = get_user_org(current_user, db)
     property_ids = _scope(db, current_user, membership, property_id)
+
     return expense_report_service.rent_roll(
-        db, org_id=membership.organization_id, property_ids=property_ids,
+        db,
+        org_id=membership.organization_id,
+        property_ids=property_ids,
         active_only=active_only,
     )
 
@@ -177,18 +180,26 @@ def rent_roll_csv(
 ):
     membership = get_user_org(current_user, db)
     property_ids = _scope(db, current_user, membership, property_id)
+
     rows = expense_report_service.rent_roll(
-        db, org_id=membership.organization_id, property_ids=property_ids,
+        db,
+        org_id=membership.organization_id,
+        property_ids=property_ids,
         active_only=active_only,
     )
-    columns = [
-        ("tenant_name", "Tenant"), ("property_name", "Property"), ("unit_name", "Unit"),
-        ("monthly_rent", "Monthly Rent"), ("deposit_held", "Deposit Held"),
-        ("balance", "Balance"), ("status", "Status"),
-        ("start_date", "Start"), ("end_date", "End"),
-    ]
-    return _csv_response(rows, columns, "rent_roll.csv")
 
+    columns = [
+        ("tenant_name", "Tenant"),
+        ("property_unit", "Property / Unit"),
+        ("monthly_rent", "Monthly Rent"),
+        ("deposit_held", "Deposit Held"),
+        ("balance", "Balance"),
+        ("balance_status", "Balance Status"),
+        ("status", "Status"),
+        ("lease_period", "Lease Period"),
+    ]
+
+    return _csv_response(rows, columns, "rent_roll.csv")
 
 @router.get("/collection")
 def collection(

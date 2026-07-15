@@ -390,28 +390,36 @@ def _scope_lease_ids(db, org_id, property_ids):
 
 def rent_roll(db, *, org_id, property_ids, active_only=True) -> list:
     """
-    Rent Roll
+    Rent Roll Report
 
-    Shows both active and terminated leases (by default), including:
-      - Tenant
-      - Property
-      - Unit
-      - Monthly Rent
-      - Deposit Held
-      - Rent Balance
-      - Lease Status
+    Returns one row per lease within the selected scope.
 
-    Deposit Held:
-      - Active lease      -> lease.deposit_amount
-      - Terminated lease  -> 0.00 (assumes deposit has been settled)
+    Includes:
+      • Tenant
+      • Property
+      • Unit
+      • Property/Unit display
+      • Monthly rent
+      • Deposit currently held
+      • Rent balance
+      • Balance status
+      • Lease status
+      • Active flag
+      • Lease dates
+      • Human-readable lease period
 
-    Rent Balance:
-      Total rent charged - Total rent paid
-      (Deposit payments are excluded.)
+    Notes:
+      - Rent balance only considers RENT charges/payments.
+      - Deposit is displayed separately.
+      - Terminated leases are assumed to have no deposit held.
     """
+
     if property_ids is not None and len(property_ids) == 0:
         return []
 
+    # ------------------------------------------------------------------
+    # Lease query
+    # ------------------------------------------------------------------
     q = (
         db.query(Lease, Tenant, Property, Unit)
         .join(Unit, Unit.id == Lease.unit_id)
@@ -423,16 +431,23 @@ def rent_roll(db, *, org_id, property_ids, active_only=True) -> list:
     if property_ids is not None:
         q = q.filter(Unit.property_id.in_(property_ids))
 
-    # Show active and terminated leases.
+    # Active report includes active and terminated leases
     if active_only:
         q = q.filter(Lease.status.in_(["active", "terminated"]))
 
-    q = q.order_by(Property.name.asc(), Unit.name.asc())
+    q = q.order_by(
+        Property.name.asc(),
+        Unit.name.asc(),
+        Lease.start_date.desc(),
+    )
 
     rows = q.all()
 
     lease_ids = [lease.id for lease, _, _, _ in rows]
 
+    # ------------------------------------------------------------------
+    # Rent totals
+    # ------------------------------------------------------------------
     rent_charge_map = {}
     rent_paid_map = {}
 
@@ -468,36 +483,94 @@ def rent_roll(db, *, org_id, property_ids, active_only=True) -> list:
         ):
             rent_paid_map[lease_id] = float(total)
 
+    # ------------------------------------------------------------------
+    # Build response
+    # ------------------------------------------------------------------
     result = []
 
     for lease, tenant, prop, unit in rows:
 
         rent_charged = rent_charge_map.get(lease.id, 0.0)
         rent_paid = rent_paid_map.get(lease.id, 0.0)
+
         balance = round(rent_charged - rent_paid, 2)
 
         status = (lease.status or "").lower()
 
         # Deposit currently held
-        deposit_held = float(lease.deposit_amount or 0)
+        deposit_held = (
+            0.0
+            if status == "terminated"
+            else float(lease.deposit_amount or 0)
+        )
 
-        # Once the lease has been terminated,
-        # assume the deposit has been settled/refunded.
-        if status == "terminated":
-            deposit_held = 0.0
+        # Balance meaning
+        if balance > 0:
+            balance_status = "outstanding"
+        elif balance < 0:
+            balance_status = "credit"
+        else:
+            balance_status = "settled"
 
-        result.append({
-            "lease_id": lease.id,
-            "tenant_name": tenant.full_name if tenant else None,
-            "property_name": prop.name,
-            "unit_name": unit.name,
-            "monthly_rent": float(lease.rent_amount or 0),
-            "deposit_held": deposit_held,
-            "balance": balance,
-            "status": status.title(),
-            "start_date": lease.start_date.isoformat() if lease.start_date else None,
-            "end_date": lease.end_date.isoformat() if lease.end_date else None,
-        })
+        # Display status
+        status_display = {
+            "active": "Active",
+            "terminated": "Terminated",
+            "pending": "Pending",
+            "ended": "Ended",
+        }.get(status, status.title())
+
+        # Lease period
+        start = (
+            lease.start_date.strftime("%b %Y")
+            if lease.start_date
+            else "Unknown"
+        )
+
+        end = (
+            lease.end_date.strftime("%b %Y")
+            if lease.end_date
+            else "Present"
+        )
+
+        lease_period = f"{start} - {end}"
+
+        result.append(
+            {
+                "lease_id": lease.id,
+
+                # Tenant
+                "tenant_name": tenant.full_name if tenant else "Vacant",
+
+                # Property
+                "property_name": prop.name,
+                "unit_name": unit.name,
+                "property_unit": f"{prop.name} • {unit.name}",
+
+                # Financials
+                "monthly_rent": float(lease.rent_amount or 0),
+                "deposit_held": deposit_held,
+                "balance": balance,
+                "balance_status": balance_status,
+
+                # Status
+                "status": status_display,
+                "is_active": status == "active",
+
+                # Dates
+                "lease_start": (
+                    lease.start_date.isoformat()
+                    if lease.start_date
+                    else None
+                ),
+                "lease_end": (
+                    lease.end_date.isoformat()
+                    if lease.end_date
+                    else None
+                ),
+                "lease_period": lease_period,
+            }
+        )
 
     return result
 

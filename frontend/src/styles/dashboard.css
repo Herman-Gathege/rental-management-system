@@ -453,3 +453,21 @@ button.sidebar-link {
   padding: 10px;
   background: #fafafa;
 }
+
+.dashboard-bottom-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1.5rem;
+    align-items:start;
+    margin-top:1.5rem;
+}
+
+.dashboard-bottom-grid > *{
+    min-width:0;
+}
+
+@media (max-width:900px){
+    .dashboard-bottom-grid{
+        grid-template-columns:1fr;
+    }
+}

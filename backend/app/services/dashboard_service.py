@@ -294,10 +294,15 @@ def get_finance_summary(db: Session, org_id: str, property_ids=None) -> dict:
             Charge.amount_paid < Charge.amount,
         )
     )
-    # Deposits held = DEPOSIT payments collected (reported separately).
+    # Deposits currently held.
+    # Active leases only. Once a lease is terminated,
+    # the deposit is assumed refunded or settled.
     deposits_q = (
-        db.query(func.coalesce(func.sum(Payment.amount), 0))
-        .filter(Payment.organization_id == org_id, Payment.payment_type == "deposit")
+        db.query(func.coalesce(func.sum(Lease.deposit_amount), 0))
+        .filter(
+            Lease.organization_id == org_id,
+            Lease.status == "active",
+        )
     )
 
     if lease_ids is not None:
@@ -305,7 +310,7 @@ def get_finance_summary(db: Session, org_id: str, property_ids=None) -> dict:
         collected_q = collected_q.filter(Payment.lease_id.in_(lease_ids))
         charged_q = charged_q.filter(Charge.lease_id.in_(lease_ids))
         overdue_q = overdue_q.filter(Charge.lease_id.in_(lease_ids))
-        deposits_q = deposits_q.filter(Payment.lease_id.in_(lease_ids))
+        deposits_q = deposits_q.filter(Lease.id.in_(lease_ids))
 
     expected_rent = expected_q.scalar()
     total_collected = collected_q.scalar()

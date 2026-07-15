@@ -22,6 +22,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+
 import { useProperty } from "../../context/PropertyContext";
 import { getOwnerSummary, getFinanceRecentPayments } from "../../api/dashboard";
 import { getTicketMetrics } from "../../api/ticketMetrics";
@@ -64,13 +65,19 @@ function Bar({ label, value, max, color }) {
   const pct = max > 0 ? Math.max(2, Math.round((value / max) * 100)) : 0;
   return (
     <div className="flex items-center gap-sm mb-sm">
-      <div className="text-sm" style={{ width: 150, textTransform: "capitalize" }}>
+      <div
+        className="text-sm"
+        style={{ width: 150, textTransform: "capitalize" }}
+      >
         {label}
       </div>
       <div style={BAR_TRACK}>
         <div style={{ width: `${pct}%`, background: color, height: "100%" }} />
       </div>
-      <div className="text-sm text-bold" style={{ width: 44, textAlign: "right" }}>
+      <div
+        className="text-sm text-bold"
+        style={{ width: 44, textAlign: "right" }}
+      >
         {value}
       </div>
     </div>
@@ -83,12 +90,36 @@ function Bar({ label, value, max, color }) {
 // NotificationsCard is.
 function paymentsHistoryPath(role) {
   switch ((role || "").toLowerCase()) {
-    case "property_manager": return "/manager/payments/history";
-    case "finance":          return "/finance/payments";
-    case "tenant":           return "/tenant/payments";
-    default:                 return "/owner/payments/history";
+    case "property_manager":
+      return "/manager/payments/history";
+    case "finance":
+      return "/finance/payments";
+    case "tenant":
+      return "/tenant/payments";
+    default:
+      return "/owner/payments/history";
   }
 }
+
+// Color per status for the by-status bars.
+// const statusColor = (s) => {
+//   switch (s) {
+//     case "open":
+//       return "#f59e0b";
+//     case "assigned":
+//       return "#2563eb";
+//     case "in_progress":
+//       return "#0ea5e9";
+//     case "waiting":
+//       return "#a855f7";
+//     case "resolved":
+//       return "#22c55e";
+//     case "closed":
+//       return "#6b7280";
+//     default:
+//       return "#94a3b8";
+//   }
+// };
 
 export default function DashboardContent({ roleLabel }) {
   const { user } = useAuth();
@@ -116,7 +147,9 @@ export default function DashboardContent({ roleLabel }) {
         setError("");
       } catch (err) {
         if (!active) return;
-        setError(err?.response?.data?.detail || "Could not load your dashboard.");
+        setError(
+          err?.response?.data?.detail || "Could not load your dashboard.",
+        );
       } finally {
         if (active) setLoading(false);
       }
@@ -149,10 +182,26 @@ export default function DashboardContent({ roleLabel }) {
         { label: "Vacant", value: summary.vacant_units },
         { label: "Active Leases", value: summary.active_leases },
         { label: "Tenants", value: summary.tenants },
-        { label: "Expected Rent", value: money(summary.expected_rent), money: true },
-        { label: "Collected", value: money(summary.total_collected), money: true },
-        { label: "Outstanding", value: money(summary.outstanding_balance), money: true },
-        { label: "Deposits Held", value: money(summary.deposits_held), money: true },
+        {
+          label: "Expected Rent",
+          value: money(summary.expected_rent),
+          money: true,
+        },
+        {
+          label: "Collected",
+          value: money(summary.total_collected),
+          money: true,
+        },
+        {
+          label: "Outstanding",
+          value: money(summary.outstanding_balance),
+          money: true,
+        },
+        {
+          label: "Deposits Held",
+          value: money(summary.deposits_held),
+          money: true,
+        },
       ]
     : [];
 
@@ -201,103 +250,58 @@ export default function DashboardContent({ roleLabel }) {
               </div>
             ))}
           </div>
-
           {/* ─── Portfolio-wide Ticket Overview (Sprint 6) ─── */}
-          {metrics && (
-            <div className="dash-panel mb-md">
-              <div className="dash-panel-title">Ticket Overview (portfolio-wide)</div>
+          {/* Compact recent/urgent tickets card */}
+          {/* Compact recent/urgent tickets card */}
+          <TicketsSummaryCard />
+          <div className="dashboard-bottom-grid">
+            <NotificationsCard />
 
-              <div className="dash-grid mb-md">
-                <div className="dash-stat">
-                  <div className="dash-stat-value">{metrics.open}</div>
-                  <div className="dash-stat-label">Open</div>
-                </div>
-                <div className="dash-stat">
-                  <div className="dash-stat-value">{metrics.closed}</div>
-                  <div className="dash-stat-label">Closed</div>
-                </div>
-                <div className="dash-stat">
-                  <div
-                    className="dash-stat-value"
-                    style={{ color: metrics.critical_open ? "#ef4444" : undefined }}
+            <div className="dash-panel">
+              <div className="flex justify-between items-center mb-md">
+                <div className="dash-panel-title">Recent Payments</div>
+                <div
+                  style={{
+                    // marginTop: "1rem",
+                    display: "flex",
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <Link
+                    to="/owner/payments/history"
+                    className="btn btn-secondary btn-sm"
                   >
-                    {metrics.critical_open}
-                  </div>
-                  <div className="dash-stat-label">Critical / High open</div>
-                </div>
-                <div className="dash-stat">
-                  <div className="dash-stat-value">{fmtResolution(metrics.avg_resolution_hours)}</div>
-                  <div className="dash-stat-label">Avg resolution time</div>
+                    View All Payments
+                  </Link>
                 </div>
               </div>
 
-              {/* Tickets by category */}
-              {Object.keys(metrics.by_category || {}).length > 0 && (
-                <div className="mb-md">
-                  <div className="text-sm text-bold mb-sm">Tickets by Category</div>
-                  {Object.entries(metrics.by_category)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([c, n]) => (
-                      <Bar
-                        key={c}
-                        label={c.replace(/_/g, " ")}
-                        value={n}
-                        max={maxCategory}
-                        color="#2563eb"
-                      />
-                    ))}
-                </div>
-              )}
 
-              {/* Top properties by volume */}
-              {(metrics.top_properties || []).length > 0 && (
-                <div>
-                  <div className="text-sm text-bold mb-sm">Top Properties by Ticket Volume</div>
-                  {metrics.top_properties.map((p) => (
-                    <Bar
-                      key={p.property_id}
-                      label={p.property_name}
-                      value={p.count}
-                      max={maxProp}
-                      color="#F7941D"
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+              {payments.length === 0 ? (
+                <div className="text-muted">No payments recorded yet.</div>
+              ) : (
+                <>
+                  {/* <span className="text-muted">
+                    Showing latest {Math.min(payments.length, 5)}
+                  </span> */}
+                  {payments.slice(0, 5).map((p, i) => (
+                    <div className="dash-row" key={i}>
+                      <div>
+                        <div className="text-bold">{p.tenant_name}</div>
 
-          {/* Compact recent/urgent tickets card */}
-          <TicketsSummaryCard />
+                        <div className="text-muted">
+                          {fmtDate(p.payment_date)}
+                          {p.method ? ` · ${p.method}` : ""}
+                          {p.payment_type === "deposit" ? " · Deposit" : ""}
+                        </div>
+                      </div>
 
-          <NotificationsCard />
-
-          <div className="dash-panel">
-            <div className="flex items-center justify-between mb-sm">
-              <div className="dash-panel-title">Recent Payments</div>
-              {payments.length > 0 && (
-                <Link to={paymentsPath} className="btn btn-secondary btn-sm">
-                  View all
-                </Link>
-              )}
-            </div>
-            {paymentsPreview.length === 0 ? (
-              <div className="text-muted">No payments recorded yet.</div>
-            ) : (
-              paymentsPreview.map((p, i) => (
-                <div className="dash-row" key={i}>
-                  <div>
-                    <div className="text-bold">{p.tenant_name}</div>
-                    <div className="text-muted">
-                      {fmtDate(p.payment_date)}
-                      {p.method ? ` · ${p.method}` : ""}
-                      {p.payment_type === "deposit" ? " · deposit" : ""}
+                      <span className="text-bold">{money(p.amount)}</span>
                     </div>
-                  </div>
-                  <span className="text-bold">{money(p.amount)}</span>
-                </div>
-              ))
-            )}
+                  ))}
+                </>
+              )}
+            </div>
           </div>
         </>
       )}
