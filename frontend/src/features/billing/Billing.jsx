@@ -42,6 +42,23 @@ const pillClass = (status) =>
     ? "status-partial"
     : "status-paid"; // pending
 
+// Sprint 7 cleanup: charge-type badge. Rent vs deposit look identical in the
+// table otherwise (same tenant name, same unit, sometimes even the same
+// amount), so the type is called out explicitly with a coloured pill.
+// Inline styles keep it self-contained — no dependency on CSS classes that
+// might not exist yet.
+const typeStyle = (t) => ({
+  display: "inline-block",
+  padding: "2px 8px",
+  borderRadius: 4,
+  fontSize: 12,
+  fontWeight: 600,
+  color: "#fff",
+  textTransform: "capitalize",
+  background: t === "deposit" ? "#8b5cf6" : "#2563eb", // purple / blue
+});
+const typeLabel = (c) => c.charge_type || "rent";
+
 export default function Billing() {
   const { activeProperty } = useProperty();
   const [charges, setCharges] = useState([]);
@@ -158,6 +175,7 @@ export default function Billing() {
                   <th>Balance (KES)</th>
                   <th>Due Date</th>
                   <th>Status</th>
+                  <th>Type</th>
                 </tr>
               </thead>
               <tbody>
@@ -172,6 +190,9 @@ export default function Billing() {
                     <td>{new Date(c.due_date).toLocaleDateString()}</td>
                     <td>
                       <span className={`status-pill ${pillClass(c.status)}`}>{c.status}</span>
+                    </td>
+                    <td>
+                      <span style={typeStyle(typeLabel(c))}>{typeLabel(c)}</span>
                     </td>
                   </tr>
                 ))}
@@ -193,6 +214,9 @@ export default function Billing() {
                   Balance: KES {balanceText(c)}
                 </div>
                 <div className="text-sm text-muted">Due: {new Date(c.due_date).toLocaleDateString()}</div>
+                <div className="mt-sm">
+                  <span style={typeStyle(typeLabel(c))}>{typeLabel(c)}</span>
+                </div>
               </div>
             ))}
           </div>

@@ -80,7 +80,14 @@ def enrich_charge(charge, db, credit_cache=None):
         # total charges). The rent dashboard shows this in green.
         "account_credit": lease_account_credit(db, charge.lease_id, credit_cache),
         "due_date": charge.due_date, "billing_month": charge.billing_month,
-        "status": charge.status, "created_at": charge.created_at,
+        "status": charge.status,
+        # Sprint 7 cleanup: expose charge_type so the UI can distinguish a
+        # rent charge from a deposit charge (they otherwise look identical
+        # in the billing table). Falls back to "rent" for any pre-existing
+        # rows written before charge_type was populated on rent charges;
+        # deposit charges have always been created with an explicit type.
+        "charge_type": charge.charge_type or "rent",
+        "created_at": charge.created_at,
         "tenant_name": tenant.full_name if tenant else None,
         "unit_name": unit.name if unit else None,
         "property_name": prop.name if prop else None,
@@ -116,7 +123,20 @@ def generate_monthly_charges(
             due = billing_date.replace(day=lease.billing_day)
         except ValueError:
             due = billing_date.replace(day=28)
-        charge = Charge(id=str(uuid.uuid4()), organization_id=org_id, lease_id=lease.id, amount=lease.rent_amount, due_date=due, billing_month=billing_month, status="pending")
+        # Sprint 7 cleanup: set charge_type explicitly so the UI type column
+        # is always populated. Mirrors how create_lease sets charge_type
+        # explicitly for deposit charges — no more relying on the model
+        # default for rent.
+        charge = Charge(
+            id=str(uuid.uuid4()),
+            organization_id=org_id,
+            lease_id=lease.id,
+            amount=lease.rent_amount,
+            charge_type="rent",
+            due_date=due,
+            billing_month=billing_month,
+            status="pending",
+        )
         db.add(charge)
         new_charge_ids.append(charge.id)
         affected_lease_ids.add(lease.id)
