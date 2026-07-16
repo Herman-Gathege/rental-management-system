@@ -21,6 +21,7 @@ from app.models.inspection_item import InspectionItem
 from app.models.inspection_note import InspectionNote
 from app.core.roles import LANDLORD, PROPERTY_MANAGER, TENANT
 from app.services.audit_service import log_action
+from app.services.inspection_service import ensure_items_seeded
 from app.services.s3_service import upload_file
 
 router = APIRouter(prefix="/inspections", tags=["Inspections"])
@@ -192,6 +193,16 @@ def get_inspection(
 ):
     membership = get_user_org(current_user, db)
     inspection = get_inspection_for_org(inspection_id, membership.organization_id, db)
+
+    # Sprint 7 cleanup: lazy-seed the checklist if this draft inspection has
+    # no items yet. Fixes the case where the inspection was auto-created at
+    # lease-creation time BEFORE any checklist template items existed for
+    # the org — the "Conduct Inspection" page used to show a permanently
+    # empty checklist. If there are template items now, they're inserted
+    # here so the inspector immediately sees something to fill in. No-op
+    # for signed inspections and for inspections that already have items.
+    ensure_items_seeded(db, inspection, membership.organization_id)
+
     return inspection_dict(inspection, db)
 
 
