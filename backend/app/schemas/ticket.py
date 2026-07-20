@@ -39,6 +39,11 @@ class TicketStatusPayload(BaseModel):
 class TicketMessageCreate(BaseModel):
     message: str
     is_internal: bool = False
+    # Sprint 7 cleanup: optionally target an internal note at a single staff
+    # user. Only honoured when is_internal=True; the service silently
+    # nulls it on public messages. Recipient must be staff (landlord / PM /
+    # finance) in the same organization — the service validates.
+    recipient_id: Optional[str] = None
 
 
 # ─── Config ───

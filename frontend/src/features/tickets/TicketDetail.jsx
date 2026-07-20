@@ -9,6 +9,14 @@
 //   PM        → assign, start, wait, resolve, close; can post messages
 //   Finance   → can post messages; no status transitions, no assign
 //   Tenant    → can post messages (no internal notes); sees their own ticket
+//
+// Sprint 7 cleanup: internal notes can now target a single staff user via
+// a recipient dropdown that appears when the "Internal note" checkbox is
+// checked. NULL recipient = broadcast (visible to all staff — the previous
+// behaviour). A user id = targeted (visible only to sender + landlord +
+// that user). Existing targeted messages render as
+// "🔒 Internal note (to john@x.com)" so a landlord reviewing the thread
+// can tell what was broadcast and what wasn't.
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -76,6 +84,7 @@ function dashboardBase(role) {
 }
 
 // Roles assignable to a ticket (staff who can do work). Tenants excluded.
+// Also the set of users who can receive a targeted internal note.
 const ASSIGNABLE_ROLES = ["LANDLORD", "PROPERTY_MANAGER", "FINANCE"];
 
 // ─── Component ───────────────────────────────────────────────────────────
@@ -109,6 +118,9 @@ export default function TicketDetail() {
   // Message compose
   const [msgText, setMsgText] = useState("");
   const [isInternal, setIsInternal] = useState(false);
+  // Sprint 7 cleanup: null = broadcast to all internal users (default),
+  // else a user_id from the staff list = targeted note.
+  const [internalRecipient, setInternalRecipient] = useState(null);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef(null);
 
@@ -131,9 +143,12 @@ export default function TicketDetail() {
 
   useEffect(() => { load(); }, [ticketId]);
 
-  // Load assignable staff (Landlord/PM only — they're the ones who assign)
+  // Load staff for the assignment picker AND the internal-note recipient
+  // dropdown. Previously loaded only for Landlord/PM; Finance also needs it
+  // now that they can pick a targeted recipient for their internal notes.
+  // Tenants never need this list.
   useEffect(() => {
-    if (!canAssign) return;
+    if (isTenant) return;
     getMyOrganization()
       .then((org) => {
         const assignable = (org.members || []).filter((m) =>
@@ -142,7 +157,7 @@ export default function TicketDetail() {
         setStaff(assignable);
       })
       .catch(() => setStaff([]));
-  }, [canAssign]);
+  }, [isTenant]);
 
   // Scroll to bottom of thread when messages change
   useEffect(() => {
@@ -205,16 +220,30 @@ export default function TicketDetail() {
 
   // ─── Messages ──────────────────────────────────────────────────────
 
+  const handleToggleInternal = (checked) => {
+    setIsInternal(checked);
+    // Reset recipient when leaving internal mode — otherwise flipping the
+    // checkbox off and back on would silently keep a stale recipient.
+    if (!checked) setInternalRecipient(null);
+  };
+
   const handleSendMessage = async () => {
     if (!msgText.trim()) return;
     setSending(true);
     try {
-      const msg = await addMessage(ticketId, {
+      const payload = {
         message: msgText.trim(),
         is_internal: isInternal,
-      });
+      };
+      // Only send recipient_id on internal notes. Backend also ignores it
+      // on public messages, but keeping the payload lean here.
+      if (isInternal && internalRecipient) {
+        payload.recipient_id = internalRecipient;
+      }
+      const msg = await addMessage(ticketId, payload);
       setMessages((prev) => [...prev, msg]);
       setMsgText("");
+      setInternalRecipient(null);   // reset for next message
     } catch (err) {
       alert(err.response?.data?.detail || "Failed to send message");
     } finally {
@@ -267,6 +296,11 @@ export default function TicketDetail() {
 
   const status = ticket.status;
   const isClosed = status === "closed";
+
+  // Recipient options for the internal-note dropdown: any staff in this
+  // org EXCEPT the current user (sending an internal note to yourself is
+  // never what you want).
+  const recipientOptions = staff.filter((s) => s.user_id !== user?.id);
 
   return (
     <section className="properties-page">
@@ -457,6 +491,7 @@ export default function TicketDetail() {
                   {m.is_internal && (
                     <div className="text-xs" style={{ color: "#92400e", marginBottom: 2 }}>
                       🔒 Internal note
+                      {m.recipient_email ? ` (to ${m.recipient_email})` : ""}
                     </div>
                   )}
                   <div className="text-sm" style={{ whiteSpace: "pre-wrap" }}>
@@ -505,6 +540,33 @@ export default function TicketDetail() {
                 if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSendMessage();
               }}
             />
+
+            {/* Sprint 7 cleanup: when the internal checkbox is checked, show
+                a recipient dropdown right below it — defaults to "All
+                internal users" (broadcast); pick a name to target it at
+                one person. */}
+            {isInternal && !isTenant && recipientOptions.length > 0 && (
+              <div className="flex items-center gap-sm">
+                <label htmlFor="internal-recipient" className="text-sm">
+                  Send to:
+                </label>
+                <select
+                  id="internal-recipient"
+                  className="input"
+                  value={internalRecipient || ""}
+                  onChange={(e) => setInternalRecipient(e.target.value || null)}
+                  style={{ maxWidth: 320 }}
+                >
+                  <option value="">All internal users</option>
+                  {recipientOptions.map((s) => (
+                    <option key={s.user_id} value={s.user_id}>
+                      {s.name} ({s.role.replace(/_/g, " ").toLowerCase()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-sm">
                 {!isTenant && (
@@ -512,7 +574,7 @@ export default function TicketDetail() {
                     <input
                       type="checkbox"
                       checked={isInternal}
-                      onChange={(e) => setIsInternal(e.target.checked)}
+                      onChange={(e) => handleToggleInternal(e.target.checked)}
                     />
                     Internal note (hidden from tenant)
                   </label>

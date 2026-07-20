@@ -5,10 +5,13 @@ Ticket conversation service — Sprint 6.
 Handles the two child resources of a ticket:
   - TicketMessages: threaded replies from any stakeholder. Internal notes
     (is_internal=True) are visible only to staff, never to tenants.
+    Sprint 7 cleanup: an internal note can additionally target a single
+    staff user via recipient_id (see visibility rules in list_messages).
   - TicketAttachments: file uploads (photos, invoices, receipts, PDFs).
 
 RBAC:
   Landlord  → read/write all messages + attachments on any ticket in org.
+              Also sees every internal note, targeted or not (superuser).
   PM        → read/write on their assigned-property tickets.
   Finance   → read/write on their assigned-property tickets.
   Tenant    → read/write on their OWN tickets only; cannot post or see
@@ -21,6 +24,7 @@ import uuid
 from typing import Optional
 
 from fastapi import HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.roles import LANDLORD, PROPERTY_MANAGER, FINANCE, TENANT
@@ -30,6 +34,10 @@ from app.models.ticket_message import TicketMessage
 from app.models.ticket_attachment import TicketAttachment
 from app.services.audit_service import log_action
 from app.services.s3_service import upload_file
+
+
+# Staff roles = anyone who can send/receive internal notes.
+_STAFF_ROLES = {LANDLORD, PROPERTY_MANAGER, FINANCE}
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────
@@ -65,7 +73,6 @@ def _assert_ticket_access(
         return
 
     if role == PROPERTY_MANAGER:
-        from app.models.property import Property
         allowed = [
             r.property_id
             for r in db.query(PropertyManager)
@@ -103,6 +110,11 @@ def _enrich_message(msg: TicketMessage) -> dict:
         "sender_email": msg.sender.email if msg.sender else None,
         "message": msg.message,
         "is_internal": msg.is_internal,
+        # Sprint 7 cleanup: expose recipient details so the UI can show
+        # who a targeted internal note was addressed to
+        # (e.g. "🔒 Internal note (to john@example.com)").
+        "recipient_id": msg.recipient_id,
+        "recipient_email": msg.recipient.email if msg.recipient else None,
         "created_at": msg.created_at.isoformat() if msg.created_at else None,
     }
 
@@ -128,18 +140,78 @@ def list_messages(
     membership: OrganizationMember,
     tenant_id: Optional[str] = None,
 ) -> list[dict]:
+    """
+    Visibility rules:
+      Tenant    → non-internal only.
+      Landlord  → everything (superuser — always sees all internal notes,
+                  targeted or not).
+      PM/Finance → non-internal + broadcast internal (recipient_id NULL) +
+                   internal targeted at them + their own outgoing messages
+                   (so the sender always sees what they sent).
+    """
     role = _role(membership)
     ticket = _get_ticket(db, ticket_id, org_id)
     _assert_ticket_access(role, ticket, user_id, db, org_id, tenant_id=tenant_id)
 
     q = db.query(TicketMessage).filter(TicketMessage.ticket_id == ticket_id)
 
-    # Tenants never see internal notes.
     if role == TENANT:
+        # Tenants never see internal notes.
         q = q.filter(TicketMessage.is_internal == False)  # noqa: E712
+    elif role == LANDLORD:
+        # Landlord sees everything — no additional filter.
+        pass
+    else:
+        # PM / Finance: non-internal OR (internal AND allowed to see).
+        q = q.filter(
+            or_(
+                TicketMessage.is_internal == False,        # noqa: E712
+                TicketMessage.recipient_id.is_(None),      # broadcast internal
+                TicketMessage.recipient_id == user_id,     # targeted at me
+                TicketMessage.sender_id == user_id,        # my own outgoing
+            )
+        )
 
     messages = q.order_by(TicketMessage.created_at.asc()).all()
     return [_enrich_message(m) for m in messages]
+
+
+def _resolve_recipient_id(
+    db: Session,
+    org_id: str,
+    is_internal: bool,
+    recipient_id: Optional[str],
+) -> Optional[str]:
+    """Validate + normalise a recipient_id.
+    - Silently null it out on non-internal messages (public = broadcast by
+      definition; a recipient there is nonsensical, not an error).
+    - On internal messages: recipient must be a staff member (landlord / PM /
+      finance) in the same organization. Otherwise raise 400.
+    """
+    if not is_internal:
+        return None
+    if not recipient_id:
+        return None
+
+    recipient_membership = (
+        db.query(OrganizationMember)
+        .filter(
+            OrganizationMember.user_id == recipient_id,
+            OrganizationMember.organization_id == org_id,
+        )
+        .first()
+    )
+    if not recipient_membership:
+        raise HTTPException(
+            status_code=400,
+            detail="Recipient is not a member of this organization",
+        )
+    if recipient_membership.role.name not in _STAFF_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail="Internal notes can only be targeted at staff members",
+        )
+    return recipient_id
 
 
 def add_message(
@@ -163,19 +235,37 @@ def add_message(
     if role == TENANT and is_internal:
         raise HTTPException(status_code=403, detail="Tenants cannot post internal notes")
 
+    # Sprint 7 cleanup: validate targeted-note recipient.
+    recipient_id = _resolve_recipient_id(
+        db,
+        org_id,
+        is_internal,
+        getattr(payload, "recipient_id", None),
+    )
+
     msg = TicketMessage(
         id=str(uuid.uuid4()),
         ticket_id=ticket_id,
         sender_id=user_id,
         message=payload.message,
         is_internal=is_internal,
+        recipient_id=recipient_id,
     )
     db.add(msg)
     db.flush()
 
+    # Audit line reflects internal + targeting status so the log tells the
+    # whole story ("[Internal → user-abc]" vs "[Internal]" vs plain).
+    if is_internal and recipient_id:
+        prefix = f"[Internal → {recipient_id[:8]}] "
+    elif is_internal:
+        prefix = "[Internal] "
+    else:
+        prefix = ""
+
     log_action(
         db, org_id, user_id, "create", "ticket_message", msg.id,
-        f"{'[Internal] ' if is_internal else ''}Message added to ticket {ticket_id[:8]}",
+        f"{prefix}Message added to ticket {ticket_id[:8]}",
     )
     db.commit()
     db.refresh(msg)
