@@ -104,40 +104,94 @@ def create_inspection_for_lease(
     return inspection
 
 
+# def ensure_items_seeded(
+#     db: Session,
+#     inspection: LeaseInspection,
+#     organization_id: str,
+# ) -> int:
+#     """
+#     Sprint 7 cleanup: lazy-seed an empty draft inspection from the current
+#     checklist template.
+
+#     No-op unless ALL three conditions hold:
+#       - inspection is a draft (signed inspections are immutable)
+#       - inspection has zero items so far
+#       - the org has at least one active template item to seed from
+
+#     Commits any rows it creates so subsequent queries see them. Returns the
+#     number of items added (0 if nothing was seeded).
+#     """
+#     if inspection.status != "draft":
+#         return 0
+
+#     existing_count = (
+#         db.query(func.count(InspectionItem.id))
+#         .filter(InspectionItem.inspection_id == inspection.id)
+#         .scalar()
+#     ) or 0
+#     if existing_count > 0:
+#         return 0
+
+#     template_items = _load_active_template(db, organization_id)
+#     if not template_items:
+#         return 0
+
+#     for template_item in template_items:
+#         db.add(_make_inspection_item(inspection.id, template_item))
+
+#     db.commit()
+#     return len(template_items)
+
+
 def ensure_items_seeded(
     db: Session,
     inspection: LeaseInspection,
     organization_id: str,
 ) -> int:
     """
-    Sprint 7 cleanup: lazy-seed an empty draft inspection from the current
-    checklist template.
+    Ensures every active checklist template item exists on this draft
+    inspection.
 
-    No-op unless ALL three conditions hold:
-      - inspection is a draft (signed inspections are immutable)
-      - inspection has zero items so far
-      - the org has at least one active template item to seed from
+    Existing inspection items are preserved.
 
-    Commits any rows it creates so subsequent queries see them. Returns the
-    number of items added (0 if nothing was seeded).
+    Any newly-added checklist template items are appended automatically.
+
+    Signed inspections are never modified.
+
+    Returns the number of items inserted.
     """
+
     if inspection.status != "draft":
         return 0
 
-    existing_count = (
-        db.query(func.count(InspectionItem.id))
-        .filter(InspectionItem.inspection_id == inspection.id)
-        .scalar()
-    ) or 0
-    if existing_count > 0:
-        return 0
-
     template_items = _load_active_template(db, organization_id)
+
     if not template_items:
         return 0
 
-    for template_item in template_items:
-        db.add(_make_inspection_item(inspection.id, template_item))
+    existing_items = (
+        db.query(InspectionItem)
+        .filter(InspectionItem.inspection_id == inspection.id)
+        .all()
+    )
 
-    db.commit()
-    return len(template_items)
+    existing_names = {
+        item.item_name.strip().lower()
+        for item in existing_items
+    }
+
+    added = 0
+
+    for template_item in template_items:
+        name = template_item.item_name.strip().lower()
+
+        if name in existing_names:
+            continue
+
+        db.add(_make_inspection_item(inspection.id, template_item))
+        added += 1
+
+    if added:
+        db.commit()
+
+    return added
