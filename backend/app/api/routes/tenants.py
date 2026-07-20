@@ -9,7 +9,9 @@ from app.db.deps import get_db
 from app.api.deps import get_current_user
 from app.core.encryption import blind_index
 from app.core.file_validation import read_document_upload
+from app.core.roles import LANDLORD
 from app.models.users import User
+from app.models.role import Role
 from app.models.organization_member import OrganizationMember
 from app.models.tenant import Tenant
 from app.models.tenant_document import TenantDocument
@@ -70,6 +72,67 @@ def _resolve_my_tenant(user: User, membership: OrganizationMember, db: Session) 
             detail="No tenant record is linked to this account.",
         )
     return tenant
+
+
+# ─── Sprint 7 cleanup: reject a landlord's phone as a tenant phone ─────────
+#
+# A landlord should never appear as a tenant against their own portfolio.
+# The most common way that happens is a landlord accidentally typing their
+# OWN phone into a tenant record. This catches it at create/update time.
+#
+# Scope: same-organization only. A landlord in another org may coincidentally
+# share a phone with your tenant, and cross-org checks would leak info about
+# other people. Both `phone` and `alternative_phone` are checked.
+#
+# Comparison is normalised — "0704 123 456", "+254704123456", and
+# "254704123456" all reduce to "704123456" for equality, so different-looking
+# forms of the same number still match. See _normalize_phone below.
+
+def _normalize_phone(phone: str) -> str:
+    """Reduce a phone to its canonical Kenya subscriber form (9 digits) for
+    equality comparison. Strips non-digits, then removes a leading '254'
+    (country code) or leading '0'. Empty/None → empty string."""
+    if not phone:
+        return ""
+    digits = re.sub(r"\D", "", phone)
+    if digits.startswith("254"):
+        digits = digits[3:]
+    elif digits.startswith("0"):
+        digits = digits[1:]
+    return digits
+
+
+def _reject_if_landlord_phone(db: Session, org_id: str, phone: str) -> None:
+    """Raise 400 if `phone` matches any landlord's phone in the same org.
+    No-op for empty/None phones. Comparison is format-normalised via
+    _normalize_phone."""
+    if not phone:
+        return
+    target = _normalize_phone(phone)
+    if not target:
+        return
+
+    landlord_phones = (
+        db.query(User.phone)
+        .join(OrganizationMember, OrganizationMember.user_id == User.id)
+        .join(Role, Role.id == OrganizationMember.role_id)
+        .filter(
+            OrganizationMember.organization_id == org_id,
+            Role.name == LANDLORD,
+            User.phone.isnot(None),
+        )
+        .all()
+    )
+
+    for (existing_phone,) in landlord_phones:
+        if _normalize_phone(existing_phone) == target:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "This phone number belongs to a landlord in this "
+                    "organization and cannot be used as a tenant phone."
+                ),
+            )
 
 
 def _document_dict(d: TenantDocument) -> dict:
@@ -155,6 +218,12 @@ def create_tenant(
         email=payload.email,
         id_number=payload.id_number,
     )
+
+    # Sprint 7 cleanup: reject if the phone belongs to a landlord in this org.
+    # Both primary and alternative phones — a landlord's own number should
+    # never appear on a tenant record no matter which slot it lands in.
+    _reject_if_landlord_phone(db, membership.organization_id, payload.phone)
+    _reject_if_landlord_phone(db, membership.organization_id, payload.alternative_phone)
 
     tenant = Tenant(
         id=str(uuid.uuid4()),
@@ -486,6 +555,20 @@ def update_tenant(
         id_number=update_data.get("id_number", tenant.id_number),
         exclude_tenant_id=tenant.id,
     )
+
+    # Sprint 7 cleanup: reject landlord-phone for phone / alt_phone. Only
+    # check fields the caller is actually changing — otherwise a routine
+    # name-change update could get blocked by a landlord who happens to
+    # have been added AFTER this tenant was created (data-integrity issue
+    # to fix separately, not a reason to block unrelated updates).
+    if "phone" in update_data:
+        _reject_if_landlord_phone(
+            db, membership.organization_id, update_data["phone"]
+        )
+    if "alternative_phone" in update_data:
+        _reject_if_landlord_phone(
+            db, membership.organization_id, update_data["alternative_phone"]
+        )
 
     # Capture old values for audit
     old_values = {
