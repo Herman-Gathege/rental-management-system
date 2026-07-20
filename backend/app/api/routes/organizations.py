@@ -185,6 +185,53 @@ def invite_user(
     }
 
 
+# ─── Look Up Invitation By Token (public — Sprint 7 cleanup) ───
+#
+# Returns non-sensitive display fields for an invitation identified by its
+# token. Used by the frontend RegisterInvite page so the invitee sees which
+# organization / role they're accepting, and so the password strength gauge
+# can run the "doesn't contain your email" check against their real email
+# (which the frontend otherwise doesn't have — the email is only known
+# server-side, keyed by token).
+#
+# Public (no auth) because the invited user hasn't got an account yet — the
+# token itself is the credential. Anyone holding the token can already POST
+# to /accept-invite/{token} or /register-invite/{token}, so exposing the
+# email / role / org name they'd be accepting doesn't leak anything new.
+# Only pending invitations are visible; accepted / expired ones 404.
+
+@router.get("/invitations/by-token/{token}")
+def get_invitation_by_token(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    invitation = (
+        db.query(OrganizationInvitation)
+        .filter(
+            OrganizationInvitation.token == token,
+            OrganizationInvitation.status == "pending",
+        )
+        .first()
+    )
+    if not invitation:
+        raise HTTPException(
+            status_code=404,
+            detail="Invalid or expired invitation",
+        )
+
+    org = (
+        db.query(Organization)
+        .filter(Organization.id == invitation.organization_id)
+        .first()
+    )
+
+    return {
+        "email": invitation.email,
+        "role": invitation.role.name if invitation.role else None,
+        "organization_name": org.name if org else None,
+    }
+
+
 # ─── Accept Invitation ───
 
 @router.post("/accept-invite/{token}")
