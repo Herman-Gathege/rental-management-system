@@ -109,6 +109,10 @@ from app.services.expense_category_seed import seed_expense_categories_for_all_o
 # Sprint 7 (MVP-1) — Rate limiting on auth endpoints
 from app.core.rate_limit import limiter, rate_limit_exceeded_handler
 
+#bulk uploads
+from app.api.routes import bulk_uploads
+
+
 app = FastAPI(title="Rental Management API")
 
 # ─── Rate limiter wiring (Sprint 7 MVP-1) ───
@@ -157,6 +161,9 @@ app.include_router(tickets_router)
 app.include_router(ticket_conversation_router)
 app.include_router(notifications_router)
 app.include_router(ticket_metrics_router)
+
+#bulk uploads
+app.include_router(bulk_uploads.router)
 
 
 # ─── Health endpoints ───

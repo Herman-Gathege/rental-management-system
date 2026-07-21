@@ -47,6 +47,8 @@ export const ownerNavigation = [
     ],
   },
 
+  { label: "Bulk Upload", icon: FiUploadCloud, path: "/owner/bulk-upload" },
+  
   {
     label: "Units",
     icon: FiLayers,

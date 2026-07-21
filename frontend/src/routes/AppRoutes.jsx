@@ -96,6 +96,11 @@ import TenantInspections from "../features/dashboard/TenantInspections";
 import SuperAdminLayout from "../features/dashboard/layout/SuperAdminLayout";
 import SuperAdminDashboard from "../features/dashboard/SuperAdminDashboard";
 
+/* Bulk Uploads (Sprint 7 cleanup — landlord only; backend enforces via
+   require_landlord, so mounting it anywhere else would just get you a 403). */
+import BulkUpload from "../features/bulk-upload/BulkUpload";
+
+
 export default function AppRoutes() {
   return (
     <Routes>
@@ -193,6 +198,10 @@ export default function AppRoutes() {
 
         {/* Sprint 6.2 — Reports */}
         <Route path="reports" element={<Reports />} />
+
+        {/* Sprint 7 cleanup — Bulk Uploads (landlord only, matches
+            require_landlord dep on the backend). */}
+        <Route path="bulk-upload" element={<BulkUpload />} />
 
         {/* History / Audit */}
         <Route path="history" element={<History />} />
