@@ -33,6 +33,14 @@ import {
  * finance user has. The route was already declared in AppRoutes —
  * this just surfaces it in the sidebar. Placed between Expenses and
  * Reports so all financial menu items sit together.
+ *
+ * Sprint 7 cleanup Batch 2: "Bulk Upload" at /owner/bulk-upload for
+ * CSV imports of properties + units.
+ *
+ * Sprint 7 cleanup Batch 3: "Payment Review" as a child of "Rent &
+ * Payments" — the persistent reconciliation queue for candidate
+ * payments that couldn't be auto-matched (unmatched tenant, multiple
+ * leases, no active lease, etc.).
  */
 export const ownerNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/owner/dashboard" },
@@ -48,7 +56,7 @@ export const ownerNavigation = [
   },
 
   { label: "Bulk Upload", icon: FiUploadCloud, path: "/owner/bulk-upload" },
-  
+
   {
     label: "Units",
     icon: FiLayers,
@@ -86,6 +94,7 @@ export const ownerNavigation = [
       { label: "Rent Dashboard", path: "/owner/billing" },
       { label: "Payment History", path: "/owner/payments/history" },
       { label: "Batch Upload", path: "/owner/payments/batch" },
+      { label: "Payment Review", path: "/owner/payments/reconciliation" },
     ],
   },
 
@@ -120,6 +129,11 @@ export const staffNavigation = [
  * Paths use /finance/* (matches the finance mount in AppRoutes).
  * Distinct icons per menu (was all FiDollarSign): Billing=invoices,
  * Payments=money in, Batch Upload=upload, Finance=analytics.
+ *
+ * Sprint 7 cleanup Batch 3: "Payment Review" for the reconciliation
+ * queue. Placed right after Batch Upload since that's where flagged
+ * items originate. FiAlertCircle picks up on the "needs attention"
+ * feel (same icon Tickets uses in every other role).
  */
 export const financeNavigation = [
   { label: "Dashboard", icon: FiHome, path: "/finance" },
@@ -127,6 +141,7 @@ export const financeNavigation = [
   { label: "Billing", icon: FiFileText, path: "/finance/billing" },
   { label: "Payments", icon: FiDollarSign, path: "/finance/payments" },
   { label: "Batch Upload", icon: FiUploadCloud, path: "/finance/payments/batch" },
+  { label: "Payment Review", icon: FiAlertCircle, path: "/finance/payments/reconciliation" },
   { label: "Expenses", icon: FiCreditCard, path: "/finance/expenses" },
   { label: "Reports", icon: FiBarChart2, path: "/finance/reports" },
   { label: "Tickets", icon: FiAlertCircle, path: "/finance/tickets" },

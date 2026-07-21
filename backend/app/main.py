@@ -65,6 +65,7 @@
 #     seed_roles(db)
 #     db.close()
 
+#backend\app\main.py
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -109,8 +110,11 @@ from app.services.expense_category_seed import seed_expense_categories_for_all_o
 # Sprint 7 (MVP-1) — Rate limiting on auth endpoints
 from app.core.rate_limit import limiter, rate_limit_exceeded_handler
 
-#bulk uploads
+# Sprint 7 cleanup Batch 2 — Bulk uploads
 from app.api.routes import bulk_uploads
+
+# Sprint 7 cleanup Batch 3 — Payment reconciliation queue
+from app.api.routes import payment_reconciliation
 
 
 app = FastAPI(title="Rental Management API")
@@ -162,14 +166,14 @@ app.include_router(ticket_conversation_router)
 app.include_router(notifications_router)
 app.include_router(ticket_metrics_router)
 
-#bulk uploads
+# Sprint 7 cleanup Batch 2 — Bulk uploads
 app.include_router(bulk_uploads.router)
+
+# Sprint 7 cleanup Batch 3 — Payment reconciliation queue
+app.include_router(payment_reconciliation.router)
 
 
 # ─── Health endpoints ───
-# Restored: previously present in main.py, silently dropped during a Sprint
-# 5/6 merge. Useful for uptime probes, load balancer health checks, and a
-# quick smoke test that the API is up.
 
 @app.get("/")
 def root():
@@ -182,12 +186,6 @@ def health_check():
 
 
 # ─── Startup seeds ───
-# Restored (Sprint 7 audit): seed_roles and seed_checklist_for_all_orgs were
-# present on the sprint-4.5-spinoff-checklist-batch branch but silently
-# dropped in a later merge, leaving orgs created after that point with no
-# default roles or checklist template items. Each seed is wrapped in its
-# own try/except so one seed failing doesn't kill the others — the app
-# should always start even if a seed can't run.
 
 @app.on_event("startup")
 async def startup_event():

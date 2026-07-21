@@ -96,9 +96,13 @@ import TenantInspections from "../features/dashboard/TenantInspections";
 import SuperAdminLayout from "../features/dashboard/layout/SuperAdminLayout";
 import SuperAdminDashboard from "../features/dashboard/SuperAdminDashboard";
 
-/* Bulk Uploads (Sprint 7 cleanup — landlord only; backend enforces via
+/* Bulk Uploads (Sprint 7 cleanup Batch 2 — landlord only; backend enforces via
    require_landlord, so mounting it anywhere else would just get you a 403). */
 import BulkUpload from "../features/bulk-upload/BulkUpload";
+
+/* Payment Reconciliation (Sprint 7 cleanup Batch 3 — landlord + finance;
+   backend enforces via require_money_role). */
+import Reconciliation from "../features/payments/Reconciliation";
 
 
 export default function AppRoutes() {
@@ -182,6 +186,8 @@ export default function AppRoutes() {
         <Route path="payments/batch" element={<BatchPayments />} />
         <Route path="payments/history" element={<PaymentsList />} />
         <Route path="payments/late" element={<Billing />} />
+        {/* Sprint 7 cleanup Batch 3 — payment reconciliation queue */}
+        <Route path="payments/reconciliation" element={<Reconciliation />} />
         <Route path="finance" element={<FinancialDashboard />} />
         <Route path="finance/expenses" element={<FinancialDashboard />} />
 
@@ -199,7 +205,7 @@ export default function AppRoutes() {
         {/* Sprint 6.2 — Reports */}
         <Route path="reports" element={<Reports />} />
 
-        {/* Sprint 7 cleanup — Bulk Uploads (landlord only, matches
+        {/* Sprint 7 cleanup Batch 2 — Bulk Uploads (landlord only, matches
             require_landlord dep on the backend). */}
         <Route path="bulk-upload" element={<BulkUpload />} />
 
@@ -278,6 +284,8 @@ export default function AppRoutes() {
         <Route path="billing" element={<Billing />} />
         <Route path="payments" element={<PaymentsList />} />
         <Route path="payments/batch" element={<BatchPayments />} />
+        {/* Sprint 7 cleanup Batch 3 — payment reconciliation queue */}
+        <Route path="payments/reconciliation" element={<Reconciliation />} />
         <Route path="finance" element={<FinancialDashboard />} />
 
         {/* Sprint 5 — Expenses */}
