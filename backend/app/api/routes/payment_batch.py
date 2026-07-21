@@ -2,22 +2,24 @@
 """
 CSV batch payment endpoints (Sprint 4.5 spinoff).
 
-/preview — upload a statement CSV, get back a matched/flagged report. Read-only.
-/commit  — record the rows the user confirmed (matched rows + any to which they
-           assigned a lease). Each row goes through the SAME path as a manual
-           payment: build Payment -> flush -> recompute_lease_settlement ->
-           audit log -> WhatsApp receipt. Re-validates org ownership and skips
-           duplicates server-side, so the client can't double-record.
+/preview  — upload a statement CSV, get back a matched/flagged report. Read-only.
+/commit   — record the rows the user confirmed (matched rows + any to which they
+            assigned a lease). Each row goes through the SAME path as a manual
+            payment: build Payment -> flush -> recompute_lease_settlement ->
+            audit log -> WhatsApp receipt. Re-validates org ownership and skips
+            duplicates server-side, so the client can't double-record.
+/template — download an example CSV with the exact column order and
+            Transaction format the parser expects (Sprint 7 cleanup).
 
 Restricted to LANDLORD and FINANCE (money handling). Role is checked inline
-from the caller's membership, so this doesn't depend on the pending
-role-security pass.
+from the caller's membership.
 """
 import uuid
 from datetime import date
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -69,6 +71,29 @@ def _require_money_role(membership: OrganizationMember) -> None:
     role = membership.role.name if membership.role else None
     if role not in (LANDLORD, FINANCE):
         raise HTTPException(status_code=403, detail="Access denied")
+
+
+# ─── Template (Sprint 7 cleanup) ───
+
+@router.get("/template")
+def download_template(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Downloadable M-Pesa statement CSV template. Headers + a few sample rows
+    so the user knows what the parser expects (Date column, quoted Transaction
+    with ACC / reference / TIMESTAMP payload, KES currency, Deposit amount)."""
+    membership = _membership(db, current_user)
+    _require_money_role(membership)
+
+    csv_text = payment_batch_service.get_batch_payment_template_csv()
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": 'attachment; filename="batch-payments-template.csv"'
+        },
+    )
 
 
 # ─── Preview (read-only) ───

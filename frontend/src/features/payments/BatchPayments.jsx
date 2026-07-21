@@ -1,13 +1,24 @@
 //frontend/src/features/payments/BatchPayments.jsx
 //
-// Sprint 7 cleanup (Batch 3): a "Save X for review" button next to the commit
-// action. Flagged rows (unmatched, multiple_leases, no_active_lease) can be
-// pushed into the persistent reconciliation queue so they survive across
-// browser sessions and can be resolved one at a time from the review page.
-// parse_error rows are excluded (no amount available; user must fix the CSV).
+// Batch payment upload + review (Sprint 4.5 spinoff).
+// Upload a bank/M-Pesa statement CSV -> preview (matched/flagged, no writes) ->
+// pick leases for multi-lease rows, tick which to record -> commit. Re-previews
+// after commit so newly-recorded rows show as duplicates.
+//
+// Sprint 7 cleanup:
+//   - "Save X for review" button (Batch 3) — push unresolved rows into the
+//     reconciliation queue so they survive across browser sessions.
+//   - "Download Template" button — matches the pattern from bulk uploads,
+//     downloads a CSV showing the exact column order + Transaction format
+//     the parser expects.
 
 import { useState } from "react";
-import { previewBatch, commitBatch } from "../../api/paymentBatch";
+import {
+  previewBatch,
+  commitBatch,
+  downloadBatchTemplate,
+  downloadBlob,
+} from "../../api/paymentBatch";
 import { saveReviewItems } from "../../api/paymentReconciliation";
 
 const money = (n) =>
@@ -22,6 +33,10 @@ const STATUS_LABEL = {
   parse_error: "Couldn't read",
 };
 
+// Which statuses can be pushed into the review queue for later resolution.
+// - matched: don't save; commit directly.
+// - duplicate: already recorded, no work to do.
+// - parse_error: has no amount (backend requires it) — user must fix the CSV.
 const SAVABLE_STATUSES = new Set([
   "unmatched",
   "multiple_leases",
@@ -37,6 +52,7 @@ export default function BatchPayments() {
   const [loading, setLoading] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [savingForReview, setSavingForReview] = useState(false);
+  const [templateLoading, setTemplateLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const [saveResult, setSaveResult] = useState(null);
@@ -57,6 +73,18 @@ export default function BatchPayments() {
     setResult(null);
     setSaveResult(null);
     setError("");
+  };
+
+  const handleDownloadTemplate = async () => {
+    setTemplateLoading(true);
+    try {
+      const blob = await downloadBatchTemplate();
+      downloadBlob(blob, "batch-payments-template.csv");
+    } catch (err) {
+      alert(err?.response?.data?.detail || "Failed to download template");
+    } finally {
+      setTemplateLoading(false);
+    }
   };
 
   const runPreview = async () => {
@@ -101,6 +129,7 @@ export default function BatchPayments() {
       }));
       const res = await commitBatch(payments, notify);
       setResult(res);
+      // Re-preview so just-recorded rows now read as duplicates.
       const data = await previewBatch(file);
       applyPreview(data);
     } catch (err) {
@@ -110,6 +139,8 @@ export default function BatchPayments() {
     }
   };
 
+  // Sprint 7 cleanup: push unresolved rows into the reconciliation queue.
+  // Backend dedupes on reference so clicking twice on the same CSV is safe.
   const runSaveForReview = async () => {
     if (savableRows.length === 0) return;
     setSavingForReview(true);
@@ -122,7 +153,7 @@ export default function BatchPayments() {
         payer_phone: r.phone,
         payer_name: null,
         raw_transaction: r.raw,
-        tenant_id: r.tenant_id,
+        tenant_id: r.tenant_id,       // populated even for duplicates now
         lease_id: null,
         flag_reason: r.status,
         notes: null,
@@ -136,6 +167,7 @@ export default function BatchPayments() {
     }
   };
 
+  // Shared row controls so the table and the mobile cards stay in sync.
   const renderCheckbox = (r, canCommit) => (
     <input
       type="checkbox"
@@ -179,9 +211,16 @@ export default function BatchPayments() {
         <p className="text-sm text-muted">
           Upload a bank / M-Pesa statement export. Each deposit is matched to a
           tenant by phone number. Nothing is recorded until you review and
-          confirm below.
+          confirm below. Not sure of the format? Download the template first.
         </p>
         <div className="flex items-center gap-sm mt-sm flex-wrap">
+          <button
+            className="btn btn-secondary"
+            onClick={handleDownloadTemplate}
+            disabled={templateLoading}
+          >
+            {templateLoading ? "Preparing…" : "Download Template"}
+          </button>
           <input type="file" accept=".csv" onChange={handleFile} />
           <button
             className="btn btn-primary"
@@ -203,12 +242,17 @@ export default function BatchPayments() {
         <div className="dash-panel mb-md">
           <div className="text-bold">
             Recorded {result.created_count} payment(s)
-            {result.skipped_count ? `, skipped ${result.skipped_count}` : ""}.
+            {result.skipped_count
+              ? `, skipped ${result.skipped_count}`
+              : ""}
+            .
           </div>
           {result.skipped_count > 0 && (
             <ul className="text-sm text-muted mt-sm">
               {result.skipped.map((s, i) => (
-                <li key={i}>{s.reference || "—"}: {s.reason}</li>
+                <li key={i}>
+                  {s.reference || "—"}: {s.reason}
+                </li>
               ))}
             </ul>
           )}
@@ -236,17 +280,25 @@ export default function BatchPayments() {
           <div className="text-sm text-muted mb-sm">
             {Object.entries(preview.summary).map(([k, v]) => (
               <span key={k} className="mr-md">
-                {STATUS_LABEL[k] || k}: <span className="text-bold">{v}</span>
+                {STATUS_LABEL[k] || k}:{" "}
+                <span className="text-bold">{v}</span>
               </span>
             ))}
           </div>
 
+          {/* Desktop table */}
           <div className="batch-table-wrap hidden-mobile">
             <table className="staff-table">
               <thead>
                 <tr>
-                  <th></th><th>Status</th><th>Date</th><th>Amount</th>
-                  <th>Phone</th><th>Reference</th><th>Tenant</th><th>Lease</th>
+                  <th></th>
+                  <th>Status</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Phone</th>
+                  <th>Reference</th>
+                  <th>Tenant</th>
+                  <th>Lease</th>
                 </tr>
               </thead>
               <tbody>
@@ -255,7 +307,11 @@ export default function BatchPayments() {
                   return (
                     <tr key={r.row}>
                       <td>{renderCheckbox(r, canCommit)}</td>
-                      <td><span className="role-badge">{STATUS_LABEL[r.status] || r.status}</span></td>
+                      <td>
+                        <span className="role-badge">
+                          {STATUS_LABEL[r.status] || r.status}
+                        </span>
+                      </td>
                       <td>{r.date || "—"}</td>
                       <td>{r.amount != null ? money(r.amount) : "—"}</td>
                       <td>{r.phone || "—"}</td>
@@ -269,6 +325,7 @@ export default function BatchPayments() {
             </table>
           </div>
 
+          {/* Mobile cards */}
           <div className="hidden-desktop batch-cards">
             {preview.rows.map((r) => {
               const canCommit = committable(r);
@@ -277,18 +334,40 @@ export default function BatchPayments() {
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-sm">
                       {renderCheckbox(r, canCommit)}
-                      <span className="role-badge">{STATUS_LABEL[r.status] || r.status}</span>
+                      <span className="role-badge">
+                        {STATUS_LABEL[r.status] || r.status}
+                      </span>
                     </label>
-                    <span className="text-bold">{r.amount != null ? money(r.amount) : "—"}</span>
+                    <span className="text-bold">
+                      {r.amount != null ? money(r.amount) : "—"}
+                    </span>
                   </div>
+
                   <div className="text-sm">
-                    <div><span className="text-muted">Tenant: </span>{r.tenant_name || "—"}</div>
-                    <div><span className="text-muted">Date: </span>{r.date || "—"}</div>
-                    <div><span className="text-muted">Phone: </span>{r.phone || "—"}</div>
-                    <div><span className="text-muted">Reference: </span>{r.reference || "—"}</div>
+                    <div>
+                      <span className="text-muted">Tenant: </span>
+                      {r.tenant_name || "—"}
+                    </div>
+                    <div>
+                      <span className="text-muted">Date: </span>
+                      {r.date || "—"}
+                    </div>
+                    <div>
+                      <span className="text-muted">Phone: </span>
+                      {r.phone || "—"}
+                    </div>
+                    <div>
+                      <span className="text-muted">Reference: </span>
+                      {r.reference || "—"}
+                    </div>
                   </div>
-                  {r.status === "matched" && (<div className="text-sm text-muted">Lease matched ✓</div>)}
-                  {r.status === "multiple_leases" && (<div>{renderLeaseControl(r)}</div>)}
+
+                  {r.status === "matched" && (
+                    <div className="text-sm text-muted">Lease matched ✓</div>
+                  )}
+                  {r.status === "multiple_leases" && (
+                    <div>{renderLeaseControl(r)}</div>
+                  )}
                 </div>
               );
             })}
@@ -308,7 +387,9 @@ export default function BatchPayments() {
               onClick={runCommit}
               disabled={committing || toRecord.length === 0}
             >
-              {committing ? "Recording…" : `Record ${toRecord.length} selected`}
+              {committing
+                ? "Recording…"
+                : `Record ${toRecord.length} selected`}
             </button>
 
             {savableRows.length > 0 && (
@@ -318,7 +399,9 @@ export default function BatchPayments() {
                 disabled={savingForReview}
                 title="Move unresolved rows into the reconciliation queue for later"
               >
-                {savingForReview ? "Saving…" : `Save ${savableRows.length} for review`}
+                {savingForReview
+                  ? "Saving…"
+                  : `Save ${savableRows.length} for review`}
               </button>
             )}
           </div>

@@ -5,7 +5,7 @@ CSV batch payment ingestion — parsing + matching (Sprint 4.5 spinoff).
 This module is the read-only half: parse a bank / M-Pesa statement CSV and
 match each row to a tenant + active lease, producing a review report. It writes
 NOTHING to the database — committing matched rows into payments is a separate
-step (payment_batch_service.commit_batch / the /commit route) so the user can
+step (payment_batch service.commit_batch / the /commit route) so the user can
 review and fix flagged rows before any money is recorded.
 
 Expected statement format (headers: Date, Transaction, Currency, Deposit):
@@ -16,6 +16,11 @@ Matching strategy:
     compared on the last 9 local digits so 0724…/254724…/+254724… all match.
   - The M-Pesa code (the token after the ACC number) is the transaction
     reference, stored on the payment and used for duplicate detection.
+
+Sprint 7 cleanup: tenant lookup now runs BEFORE the duplicate check so
+duplicates still surface the tenant name — previously the early `continue`
+on duplicate rows meant a row we KNEW belonged to a specific tenant showed
+their column as blank, which made the review UI look broken.
 """
 import csv
 import io
@@ -115,6 +120,9 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
       unmatched       -> no tenant for that phone (needs review)
       duplicate       -> M-Pesa reference already recorded (skip)
       parse_error     -> couldn't read amount/phone from the row
+
+    Sprint 7 cleanup: tenant lookup runs first so duplicates and other
+    non-terminal statuses still surface the tenant name.
     """
     tenants = db.query(Tenant).filter(Tenant.organization_id == org_id).all()
     by_phone = {}
@@ -144,6 +152,18 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
             results.append(item)
             continue
 
+        # ─── Sprint 7 cleanup: tenant lookup FIRST ───
+        # Populate tenant on the item BEFORE any early-return on duplicate,
+        # so duplicates still show who the CSV belongs to. If phone doesn't
+        # match anyone in the org, tenant stays None and status will fall
+        # through to 'unmatched' below.
+        tenant = by_phone.get(_norm_phone(p["phone"]))
+        if tenant:
+            item["tenant_id"] = tenant.id
+            item["tenant_name"] = tenant.full_name
+
+        # Duplicate reference check — takes precedence over unmatched /
+        # multi-lease / etc. since a payment already exists.
         if p["reference"]:
             already = (
                 db.query(Payment.id)
@@ -158,15 +178,13 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
                 results.append(item)
                 continue
 
-        tenant = by_phone.get(_norm_phone(p["phone"]))
+        # No tenant matched → nothing else to say.
         if not tenant:
             item["status"] = "unmatched"
             results.append(item)
             continue
 
-        item["tenant_id"] = tenant.id
-        item["tenant_name"] = tenant.full_name
-
+        # Tenant matched, no duplicate — decide on lease.
         active_leases = (
             db.query(Lease)
             .filter(
@@ -204,3 +222,38 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
         "summary": summary,
         "rows": results,
     }
+
+
+# ─── Sprint 7 cleanup: downloadable template ─────────────────────────────
+
+def get_batch_payment_template_csv() -> str:
+    """Return the M-Pesa statement CSV template as a string.
+
+    Mirrors the exact format the parser expects — Date, Transaction, Currency,
+    Deposit columns; Transaction contains the ACC/reference/TIMESTAMP payload
+    with the payer phone. The sample rows are illustrative so a user opening
+    the file in Excel sees what a real row looks like; delete them before
+    uploading a real statement.
+    """
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["Date", "Transaction", "Currency", "Deposit"])
+    writer.writerow([
+        "29/04/2026",
+        "MPESA TO ACC 0100316372900 UDTQS2OHFR TIMESTAMP: 254724735509 TO 0100316372900",
+        "KES",
+        "26,000.00",
+    ])
+    writer.writerow([
+        "30/04/2026",
+        "MPESA TO ACC 0100316372900 UDTQS2OHG1 TIMESTAMP: 254711223344 TO 0100316372900",
+        "KES",
+        "15,500.00",
+    ])
+    writer.writerow([
+        "01/05/2026",
+        "MPESA TO ACC 0100316372900 UDTQS2OHG5 TIMESTAMP: 254799887766 TO 0100316372900",
+        "KES",
+        "32,000.00",
+    ])
+    return out.getvalue()
