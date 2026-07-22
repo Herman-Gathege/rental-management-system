@@ -33,21 +33,19 @@ from app.services.billing_service import recompute_lease_settlement
 
 
 VALID_FLAG_REASONS = {
-    "unmatched",         # no tenant matched the payer phone
-    "multiple_leases",   # tenant matched but has multiple active leases
-    "no_active_lease",   # tenant matched but has no active lease
-    "duplicate",         # reference matches an existing recorded payment
-    "parse_error",       # couldn't read amount / phone from the source row
-    "amount_mismatch",   # amount doesn't match any expected rent (future)
-    "manual_flag",       # human decided to hold this for review
+    "unmatched",
+    "multiple_leases",
+    "no_active_lease",
+    "duplicate",
+    "parse_error",
+    "amount_mismatch",
+    "manual_flag",
 }
 
 VALID_STATUSES = {"pending_review", "applied", "rejected"}
 
 
 def to_dict(item: PaymentReviewItem) -> dict:
-    """Serialise for API responses. Includes tenant name when we have one so
-    the review UI has enough context to act without a second lookup."""
     return {
         "id": item.id,
         "organization_id": item.organization_id,
@@ -78,40 +76,83 @@ def save_review_items(
     organization_id: str,
     user_id: str,
     items: List[dict],
-) -> List[PaymentReviewItem]:
-    """Bulk-save flagged items. Called from the batch upload flow when the
-    user clicks 'Save unresolved for review'.
+) -> tuple[List[PaymentReviewItem], List[dict]]:
+    """Bulk-save flagged items. Returns (saved, skipped) so the caller can
+    tell the user WHY nothing was saved when dedup catches everything —
+    otherwise "Saved 0" looks like a bug.
 
-    Skips items whose reference already exists in a pending review row —
-    saving the same CSV twice shouldn't clone the queue.
+    Skips:
+      - reference already exists in a pending review row (already queued)
+      - reference matches an already-recorded payment (already resolved)
+      - amount missing / non-positive (backend requires it)
     """
     saved: list[PaymentReviewItem] = []
+    skipped: list[dict] = []
 
     # Existing pending references — used to skip duplicates from repeated
     # 'save' clicks on the same CSV.
-    existing_refs: set[str] = set()
-    if any(i.get("reference") for i in items):
-        rows = (
-            db.query(PaymentReviewItem.reference)
-            .filter(
-                PaymentReviewItem.organization_id == organization_id,
-                PaymentReviewItem.status == "pending_review",
-                PaymentReviewItem.reference.isnot(None),
-            )
-            .all()
+    existing_pending_refs: set[str] = set()
+    rows = (
+        db.query(PaymentReviewItem.reference)
+        .filter(
+            PaymentReviewItem.organization_id == organization_id,
+            PaymentReviewItem.status == "pending_review",
+            PaymentReviewItem.reference.isnot(None),
         )
-        existing_refs = {r for (r,) in rows if r}
+        .all()
+    )
+    existing_pending_refs = {r for (r,) in rows if r}
+
+    # References that are already recorded as real payments — no point
+    # queueing those for review either; they're settled.
+    existing_payment_refs: set[str] = set()
+    if items:
+        candidate_refs = {i.get("reference") for i in items if i.get("reference")}
+        if candidate_refs:
+            rows = (
+                db.query(Payment.reference)
+                .filter(
+                    Payment.organization_id == organization_id,
+                    Payment.reference.in_(list(candidate_refs)),
+                )
+                .all()
+            )
+            existing_payment_refs = {r for (r,) in rows if r}
 
     for input_item in items:
         ref = input_item.get("reference")
-        if ref and ref in existing_refs:
+
+        # Amount is required — defensive check even though frontend filters.
+        try:
+            amount = float(input_item.get("amount") or 0)
+        except (TypeError, ValueError):
+            amount = 0
+        if amount <= 0:
+            skipped.append({
+                "reference": ref,
+                "reason": "invalid or missing amount",
+            })
+            continue
+
+        if ref and ref in existing_pending_refs:
+            skipped.append({
+                "reference": ref,
+                "reason": "already in review queue",
+            })
+            continue
+
+        if ref and ref in existing_payment_refs:
+            skipped.append({
+                "reference": ref,
+                "reason": "already recorded as a payment",
+            })
             continue
 
         flag_reason = input_item.get("flag_reason") or "manual_flag"
         if flag_reason not in VALID_FLAG_REASONS:
             flag_reason = "manual_flag"
 
-        # Parse date if it came in as an ISO string (frontend usually sends str).
+        # Parse date if it came in as an ISO string.
         pd = input_item.get("payment_date")
         if isinstance(pd, str):
             try:
@@ -122,7 +163,7 @@ def save_review_items(
         item = PaymentReviewItem(
             id=str(uuid.uuid4()),
             organization_id=organization_id,
-            amount=input_item["amount"],
+            amount=amount,
             payment_date=pd,
             reference=ref,
             payer_phone=input_item.get("payer_phone"),
@@ -138,7 +179,7 @@ def save_review_items(
         db.add(item)
         db.flush()
         if ref:
-            existing_refs.add(ref)
+            existing_pending_refs.add(ref)
         saved.append(item)
 
     log_action(
@@ -148,12 +189,15 @@ def save_review_items(
         action="save_for_review",
         entity_type="payment_review",
         entity_id=str(uuid.uuid4()),
-        description=f"Saved {len(saved)} payment(s) for later review",
-        new_values={"count": len(saved)},
+        description=(
+            f"Saved {len(saved)} payment(s) for later review "
+            f"(skipped {len(skipped)})"
+        ),
+        new_values={"saved": len(saved), "skipped": len(skipped)},
     )
 
     db.commit()
-    return saved
+    return saved, skipped
 
 
 # ─── List / Get ──────────────────────────────────────────────────────────
@@ -163,8 +207,6 @@ def list_review_items(
     organization_id: str,
     status: Optional[str] = None,
 ) -> List[PaymentReviewItem]:
-    """List review items. Default filters to `pending_review`. Pass
-    status='all' to see everything (useful for audit / history view)."""
     q = db.query(PaymentReviewItem).filter(
         PaymentReviewItem.organization_id == organization_id
     )
@@ -177,7 +219,6 @@ def list_review_items(
             )
         q = q.filter(PaymentReviewItem.status == status)
     elif not status:
-        # Default view = pending only.
         q = q.filter(PaymentReviewItem.status == "pending_review")
 
     return q.order_by(PaymentReviewItem.created_at.desc()).all()
@@ -217,14 +258,6 @@ def apply_review_item(
     payment_type: str = "rent",
     notes: Optional[str] = None,
 ) -> tuple[PaymentReviewItem, Payment]:
-    """Apply → create a real Payment, mark the item applied.
-
-    Accepts finalized values from the caller rather than trusting the
-    item's stored values — the reviewer may have corrected the
-    tenant/lease/amount before applying (that's the whole point of the
-    review flow). We validate the finalized tenant + lease belong to
-    the calling org.
-    """
     item = get_review_item(db, organization_id, item_id)
     if item.status != "pending_review":
         raise HTTPException(
@@ -262,7 +295,6 @@ def apply_review_item(
             detail="payment_type must be 'rent' or 'deposit'",
         )
 
-    # Duplicate reference guard — same rule as manual + batch payments.
     if reference:
         dup = (
             db.query(Payment.id)
@@ -278,7 +310,6 @@ def apply_review_item(
                 detail=f"A payment with reference '{reference}' already exists",
             )
 
-    # Create the payment.
     payment = Payment(
         id=str(uuid.uuid4()),
         organization_id=organization_id,
@@ -293,10 +324,8 @@ def apply_review_item(
     db.add(payment)
     db.flush()
 
-    # Re-settle the lease against its charges.
     recompute_lease_settlement(db, lease_id)
 
-    # Mark the review item as applied.
     item.status = "applied"
     item.resolved_at = datetime.utcnow()
     item.resolved_by_user_id = user_id
@@ -304,8 +333,6 @@ def apply_review_item(
     if notes:
         item.notes = notes
 
-    # Two audit entries: one for the payment creation (matches the audit
-    # trail for manual and batch payments), one for the review resolution.
     log_action(
         db=db,
         organization_id=organization_id,
@@ -359,9 +386,6 @@ def reject_review_item(
     item_id: str,
     reason: Optional[str] = None,
 ) -> PaymentReviewItem:
-    """Reject → mark rejected with the reviewer's reason. No Payment is
-    created. Item stays in the table (visible via the rejected filter)
-    so the decision is auditable."""
     item = get_review_item(db, organization_id, item_id)
     if item.status != "pending_review":
         raise HTTPException(
@@ -401,9 +425,6 @@ def delete_review_item(
     user_id: str,
     item_id: str,
 ) -> None:
-    """Hard-delete a review item. Blocked for applied items — they're
-    linked to a real Payment and the audit trail relies on them.
-    Rejected and pending items can be cleaned up."""
     item = get_review_item(db, organization_id, item_id)
     if item.status == "applied":
         raise HTTPException(

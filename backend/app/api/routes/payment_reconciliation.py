@@ -10,6 +10,11 @@ Landlord + Finance only (money handling).
   POST   /payments/reconciliation/{item_id}/apply    → create Payment, mark applied
   POST   /payments/reconciliation/{item_id}/reject   → mark rejected
   DELETE /payments/reconciliation/{item_id}          → hard delete (not applied)
+
+NOTE on route ordering: main.py includes this router BEFORE payments_router
+because `payments_router` has a greedy `GET /{payment_id}` handler that would
+otherwise swallow `GET /payments/reconciliation` and return "Payment not
+found".
 """
 from datetime import date
 from typing import List, Optional
@@ -60,7 +65,7 @@ class ApplyReviewItemPayload(BaseModel):
     payment_method: str = "mpesa"
     payment_type: str = "rent"
     notes: Optional[str] = None
-    notify: bool = False   # send WhatsApp receipt after apply
+    notify: bool = False
 
 
 class RejectReviewItemPayload(BaseModel):
@@ -73,8 +78,7 @@ def require_money_role(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Reconciliation is money handling — Landlord + Finance only.
-    (PM and Tenant have no reason to see or modify the review queue.)"""
+    """Landlord + Finance only."""
     membership = (
         db.query(OrganizationMember)
         .filter(OrganizationMember.user_id == user.id)
@@ -97,12 +101,17 @@ def save_items(
 ):
     user, membership, db = deps
     items_data = [i.dict() for i in payload.items]
-    saved = rec.save_review_items(
+    saved, skipped = rec.save_review_items(
         db, membership.organization_id, user.id, items_data
     )
+    # Sprint 7 cleanup: return the skipped list too so the UI can explain
+    # why 0 items were saved (already in queue, already recorded, etc.)
+    # instead of leaving the user guessing.
     return {
         "saved_count": len(saved),
-        "items": [rec.to_dict(i) for i in saved],
+        "saved_items": [rec.to_dict(i) for i in saved],
+        "skipped_count": len(skipped),
+        "skipped": skipped,
     }
 
 
@@ -154,8 +163,6 @@ def apply_item(
         notes=payload.notes,
     )
 
-    # Fire-and-forget WhatsApp receipt if requested, same pattern as
-    # the manual /payments/ endpoint.
     if payload.notify:
         background_tasks.add_task(notify_payment_received, payment.id)
 

@@ -120,9 +120,6 @@ from app.api.routes import payment_reconciliation
 app = FastAPI(title="Rental Management API")
 
 # ─── Rate limiter wiring (Sprint 7 MVP-1) ───
-# The limiter itself lives in app.core.rate_limit; we register it on app.state
-# so slowapi's decorators can find it, add a friendly JSON handler for 429s,
-# and install the middleware that actually intercepts requests.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
@@ -146,8 +143,23 @@ app.include_router(units_router)
 app.include_router(tenants_router)
 app.include_router(leases_router)
 app.include_router(charges_router)
-app.include_router(payments_router)
-app.include_router(payment_batch.router)
+
+# ─── Payment routers ─────────────────────────────────────────────────────
+#
+# ORDER MATTERS. `payments_router` declares `GET /payments/{payment_id}`, a
+# greedy two-segment route that will happily match /payments/reconciliation,
+# /payments/batch, or any other sub-router's bare list endpoint — the
+# `{payment_id}` slot swallows it and the handler returns "Payment not found".
+#
+# FastAPI resolves routes in the order they're registered, so payment
+# sub-routers with more specific prefixes MUST be included BEFORE the
+# generic payments_router. Add any future payment sub-router (bank
+# reconciliation, refunds, etc.) above the `payments_router` line too.
+
+app.include_router(payment_batch.router)             # /payments/batch/*
+app.include_router(payment_reconciliation.router)    # /payments/reconciliation/*
+app.include_router(payments_router)                  # /payments and /payments/{payment_id}
+
 app.include_router(dashboard_router)
 app.include_router(finance_router)
 app.include_router(audit_router)
@@ -168,9 +180,6 @@ app.include_router(ticket_metrics_router)
 
 # Sprint 7 cleanup Batch 2 — Bulk uploads
 app.include_router(bulk_uploads.router)
-
-# Sprint 7 cleanup Batch 3 — Payment reconciliation queue
-app.include_router(payment_reconciliation.router)
 
 
 # ─── Health endpoints ───

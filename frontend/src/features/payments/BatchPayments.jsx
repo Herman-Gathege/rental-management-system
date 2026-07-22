@@ -1,16 +1,14 @@
 //frontend/src/features/payments/BatchPayments.jsx
 //
 // Batch payment upload + review (Sprint 4.5 spinoff).
-// Upload a bank/M-Pesa statement CSV -> preview (matched/flagged, no writes) ->
-// pick leases for multi-lease rows, tick which to record -> commit. Re-previews
-// after commit so newly-recorded rows show as duplicates.
 //
 // Sprint 7 cleanup:
 //   - "Save X for review" button (Batch 3) — push unresolved rows into the
-//     reconciliation queue so they survive across browser sessions.
-//   - "Download Template" button — matches the pattern from bulk uploads,
-//     downloads a CSV showing the exact column order + Transaction format
-//     the parser expects.
+//     reconciliation queue.
+//   - "Download Template" button — matches the pattern from bulk uploads.
+//   - Save response now surfaces WHY items were skipped ("already in
+//     review queue", "already recorded as a payment", etc.) so
+//     "Saved 0" doesn't look like a bug when it's really dedup working.
 
 import { useState } from "react";
 import {
@@ -33,10 +31,6 @@ const STATUS_LABEL = {
   parse_error: "Couldn't read",
 };
 
-// Which statuses can be pushed into the review queue for later resolution.
-// - matched: don't save; commit directly.
-// - duplicate: already recorded, no work to do.
-// - parse_error: has no amount (backend requires it) — user must fix the CSV.
 const SAVABLE_STATUSES = new Set([
   "unmatched",
   "multiple_leases",
@@ -129,7 +123,6 @@ export default function BatchPayments() {
       }));
       const res = await commitBatch(payments, notify);
       setResult(res);
-      // Re-preview so just-recorded rows now read as duplicates.
       const data = await previewBatch(file);
       applyPreview(data);
     } catch (err) {
@@ -139,8 +132,6 @@ export default function BatchPayments() {
     }
   };
 
-  // Sprint 7 cleanup: push unresolved rows into the reconciliation queue.
-  // Backend dedupes on reference so clicking twice on the same CSV is safe.
   const runSaveForReview = async () => {
     if (savableRows.length === 0) return;
     setSavingForReview(true);
@@ -153,7 +144,7 @@ export default function BatchPayments() {
         payer_phone: r.phone,
         payer_name: null,
         raw_transaction: r.raw,
-        tenant_id: r.tenant_id,       // populated even for duplicates now
+        tenant_id: r.tenant_id,
         lease_id: null,
         flag_reason: r.status,
         notes: null,
@@ -167,7 +158,6 @@ export default function BatchPayments() {
     }
   };
 
-  // Shared row controls so the table and the mobile cards stay in sync.
   const renderCheckbox = (r, canCommit) => (
     <input
       type="checkbox"
@@ -262,12 +252,40 @@ export default function BatchPayments() {
       {saveResult && (
         <div className="dash-panel mb-md">
           <div className="text-bold">
-            Saved {saveResult.saved_count} item(s) to the review queue.
+            Saved {saveResult.saved_count} to review queue
+            {saveResult.skipped_count
+              ? `, skipped ${saveResult.skipped_count}`
+              : ""}
+            .
           </div>
-          <p className="text-sm text-muted mt-sm">
-            Head to <strong>Payment Review</strong> in the sidebar to resolve
-            them — pick tenant/lease, apply, or reject.
-          </p>
+
+          {saveResult.saved_count > 0 && (
+            <p className="text-sm text-muted mt-sm">
+              Head to <strong>Payment Review</strong> in the sidebar to resolve
+              them — pick tenant/lease, apply, or reject.
+            </p>
+          )}
+
+          {saveResult.skipped_count > 0 && (
+            <>
+              <p className="text-sm text-muted mt-sm">
+                Skipped rows (already handled or not saveable):
+              </p>
+              <ul className="text-sm text-muted">
+                {saveResult.skipped.map((s, i) => (
+                  <li key={i}>
+                    <strong>{s.reference || "—"}</strong>: {s.reason}
+                  </li>
+                ))}
+              </ul>
+              {saveResult.saved_count === 0 && (
+                <p className="text-sm text-muted mt-sm">
+                  If the rows are already in the queue, open{" "}
+                  <strong>Payment Review</strong> to resolve them there.
+                </p>
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -286,7 +304,6 @@ export default function BatchPayments() {
             ))}
           </div>
 
-          {/* Desktop table */}
           <div className="batch-table-wrap hidden-mobile">
             <table className="staff-table">
               <thead>
@@ -325,7 +342,6 @@ export default function BatchPayments() {
             </table>
           </div>
 
-          {/* Mobile cards */}
           <div className="hidden-desktop batch-cards">
             {preview.rows.map((r) => {
               const canCommit = committable(r);
