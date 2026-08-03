@@ -1,67 +1,104 @@
 services:
-
   postgres:
     image: postgres:15
     container_name: rental_postgres
     restart: always
-    environment:
-      POSTGRES_USER: rental_user
-      POSTGRES_PASSWORD: rental_pass
-      POSTGRES_DB: rental_db
-    ports:
-      - "5433:5432"
+    env_file:
+      - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: rental_pgadmin
     restart: always
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+    env_file:
+      - .env
     ports:
       - "5050:80"
+    depends_on:
+      - postgres
 
   redis:
     image: redis:7
     container_name: rental_redis
-    ports:
-      - "6380:6379"
+    restart: always
 
   backend:
     build: ./backend
     container_name: rental_backend
     restart: always
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     env_file:
-      - ./backend/.env
-    ports:
-      - "8000:8000"
+      - .env
     command: >
-        sh -c "
-          echo 'Waiting for Postgres...' &&
-          until pg_isready -h rental_postgres -p 5432 -U rental_user; do
-            sleep 2;
-          done &&
-          echo 'Postgres is ready!' &&
-          alembic upgrade head &&
-          python -m app.db.seed_roles &&
-          uvicorn app.main:app --host 0.0.0.0 --port 8000
-        "
+      sh -c "
+        echo 'Waiting for Postgres...' &&
+        until pg_isready -h rental_postgres -p 5432 -U $POSTGRES_USER -d $POSTGRES_DB; do
+          sleep 2;
+        done &&
+        echo 'Postgres is ready!' &&
+        alembic upgrade head &&
+        python -m app.db.seed_roles &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
+      "
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
-  
+
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL}
     container_name: rental_frontend
-    ports:
-      - "5173:80"
+    restart: always
     depends_on:
       - backend
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: rental_caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - CADDY_EMAIL=${CADDY_EMAIL}
+    depends_on:
+      - backend
+      - frontend
+
+  backup:
+    image: postgres:15
+    container_name: rental_backup
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./scripts/pg-backup.sh:/backup.sh
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

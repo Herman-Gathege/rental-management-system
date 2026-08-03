@@ -1,0 +1,54 @@
+{
+	email {env.CADDY_EMAIL}
+}
+
+api.rentalapp.com {
+	reverse_proxy backend:8000
+	encode gzip
+
+	header {
+		# Prevent MIME type sniffing
+		X-Content-Type-Options "nosniff"
+		# Clickjacking protection
+		X-Frame-Options "DENY"
+		# XSS filter
+		X-XSS-Protection "1; mode=block"
+		# HSTS - force HTTPS for 1 year
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		# Referrer policy
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Restrict browser features
+		Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+		# Remove server info
+		-Server
+	}
+
+	# Limit request body size to mitigate large payload attacks
+	request_body {
+		max_size 10MB
+	}
+
+	# Rate limiting (optional - adjust as needed)
+	# rate_limit {
+	#   zone api {
+	#     key {remote_host}
+	#     limit 100
+	#     window 1m
+	#   }
+	# }
+}
+
+rentalapp.com {
+	reverse_proxy frontend:80
+	encode gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		X-XSS-Protection "1; mode=block"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=()"
+		-Server
+	}
+}
