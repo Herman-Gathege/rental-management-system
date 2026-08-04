@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:15
     container_name: rental_postgres
-    restart: always
+    restart: unless-stopped
     env_file:
       - .env
     volumes:
@@ -12,48 +12,69 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - rental_network
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: rental_pgadmin
-    restart: always
+    restart: unless-stopped
     env_file:
       - .env
     ports:
       - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
     depends_on:
       - postgres
+    networks:
+      - rental_network
 
   redis:
-    image: redis:7
+    image: redis:7-alpine
     container_name: rental_redis
-    restart: always
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - rental_network
 
   backend:
     build: ./backend
     container_name: rental_backend
-    restart: always
+    restart: unless-stopped
+    env_file:
+      - .env
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
-    env_file:
-      - .env
+        condition: service_healthy
     command: >
       sh -c "
         echo 'Waiting for Postgres...' &&
-        until pg_isready -h rental_postgres -p 5432 -U $POSTGRES_USER -d $POSTGRES_DB; do
+        until pg_isready -h postgres -U $POSTGRES_USER -d $POSTGRES_DB; do
           sleep 2;
         done &&
         echo 'Postgres is ready!' &&
         alembic upgrade head &&
         python -m app.db.seed_roles &&
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
+        uvicorn app.main:app
+          --host 0.0.0.0
+          --port 8000
+          --proxy-headers
       "
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
+    networks:
+      - rental_network
 
   frontend:
     build:
@@ -61,44 +82,56 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL}
     container_name: rental_frontend
-    restart: always
+    restart: unless-stopped
     depends_on:
       - backend
+    networks:
+      - rental_network
 
   caddy:
     image: caddy:2-alpine
     container_name: rental_caddy
-    restart: always
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      CADDY_EMAIL: ${CADDY_EMAIL}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-    environment:
-      - CADDY_EMAIL=${CADDY_EMAIL}
     depends_on:
       - backend
       - frontend
+    networks:
+      - rental_network
 
   backup:
     image: postgres:15
     container_name: rental_backup
-    restart: always
+    restart: unless-stopped
     env_file:
       - .env
     environment:
-      - PGPASSWORD=${POSTGRES_PASSWORD}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - ./scripts/pg-backup.sh:/backup.sh
+      - ./scripts/pg-backup.sh:/backup.sh:ro
       - ./backups:/backups
     entrypoint: ["/bin/sh", "/backup.sh"]
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - rental_network
 
 volumes:
   postgres_data:
+  redis_data:
+  pgadmin_data:
   caddy_data:
   caddy_config:
+
+networks:
+  rental_network:
+    driver: bridge

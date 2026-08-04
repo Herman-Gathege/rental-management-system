@@ -2,7 +2,7 @@
 	email {env.CADDY_EMAIL}
 }
 
-api.rentalapp.com {
+api.alphaone.africa {
 	reverse_proxy backend:8000
 	encode gzip
 
@@ -38,7 +38,7 @@ api.rentalapp.com {
 	# }
 }
 
-rentalapp.com {
+alphaone.africa {
 	reverse_proxy frontend:80
 	encode gzip
 

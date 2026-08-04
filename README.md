@@ -109,6 +109,9 @@ go back to root dir
 change postgres url back
 docker compose up --build
 sudo systemctl start docker
+
+ssh webloom@165.245.251.183
+cd /opt/webloom/rental-management-system
 ```
 
 ### 🔑 Default Architecture Ports
