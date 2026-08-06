@@ -127,9 +127,9 @@ def root():
     return {"message": "API running"}
 
 
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
+@app.get("/health", tags=["Health"])
+def health():
+    return {"status": "healthy"}
 
 
 # ─── Startup seeds ───

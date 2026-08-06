@@ -113,6 +113,9 @@ docker compose up --build --force-recreate
 
 ssh webloom@165.245.251.183
 cd /opt/webloom/rental-management-system
+
+git pull
+docker compose up -d --build
 ```
 
 ### 🔑 Default Architecture Ports

@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15
+    image: postgres:15.13
     container_name: rental_postgres
     restart: unless-stopped
     env_file:
@@ -8,17 +8,24 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - rental_network
 
   pgadmin:
-    image: dpage/pgadmin4
+    image: dpage/pgadmin4:9
     container_name: rental_pgadmin
     restart: unless-stopped
+    profiles:
+      - dev
     env_file:
       - .env
     ports:
@@ -26,40 +33,75 @@ services:
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - rental_network
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4-alpine
     container_name: rental_redis
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - rental_network
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
     container_name: rental_backend
     restart: unless-stopped
     env_file:
       - .env
+
+    expose:
+      - "8000"
+
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-   
+
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
     networks:
       - rental_network
 
@@ -68,47 +110,91 @@ services:
       context: ./frontend
       args:
         VITE_API_URL: ${VITE_API_URL}
+
     container_name: rental_frontend
     restart: unless-stopped
+
+    expose:
+      - "80"
+
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
     networks:
       - rental_network
 
   caddy:
-    image: caddy:2-alpine
+    image: caddy:2.10-alpine
     container_name: rental_caddy
     restart: unless-stopped
+
     ports:
       - "80:80"
       - "443:443"
+
     environment:
       CADDY_EMAIL: ${CADDY_EMAIL}
+
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
     networks:
       - rental_network
 
   backup:
-    image: postgres:15
+    image: postgres:15.13
     container_name: rental_backup
-    restart: unless-stopped
+    restart: on-failure
+
     env_file:
       - .env
+
     environment:
       PGPASSWORD: ${POSTGRES_PASSWORD}
+
     volumes:
       - ./scripts/pg-backup.sh:/backup.sh:ro
       - ./backups:/backups
+
     entrypoint: ["/bin/sh", "/backup.sh"]
+
     depends_on:
       postgres:
         condition: service_healthy
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
     networks:
       - rental_network
 
