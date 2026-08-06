@@ -56,20 +56,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: >
-      sh -c "
-        echo 'Waiting for Postgres...' &&
-        until pg_isready -h postgres -U $POSTGRES_USER -d $POSTGRES_DB; do
-          sleep 2;
-        done &&
-        echo 'Postgres is ready!' &&
-        alembic upgrade head &&
-        python -m app.db.seed_roles &&
-        uvicorn app.main:app
-          --host 0.0.0.0
-          --port 8000
-          --proxy-headers
-      "
+   
     volumes:
       - ./backend:/app
       - ./backend/uploads:/app/uploads
