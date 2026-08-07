@@ -94,7 +94,7 @@ def _first_org_id(db: Session, user_id: str) -> Optional[str]:
 
 
 @router.post("/register")
-@limiter.limit("5/hour")
+# @limiter.limit("5/hour")
 def register(request: Request, user: UserRegister, db: Session = Depends(get_db)):
 
     try:
@@ -197,7 +197,7 @@ def register(request: Request, user: UserRegister, db: Session = Depends(get_db)
 
 
 @router.post("/login")
-@limiter.limit("10/minute")
+# @limiter.limit("10/minute")
 def login(
     request: Request,
     user: UserLogin,
@@ -352,7 +352,7 @@ def login(
 # ─── Phone verification (Sprint 6.2 #6) ───
 
 @router.post("/verify-otp")
-@limiter.limit("20/hour", key_func=get_user_id_or_ip)
+# @limiter.limit("20/hour", key_func=get_user_id_or_ip)
 def verify_otp(
     request: Request,
     payload: OtpVerifyRequest,
@@ -369,7 +369,7 @@ def verify_otp(
 
 
 @router.post("/resend-otp")
-@limiter.limit("5/hour", key_func=get_user_id_or_ip)
+# @limiter.limit("5/hour", key_func=get_user_id_or_ip)
 def resend_otp(
     request: Request,
     payload: OtpResendRequest,
@@ -502,7 +502,7 @@ def refresh_token(token: str, db: Session = Depends(get_db)):
 
 
 @router.post("/forgot-password")
-@limiter.limit("5/hour")
+# @limiter.limit("5/hour")
 def forgot_password(request: Request, email: str, db: Session = Depends(get_db)):
 
     user = db.query(User).filter(User.email == email).first()

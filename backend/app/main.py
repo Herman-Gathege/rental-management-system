@@ -55,9 +55,9 @@ from app.api.routes import payment_reconciliation
 app = FastAPI(title="Rental Management API")
 
 # ─── Rate limiter wiring (Sprint 7 MVP-1) ───
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
-app.add_middleware(SlowAPIMiddleware)
+# app.state.limiter = limiter
+# app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+# app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
