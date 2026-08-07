@@ -111,11 +111,16 @@ docker compose up --build
 sudo systemctl start docker
 docker compose up --build --force-recreate
 
+```bash server commands below:
+
 ssh webloom@165.245.251.183
 cd /opt/webloom/rental-management-system
 
 git pull
 docker compose up -d --build
+
+nano .env
+docker compose exec postgres psql -U rental_user -d rental_db
 ```
 
 ### 🔑 Default Architecture Ports
