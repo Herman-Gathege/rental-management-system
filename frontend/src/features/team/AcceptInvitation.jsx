@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 
 import { acceptInvitation } from "../../api/organizations";
+import SEO from "../../components/SEO";
 
 export default function AcceptInvitation() {
   const { token } = useParams();
@@ -55,7 +56,14 @@ export default function AcceptInvitation() {
   };
 
   return (
-    <div className="auth-page">
+    <>
+      <SEO
+        title="Accept Invitation — AlphaOne Rental Property Management"
+        description="Accept your invitation to join an AlphaOne organization. Manage rental properties, tenants, and operations across Kenya and East Africa."
+        canonical="https://alphaone.africa/accept-invite"
+        noindex
+      />
+      <div className="auth-page">
       <div className="auth-card card text-center form-stack">
         {loading ? (
           <>
@@ -122,5 +130,6 @@ export default function AcceptInvitation() {
         )}
       </div>
     </div>
+    </>
   );
 }

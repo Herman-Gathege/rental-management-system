@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+Disallow: /dashboard
+Disallow: /owner/
+Disallow: /manager/
+Disallow: /finance/
+Disallow: /tenant/
+Disallow: /super-admin/
+
+Sitemap: https://alphaone.africa/sitemap.xml

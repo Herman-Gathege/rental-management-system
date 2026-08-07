@@ -16,6 +16,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../../api/client";
 import { checkPasswordStrength } from "../../utils/passwordStrength";
+import SEO from "../../components/SEO";
 
 export default function RegisterInvite() {
   const { token } = useParams();
@@ -124,9 +125,16 @@ export default function RegisterInvite() {
   const roleLabel = (invitation.role || "").replace(/_/g, " ").toLowerCase();
 
   return (
-    <div className="auth-page">
-      <form className="auth-card card form-stack" onSubmit={handleSubmit}>
-        <div className="text-center mb-md">
+    <>
+      <SEO
+        title="Join Organization — AlphaOne Rental Property Management"
+        description="Accept your invitation and join an AlphaOne organization to manage rental properties, tenants, and operations across Kenya and East Africa."
+        canonical="https://alphaone.africa/register-invite"
+        noindex
+      />
+      <div className="auth-page">
+        <form className="auth-card card form-stack" onSubmit={handleSubmit}>
+          <div className="text-center mb-md">
           <h2 className="mb-sm">Join {invitation.organization_name}</h2>
           <p className="text-muted text-sm">
             Setting up <strong>{invitation.email}</strong>
@@ -158,6 +166,7 @@ export default function RegisterInvite() {
         </button>
       </form>
     </div>
+    </>
   );
 }
 

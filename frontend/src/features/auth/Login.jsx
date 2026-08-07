@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import SEO from "../../components/SEO";
 
 export default function Login() {
   const { login } = useAuth();
@@ -23,7 +24,13 @@ export default function Login() {
   };
 
   return (
-    <div className="auth-page">
+    <>
+      <SEO
+        title="Login — AlphaOne Rental Property Management"
+        description="Sign in to your AlphaOne account to manage rental properties, track rent, and streamline tenant operations across Kenya and East Africa."
+        canonical="https://alphaone.africa/login"
+      />
+      <div className="auth-page">
       <form className="auth-card card form-stack" onSubmit={handleSubmit}>
         <h2 className="text-center">Login</h2>
 
@@ -50,5 +57,6 @@ export default function Login() {
         </button>
       </form>
     </div>
+    </>
   );
 }
