@@ -44,6 +44,12 @@
   gap: 24px;
 }
 
+.home-logo {
+  width: 140px;
+  height: auto;
+  margin-bottom: 8px;
+}
+
 .hero-badge-modern {
   display: inline-flex;
   align-items: center;

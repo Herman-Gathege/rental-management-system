@@ -4,6 +4,7 @@
 
 import { useNavigate } from "react-router-dom";
 import SEO from "../components/SEO";
+import logo from "../assets/aplha1_logo_.png";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -11,25 +12,25 @@ export default function Home() {
   const features = [
     {
       title: "Track Rent Payments",
-      desc: "Monitor paid rent, overdue balances, and monthly income from one dashboard.",
+      desc: "Monitor paid rent, overdue balances, and monthly income from one AlphaOne dashboard.",
       icon: "💰",
       color: "#2563eb",
     },
     {
       title: "Manage Tenants Easily",
-      desc: "Store tenant records, lease details, documents, and occupancy history securely.",
+      desc: "Store tenant records, lease details, documents, and occupancy history securely with AlphaOne.",
       icon: "👥",
       color: "#24a5fb",
     },
     {
       title: "Organize Properties",
-      desc: "Manage apartments, units, and multiple properties without spreadsheets.",
+      desc: "Manage apartments, units, and multiple properties without spreadsheets using AlphaOne.",
       icon: "🏢",
       color: "#16a34a",
     },
     {
       title: "Handle Operations Faster",
-      desc: "Track inspections, maintenance, and property activity in one place.",
+      desc: "Track inspections, maintenance, and property activity in one place with AlphaOne.",
       icon: "🛠️",
       color: "#ef4444",
     },
@@ -43,10 +44,10 @@ export default function Home() {
   ];
 
   const benefits = [
-    { icon: "⏱️", title: "Save Hours", desc: "Automate rent collection and reporting" },
-    { icon: "🔒", title: "Secure Data", desc: "Bank-grade encryption for your records" },
-    { icon: "⚡", title: "Lightning Fast", desc: "Real-time updates and insights" },
-    { icon: "📦", title: "All-in-One", desc: "Everything you need in one place" },
+    { icon: "⏱️", title: "Save Hours", desc: "Automate rent collection and reporting with AlphaOne" },
+    { icon: "🔒", title: "Secure Data", desc: "Bank-grade encryption for your records on AlphaOne" },
+    { icon: "⚡", title: "Lightning Fast", desc: "Real-time updates and insights with AlphaOne" },
+    { icon: "📦", title: "All-in-One", desc: "Everything you need in one place with AlphaOne" },
   ];
 
   return (
@@ -62,6 +63,8 @@ export default function Home() {
         <div className="page-container home-hero-grid-modern">
           {/* LEFT */}
           <div className="home-hero-content-modern">
+            <img src={logo} alt="AlphaOne" className="home-logo" />
+
             <div className="hero-badge-modern">
               ✨ AI-Powered Rental Management
             </div>
@@ -210,7 +213,7 @@ export default function Home() {
         <div className="page-container">
           <div className="section-header-modern text-center">
             <span className="section-tag">Features</span>
-            <h2>Everything you need to manage rental properties</h2>
+            <h2>Everything you need to manage rental properties with AlphaOne</h2>
             <p className="text-muted">
               No spreadsheets. No scattered records. No manual chaos.
             </p>
@@ -238,7 +241,7 @@ export default function Home() {
         <div className="page-container">
           <div className="section-header-modern text-center">
             <span className="section-tag">Simple Setup</span>
-            <h2>Get started in 3 easy steps</h2>
+            <h2>Get started with AlphaOne in 3 easy steps</h2>
             <p className="text-muted">Start managing your properties in minutes.</p>
           </div>
 
@@ -281,17 +284,17 @@ export default function Home() {
           <div className="trust-content">
             <div className="trust-left">
               <span className="section-tag">Trusted by landlords</span>
-              <h2>Why property managers choose us</h2>
+              <h2>Why property managers choose AlphaOne</h2>
               <p className="text-muted">
-                Join thousands of landlords who have transformed their property management workflow.
+                Join thousands of landlords who have transformed their property management workflow with AlphaOne.
               </p>
 
               <div className="trust-checklist">
                 {[
-                  "Automated rent collection",
-                  "Real-time financial insights",
-                  "Secure document storage",
-                  "24/7 customer support",
+                  "Automated rent collection with AlphaOne",
+                  "Real-time financial insights from AlphaOne",
+                  "Secure document storage on AlphaOne",
+                  "24/7 customer support from AlphaOne",
                 ].map((item, idx) => (
                   <div key={idx} className="trust-check">
                     <span style={{ color: "#2563eb", fontSize: "20px" }}>✓</span>
@@ -312,7 +315,7 @@ export default function Home() {
               <div className="testimonial-card">
                 <div className="testimonial-quote">"</div>
                 <p className="testimonial-text">
-                  This platform has completely revolutionized how we manage our properties.
+                  AlphaOne has completely revolutionized how we manage our properties.
                   The dashboard gives us real-time insights we never had before.
                 </p>
                 <div className="testimonial-author">
@@ -353,9 +356,9 @@ export default function Home() {
           <div className="cta-content">
             <div className="cta-text">
               <span className="section-tag" style={{ color: "#dbeafe" }}>Get Started</span>
-              <h2>Ready to transform your property management?</h2>
+              <h2>Ready to transform your property management with AlphaOne?</h2>
               <p className="cta-description">
-                Join thousands of landlords who are already using our platform to save time and grow their portfolio.
+                Join thousands of landlords who are already using AlphaOne to save time and grow their portfolio.
               </p>
             </div>
             <div className="cta-actions">
@@ -381,7 +384,7 @@ export default function Home() {
         <div className="page-container">
           <div className="footer-grid">
             <div>
-              <h3 className="footer-brand">Rental Property Management</h3>
+              <h3 className="footer-brand">AlphaOne</h3>
               <p className="text-muted text-sm">
                 Built for landlords and property managers who want to work smarter.
               </p>
@@ -417,7 +420,7 @@ export default function Home() {
 
           <div className="footer-bottom">
             <p className="text-sm text-muted">
-              © {new Date().getFullYear()} Rental Property Management Platform. All rights reserved.
+              © {new Date().getFullYear()} AlphaOne. All rights reserved.
             </p>
           </div>
         </div>
