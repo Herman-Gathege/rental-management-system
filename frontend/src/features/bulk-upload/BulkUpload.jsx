@@ -81,7 +81,10 @@ export default function BulkUpload() {
           description={
             "Import multiple tenants at once. Each tenant needs a full name " +
             "and phone number. Phone numbers and emails must be unique within " +
-            "your organization. Landlord phone numbers cannot be used."
+            "your organization. Landlord phone numbers cannot be used. " +
+            "Tip: if your spreadsheet strips leading zeros from phone numbers, " +
+            "prefix the phone value with a tab (press Ctrl+Tab in the cell) " +
+            "or a single quote (') to force text format."
           }
           templateFn={downloadTenantsTemplate}
           templateFilename="tenants-template.csv"
