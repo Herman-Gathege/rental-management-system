@@ -10,6 +10,8 @@ Supported entities:
   - Properties (name, address, city, country)
   - Units (property_name → property_id lookup, name, description,
     bedrooms, bathrooms, size_sqm, rent_amount)
+  - Tenants (full_name, phone, email, alternative_phone, id_number,
+    emergency_contact)
 
 Design decisions:
   - CSV only (universal, plays nicely with M-Pesa / bank exports later).
@@ -24,14 +26,18 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import uuid
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import List, Optional
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.core.encryption import blind_index
 from app.models.property import Property
+from app.models.tenant import Tenant
 from app.models.unit import Unit
 
 
@@ -367,6 +373,232 @@ def parse_and_import_units(
         )
         db.add(unit)
         seen_in_csv.add(unit_key)
+        result.imported.append(RowResult(i, identifier))
+
+    return result
+
+
+# ─── Tenants ────────────────────────────────────────────────────────────────
+
+TENANT_TEMPLATE_HEADERS = [
+    "full_name",
+    "phone",
+    "email",
+    "alternative_phone",
+    "id_number",
+    "emergency_contact",
+]
+TENANT_REQUIRED_HEADERS = {"full_name", "phone"}
+
+
+def get_tenants_template_csv() -> str:
+    """Header + example rows for the downloadable tenant template."""
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(TENANT_TEMPLATE_HEADERS)
+    writer.writerow([
+        "Alice Wanjiku", "0712345678", "alice@example.com",
+        "0722333444", "12345678", "Bob Wanjiku — +254 722 000 111",
+    ])
+    writer.writerow([
+        "James Karanja", "0733444555", "james@example.com",
+        "", "", "",
+    ])
+    return out.getvalue()
+
+
+def _normalize_phone(phone: str) -> str:
+    """Reduce a phone to its canonical subscriber form for equality comparison.
+    Mirrors the tenant route helper so bulk upload enforces the same rule."""
+    if not phone:
+        return ""
+    digits = re.sub(r"\D", "", phone)
+    if digits.startswith("254"):
+        digits = digits[3:]
+    elif digits.startswith("0"):
+        digits = digits[1:]
+    return digits
+
+
+def parse_and_import_tenants(
+    db: Session,
+    organization_id: str,
+    csv_bytes: bytes,
+) -> BulkUploadResult:
+    reader = _read_csv(csv_bytes)
+    result = BulkUploadResult()
+
+    if not reader.fieldnames:
+        result.skipped.append(
+            RowResult(1, "", "CSV is empty or has no header row")
+        )
+        return result
+
+    missing = TENANT_REQUIRED_HEADERS - set(reader.fieldnames)
+    if missing:
+        result.skipped.append(RowResult(
+            1, "",
+            f"Missing required column(s): {', '.join(sorted(missing))}",
+        ))
+        return result
+
+    # ── Pre-fetch existing tenant hashes for uniqueness checks ──────────
+    existing_phone_hashes: set[str] = set()
+    existing_alt_phone_hashes: set[str] = set()
+    existing_email_hashes: set[str] = set()
+    existing_id_hashes: set[str] = set()
+
+    for row in (
+        db.query(Tenant.phone_hash, Tenant.alternative_phone_hash,
+                 Tenant.email_hash, Tenant.id_number_hash)
+        .filter(Tenant.organization_id == organization_id)
+        .all()
+    ):
+        if row[0]:
+            existing_phone_hashes.add(row[0])
+        if row[1]:
+            existing_alt_phone_hashes.add(row[1])
+        if row[2]:
+            existing_email_hashes.add(row[2])
+        if row[3]:
+            existing_id_hashes.add(row[3])
+
+    # ── Pre-fetch landlord phone hashes for rejection check ─────────────
+    from app.models.users import User
+    from app.models.role import Role
+    from app.models.organization_member import OrganizationMember
+    from app.core.roles import LANDLORD
+
+    landlord_normalized_phones: set[str] = set()
+    for (raw_phone,) in (
+        db.query(User.phone)
+        .join(OrganizationMember, OrganizationMember.user_id == User.id)
+        .join(Role, Role.id == OrganizationMember.role_id)
+        .filter(
+            OrganizationMember.organization_id == organization_id,
+            Role.name == LANDLORD,
+            User.phone.isnot(None),
+        )
+        .all()
+    ):
+        landlord_normalized_phones.add(_normalize_phone(raw_phone))
+
+    # ── Duplicates within the CSV ──────────────────────────────────────
+    seen_phone_in_csv: set[str] = set()
+    seen_alt_phone_in_csv: set[str] = set()
+    seen_email_in_csv: set[str] = set()
+    seen_id_in_csv: set[str] = set()
+
+    for i, row in enumerate(reader, start=2):
+        full_name = _clean(row.get("full_name"))
+        phone = _clean(row.get("phone"))
+        email = _clean(row.get("email")) or None
+        alternative_phone = _clean(row.get("alternative_phone")) or None
+        id_number = _clean(row.get("id_number")) or None
+        emergency_contact = _clean(row.get("emergency_contact")) or None
+
+        identifier = full_name or phone or f"(row {i})"
+        result.total_rows += 1
+
+        if not full_name:
+            result.skipped.append(RowResult(i, identifier, "full_name is required"))
+            continue
+        if not phone:
+            result.skipped.append(RowResult(i, identifier, "phone is required"))
+            continue
+
+        phone_hash = blind_index(phone)
+        alt_phone_hash = blind_index(alternative_phone) if alternative_phone else None
+        email_hash = blind_index(email) if email else None
+        id_hash = blind_index(id_number) if id_number else None
+
+        # ── Required field checks ──────────────────────────────────────
+        if not phone_hash:
+            result.skipped.append(RowResult(i, identifier, "phone is required"))
+            continue
+
+        # ── Landlord phone rejection ───────────────────────────────────
+        if _normalize_phone(phone) in landlord_normalized_phones:
+            result.skipped.append(RowResult(
+                i, identifier,
+                "This phone number belongs to a landlord in this organization",
+            ))
+            continue
+        if alternative_phone and _normalize_phone(alternative_phone) in landlord_normalized_phones:
+            result.skipped.append(RowResult(
+                i, identifier,
+                "This alternative phone number belongs to a landlord in this organization",
+            ))
+            continue
+
+        # ── Uniqueness checks ──────────────────────────────────────────
+        if phone_hash in existing_phone_hashes or phone_hash in existing_alt_phone_hashes:
+            result.skipped.append(RowResult(
+                i, identifier,
+                "phone is already used by another tenant in this organization",
+            ))
+            continue
+        if alt_phone_hash and (alt_phone_hash in existing_phone_hashes or alt_phone_hash in existing_alt_phone_hashes):
+            result.skipped.append(RowResult(
+                i, identifier,
+                "alternative_phone is already used by another tenant in this organization",
+            ))
+            continue
+        if email_hash and email_hash in existing_email_hashes:
+            result.skipped.append(RowResult(
+                i, identifier,
+                "email is already used by another tenant in this organization",
+            ))
+            continue
+        if id_hash and id_hash in existing_id_hashes:
+            result.skipped.append(RowResult(
+                i, identifier,
+                "id_number is already used by another tenant in this organization",
+            ))
+            continue
+
+        # ── Duplicate within CSV ───────────────────────────────────────
+        if phone_hash in seen_phone_in_csv or phone_hash in seen_alt_phone_in_csv:
+            result.skipped.append(RowResult(
+                i, identifier, "duplicate phone within this file",
+            ))
+            continue
+        if alt_phone_hash and (alt_phone_hash in seen_phone_in_csv or alt_phone_hash in seen_alt_phone_in_csv):
+            result.skipped.append(RowResult(
+                i, identifier, "duplicate alternative_phone within this file",
+            ))
+            continue
+        if email_hash and email_hash in seen_email_in_csv:
+            result.skipped.append(RowResult(
+                i, identifier, "duplicate email within this file",
+            ))
+            continue
+        if id_hash and id_hash in seen_id_in_csv:
+            result.skipped.append(RowResult(
+                i, identifier, "duplicate id_number within this file",
+            ))
+            continue
+
+        # ── Build tenant ───────────────────────────────────────────────
+        tenant = Tenant(
+            id=str(uuid.uuid4()),
+            organization_id=organization_id,
+            full_name=full_name,
+            email=email,
+            phone=phone,
+            alternative_phone=alternative_phone,
+            id_number=id_number,
+            emergency_contact=emergency_contact,
+        )
+
+        db.add(tenant)
+        seen_phone_in_csv.add(phone_hash)
+        if alt_phone_hash:
+            seen_alt_phone_in_csv.add(alt_phone_hash)
+        if email_hash:
+            seen_email_in_csv.add(email_hash)
+        if id_hash:
+            seen_id_in_csv.add(id_hash)
         result.imported.append(RowResult(i, identifier))
 
     return result

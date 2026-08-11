@@ -19,8 +19,10 @@ import { Link } from "react-router-dom";
 import {
   downloadPropertiesTemplate,
   downloadUnitsTemplate,
+  downloadTenantsTemplate,
   uploadPropertiesCSV,
   uploadUnitsCSV,
+  uploadTenantsCSV,
   downloadBlob,
 } from "../../api/bulkUploads";
 
@@ -37,9 +39,9 @@ export default function BulkUpload() {
         <div>
           <h2>Bulk Upload</h2>
           <p className="text-muted text-sm">
-            Import properties and units from a CSV file. Download a template,
-            fill it in, then upload. Invalid rows are skipped and reported —
-            valid rows still get imported.
+            Import properties, units, and tenants from CSV files. Download a
+            template, fill it in, then upload. Invalid rows are skipped and
+            reported — valid rows still get imported.
           </p>
         </div>
       </div>
@@ -70,6 +72,20 @@ export default function BulkUpload() {
           templateFn={downloadUnitsTemplate}
           templateFilename="units-template.csv"
           uploadFn={uploadUnitsCSV}
+        />
+      </div>
+
+      <div className="card detail-card mt-md">
+        <BulkUploadPanel
+          title="Tenants"
+          description={
+            "Import multiple tenants at once. Each tenant needs a full name " +
+            "and phone number. Phone numbers and emails must be unique within " +
+            "your organization. Landlord phone numbers cannot be used."
+          }
+          templateFn={downloadTenantsTemplate}
+          templateFilename="tenants-template.csv"
+          uploadFn={uploadTenantsCSV}
         />
       </div>
     </section>

@@ -2,14 +2,14 @@
 """
 Bulk upload endpoints — Sprint 7 cleanup (Batch 2).
 
-Landlord only. Two entities supported now: properties, units. Payment
-bulk upload (with bank / M-Pesa format mapping) is deferred to its own
-session per Anne's roadmap.
+Landlord only. Three entities supported now: properties, units, tenants.
 
   GET  /bulk-uploads/properties/template   → download CSV template
   POST /bulk-uploads/properties            → upload properties CSV
   GET  /bulk-uploads/units/template        → download CSV template
   POST /bulk-uploads/units                 → upload units CSV
+  GET  /bulk-uploads/tenants/template      → download CSV template
+  POST /bulk-uploads/tenants               → upload tenants CSV
 """
 import uuid
 
@@ -156,6 +156,52 @@ async def upload_units(
         entity_id=str(uuid.uuid4()),
         description=(
             f"Bulk unit upload: {len(result.imported)} imported, "
+            f"{len(result.skipped)} skipped, {result.total_rows} total"
+        ),
+        new_values={
+            "imported_count": len(result.imported),
+            "skipped_count": len(result.skipped),
+            "total_rows": result.total_rows,
+        },
+    )
+
+    db.commit()
+    return result.to_dict()
+
+
+@router.get("/tenants/template")
+def download_tenants_template(deps=Depends(require_landlord)):
+    csv_text = bulk_upload_service.get_tenants_template_csv()
+    return Response(
+        content=csv_text,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": 'attachment; filename="tenants-template.csv"'
+        },
+    )
+
+
+@router.post("/tenants")
+async def upload_tenants(
+    file: UploadFile = File(...),
+    deps=Depends(require_landlord),
+):
+    user, membership, db = deps
+    contents = await _read_upload(file)
+
+    result = bulk_upload_service.parse_and_import_tenants(
+        db, membership.organization_id, contents
+    )
+
+    log_action(
+        db=db,
+        organization_id=membership.organization_id,
+        user_id=user.id,
+        action="bulk_create",
+        entity_type="tenant",
+        entity_id=str(uuid.uuid4()),
+        description=(
+            f"Bulk tenant upload: {len(result.imported)} imported, "
             f"{len(result.skipped)} skipped, {result.total_rows} total"
         ),
         new_values={
