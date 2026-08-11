@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import csv
 import io
+import openpyxl
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -39,6 +40,23 @@ from app.core.encryption import blind_index
 from app.models.property import Property
 from app.models.tenant import Tenant
 from app.models.unit import Unit
+
+
+class _SpreadsheetReader:
+    def __init__(self, fieldnames: list[str], rows: list[dict]):
+        self.fieldnames = fieldnames
+        self._rows = rows
+        self._index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._index >= len(self._rows):
+            raise StopIteration
+        row = self._rows[self._index]
+        self._index += 1
+        return row
 
 
 # ─── Result types ─────────────────────────────────────────────────────────
@@ -78,8 +96,8 @@ class BulkUploadResult:
 
 # ─── Shared helpers ───────────────────────────────────────────────────────
 
-def _read_csv(csv_bytes: bytes) -> csv.DictReader:
-    """Decode CSV bytes and return a DictReader with normalised headers.
+def _read_csv(csv_bytes: bytes) -> _SpreadsheetReader:
+    """Decode CSV bytes and return a SpreadsheetReader with normalised headers.
     utf-8-sig handles the Excel BOM without leaving a leading \ufeff in the
     first column name (a subtle footgun if not caught)."""
     try:
@@ -93,7 +111,32 @@ def _read_csv(csv_bytes: bytes) -> csv.DictReader:
             (f or "").strip().lower().replace(" ", "_")
             for f in reader.fieldnames
         ]
-    return reader
+    rows = list(reader)
+    return _SpreadsheetReader(reader.fieldnames, rows)
+
+
+def _read_excel(csv_bytes: bytes) -> _SpreadsheetReader:
+    """Read an .xlsx file and return a SpreadsheetReader with normalised headers."""
+    wb = openpyxl.load_workbook(io.BytesIO(csv_bytes))
+    ws = wb.active
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return _SpreadsheetReader([], [])
+    headers = [
+        (str(h or "").strip().lower().replace(" ", "_"))
+        for h in rows[0]
+    ]
+    data = []
+    for row in rows[1:]:
+        data.append(dict(zip(headers, row)))
+    return _SpreadsheetReader(headers, data)
+
+
+def _read_spreadsheet(csv_bytes: bytes) -> _SpreadsheetReader:
+    """Auto-detect format (CSV or XLSX) and return a SpreadsheetReader."""
+    if csv_bytes.startswith(b"PK"):
+        return _read_excel(csv_bytes)
+    return _read_csv(csv_bytes)
 
 
 def _clean(value: Optional[str]) -> str:
@@ -146,12 +189,24 @@ def get_properties_template_csv() -> str:
     return out.getvalue()
 
 
+def get_properties_template_xlsx() -> bytes:
+    """Header + a couple of example rows for the downloadable Excel template."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(PROPERTY_TEMPLATE_HEADERS)
+    ws.append(["Silverleaf Apartments", "123 Riverside Drive", "Nairobi", "Kenya"])
+    ws.append(["Baobab Court", "45 Ngong Road", "Nairobi", "Kenya"])
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
+
 def parse_and_import_properties(
     db: Session,
     organization_id: str,
     csv_bytes: bytes,
 ) -> BulkUploadResult:
-    reader = _read_csv(csv_bytes)
+    reader = _read_spreadsheet(csv_bytes)
     result = BulkUploadResult()
 
     if not reader.fieldnames:
@@ -265,12 +320,24 @@ def get_units_template_csv() -> str:
     return out.getvalue()
 
 
+def get_units_template_xlsx() -> bytes:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(UNIT_TEMPLATE_HEADERS)
+    ws.append(["Silverleaf Apartments", "A1", "Corner unit, ground floor", 2, 1, 65.5, 35000])
+    ws.append(["Silverleaf Apartments", "A2", "", 1, 1, 45, 25000])
+    ws.append(["Baobab Court", "House 3", "", 3, 2, 120, 60000])
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
+
 def parse_and_import_units(
     db: Session,
     organization_id: str,
     csv_bytes: bytes,
 ) -> BulkUploadResult:
-    reader = _read_csv(csv_bytes)
+    reader = _read_spreadsheet(csv_bytes)
     result = BulkUploadResult()
 
     if not reader.fieldnames:
@@ -407,6 +474,18 @@ def get_tenants_template_csv() -> str:
     return out.getvalue()
 
 
+def get_tenants_template_xlsx() -> bytes:
+    """Header + example rows for the downloadable tenant Excel template."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(TENANT_TEMPLATE_HEADERS)
+    ws.append(["Alice Wanjiku", "0712345678", "alice@example.com", "0722333444", "12345678", "Bob Wanjiku — +254 722 000 111"])
+    ws.append(["James Karanja", "0733444555", "james@example.com", "", "", ""])
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
+
 def _normalize_phone(phone: str) -> str:
     """Reduce a phone to its canonical subscriber form for equality comparison.
     Mirrors the tenant route helper so bulk upload enforces the same rule."""
@@ -425,7 +504,7 @@ def parse_and_import_tenants(
     organization_id: str,
     csv_bytes: bytes,
 ) -> BulkUploadResult:
-    reader = _read_csv(csv_bytes)
+    reader = _read_spreadsheet(csv_bytes)
     result = BulkUploadResult()
 
     if not reader.fieldnames:

@@ -4,12 +4,15 @@ Bulk upload endpoints — Sprint 7 cleanup (Batch 2).
 
 Landlord only. Three entities supported now: properties, units, tenants.
 
-  GET  /bulk-uploads/properties/template   → download CSV template
-  POST /bulk-uploads/properties            → upload properties CSV
-  GET  /bulk-uploads/units/template        → download CSV template
-  POST /bulk-uploads/units                 → upload units CSV
-  GET  /bulk-uploads/tenants/template      → download CSV template
-  POST /bulk-uploads/tenants               → upload tenants CSV
+  GET  /bulk-uploads/properties/template        → download CSV template
+  GET  /bulk-uploads/properties/template.xlsx   → download Excel template
+  POST /bulk-uploads/properties                 → upload properties CSV or XLSX
+  GET  /bulk-uploads/units/template             → download CSV template
+  GET  /bulk-uploads/units/template.xlsx        → download Excel template
+  POST /bulk-uploads/units                      → upload units CSV or XLSX
+  GET  /bulk-uploads/tenants/template           → download CSV template
+  GET  /bulk-uploads/tenants/template.xlsx      → download Excel template
+  POST /bulk-uploads/tenants                    → upload tenants CSV or XLSX
 """
 import uuid
 
@@ -31,6 +34,7 @@ router = APIRouter(prefix="/bulk-uploads", tags=["Bulk Uploads"])
 # for large portfolios. Anything bigger is either a mistake (wrong file
 # type) or abuse. Keeps memory bounded.
 MAX_UPLOAD_BYTES = 2 * 1024 * 1024
+ALLOWED_UPLOAD_EXTENSIONS = {"csv", "xlsx"}
 
 
 # ─── Dep: landlord only ──────────────────────────────────────────────────
@@ -58,6 +62,17 @@ def require_landlord(
 
 
 async def _read_upload(file: UploadFile) -> bytes:
+    filename = file.filename or ""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unsupported file type '.{ext}'. "
+                f"Allowed: {', '.join(sorted(ALLOWED_UPLOAD_EXTENSIONS))}"
+            ),
+        )
+
     contents = await file.read()
     if not contents:
         raise HTTPException(status_code=400, detail="File is empty")
@@ -85,6 +100,19 @@ def download_properties_template(deps=Depends(require_landlord)):
     )
 
 
+@router.get("/properties/template.xlsx")
+def download_properties_template_xlsx(deps=Depends(require_landlord)):
+    """Returns an Excel workbook with the header row and a couple of example rows."""
+    xlsx_bytes = bulk_upload_service.get_properties_template_xlsx()
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="properties-template.xlsx"'
+        },
+    )
+
+
 @router.get("/units/template")
 def download_units_template(deps=Depends(require_landlord)):
     csv_text = bulk_upload_service.get_units_template_csv()
@@ -93,6 +121,18 @@ def download_units_template(deps=Depends(require_landlord)):
         media_type="text/csv",
         headers={
             "Content-Disposition": 'attachment; filename="units-template.csv"'
+        },
+    )
+
+
+@router.get("/units/template.xlsx")
+def download_units_template_xlsx(deps=Depends(require_landlord)):
+    xlsx_bytes = bulk_upload_service.get_units_template_xlsx()
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="units-template.xlsx"'
         },
     )
 
@@ -177,6 +217,18 @@ def download_tenants_template(deps=Depends(require_landlord)):
         media_type="text/csv",
         headers={
             "Content-Disposition": 'attachment; filename="tenants-template.csv"'
+        },
+    )
+
+
+@router.get("/tenants/template.xlsx")
+def download_tenants_template_xlsx(deps=Depends(require_landlord)):
+    xlsx_bytes = bulk_upload_service.get_tenants_template_xlsx()
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="tenants-template.xlsx"'
         },
     )
 
