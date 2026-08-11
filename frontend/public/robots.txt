@@ -1,6 +1,4 @@
 User-agent: *
-Allow: /
-
 Disallow: /dashboard
 Disallow: /owner/
 Disallow: /manager/
