@@ -392,20 +392,16 @@ TENANT_REQUIRED_HEADERS = {"full_name", "phone"}
 
 
 def get_tenants_template_csv() -> str:
-    """Header + example rows for the downloadable tenant template.
-
-    Phone values are prefixed with a tab character so spreadsheet apps
-    (especially Excel) do not strip a leading zero and coerce them into
-    numbers."""
+    """Header + example rows for the downloadable tenant template."""
     out = io.StringIO()
     writer = csv.writer(out)
     writer.writerow(TENANT_TEMPLATE_HEADERS)
     writer.writerow([
-        "Alice Wanjiku", "\t0712345678", "alice@example.com",
-        "\t0722333444", "12345678", "Bob Wanjiku — +254 722 000 111",
+        "Alice Wanjiku", "0712345678", "alice@example.com",
+        "0722333444", "12345678", "Bob Wanjiku — +254 722 000 111",
     ])
     writer.writerow([
-        "James Karanja", "\t0733444555", "james@example.com",
+        "James Karanja", "0733444555", "james@example.com",
         "", "", "",
     ])
     return out.getvalue()
