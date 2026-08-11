@@ -2,24 +2,26 @@
 //
 // Bulk Upload page (Sprint 7 cleanup, Batch 2).
 //
-// A single page with two panels — Properties and Units — each with:
-//   - a "Download Template" button that saves a CSV with the correct
-//     headers and a couple of example rows
-//   - a file picker + Upload button
+// A single page with three panels — Properties, Units, Tenants — each with:
+//   - "Download CSV Template" and "Download Excel Template" buttons
+//   - a file picker + Upload button (accepts .csv and .xlsx)
 //   - a results block showing imported / skipped counts with a
 //     collapsible list of exactly which rows failed and why
 //
 // Skipped rows come back with a `reason` field the backend sets during
 // per-row validation (missing required column, duplicate, bad number,
 // unknown property, etc.). We surface every reason verbatim so the user
-// can fix the CSV and re-upload rather than guess.
+// can fix the file and re-upload rather than guess.
 
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   downloadPropertiesTemplate,
+  downloadPropertiesTemplateXlsx,
   downloadUnitsTemplate,
+  downloadUnitsTemplateXlsx,
   downloadTenantsTemplate,
+  downloadTenantsTemplateXlsx,
   uploadPropertiesCSV,
   uploadUnitsCSV,
   uploadTenantsCSV,
@@ -39,9 +41,9 @@ export default function BulkUpload() {
         <div>
           <h2>Bulk Upload</h2>
           <p className="text-muted text-sm">
-            Import properties, units, and tenants from CSV files. Download a
-            template, fill it in, then upload. Invalid rows are skipped and
-            reported — valid rows still get imported.
+            Import properties, units, and tenants from CSV or Excel files.
+            Download a template, fill it in, then upload. Invalid rows are
+            skipped and reported — valid rows still get imported.
           </p>
         </div>
       </div>
@@ -54,8 +56,10 @@ export default function BulkUpload() {
             "address, city, and country. Property names must be unique within " +
             "your organization."
           }
-          templateFn={downloadPropertiesTemplate}
-          templateFilename="properties-template.csv"
+          templateCsvFn={downloadPropertiesTemplate}
+          templateCsvFilename="properties-template.csv"
+          templateXlsxFn={downloadPropertiesTemplateXlsx}
+          templateXlsxFilename="properties-template.xlsx"
           uploadFn={uploadPropertiesCSV}
         />
       </div>
@@ -69,8 +73,10 @@ export default function BulkUpload() {
             "exists — upload properties first if you're starting fresh. " +
             "Required columns: property_name, name, rent_amount."
           }
-          templateFn={downloadUnitsTemplate}
-          templateFilename="units-template.csv"
+          templateCsvFn={downloadUnitsTemplate}
+          templateCsvFilename="units-template.csv"
+          templateXlsxFn={downloadUnitsTemplateXlsx}
+          templateXlsxFilename="units-template.xlsx"
           uploadFn={uploadUnitsCSV}
         />
       </div>
@@ -82,11 +88,13 @@ export default function BulkUpload() {
             "Import multiple tenants at once. Each tenant needs a full name " +
             "and phone number. Phone numbers and emails must be unique within " +
             "your organization. Landlord phone numbers cannot be used. " +
-            "In Excel, select the phone columns and set the cell format to " +
-            "Text before entering numbers so leading zeros are preserved."
+            "When using Excel, set phone column cells to Text format before " +
+            "entering numbers so leading zeros are preserved."
           }
-          templateFn={downloadTenantsTemplate}
-          templateFilename="tenants-template.csv"
+          templateCsvFn={downloadTenantsTemplate}
+          templateCsvFilename="tenants-template.csv"
+          templateXlsxFn={downloadTenantsTemplateXlsx}
+          templateXlsxFilename="tenants-template.xlsx"
           uploadFn={uploadTenantsCSV}
         />
       </div>
@@ -97,18 +105,26 @@ export default function BulkUpload() {
 
 /* ─── One upload panel ────────────────────────────────────────────── */
 
-function BulkUploadPanel({ title, description, templateFn, templateFilename, uploadFn }) {
+function BulkUploadPanel({
+  title,
+  description,
+  templateCsvFn,
+  templateCsvFilename,
+  templateXlsxFn,
+  templateXlsxFilename,
+  uploadFn,
+}) {
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [templateLoading, setTemplateLoading] = useState(false);
 
-  const handleDownloadTemplate = async () => {
+  const handleDownloadTemplate = async (fn, filename) => {
     setTemplateLoading(true);
     try {
-      const blob = await templateFn();
-      downloadBlob(blob, templateFilename);
+      const blob = await fn();
+      downloadBlob(blob, filename);
     } catch (err) {
       alert(err?.response?.data?.detail || "Failed to download template");
     } finally {
@@ -145,15 +161,23 @@ function BulkUploadPanel({ title, description, templateFn, templateFilename, upl
       <div className="flex gap-sm items-center flex-wrap mt-md">
         <button
           className="btn btn-secondary btn-sm"
-          onClick={handleDownloadTemplate}
+          onClick={() => handleDownloadTemplate(templateCsvFn, templateCsvFilename)}
           disabled={templateLoading}
         >
-          {templateLoading ? "Preparing…" : "Download Template"}
+          {templateLoading ? "Preparing…" : "CSV Template"}
+        </button>
+
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => handleDownloadTemplate(templateXlsxFn, templateXlsxFilename)}
+          disabled={templateLoading}
+        >
+          Excel Template
         </button>
 
         <input
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,.xlsx"
           onChange={handleFileChange}
           disabled={uploading}
         />

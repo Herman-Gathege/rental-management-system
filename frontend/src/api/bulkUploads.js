@@ -15,6 +15,13 @@ export const downloadPropertiesTemplate = async () => {
   return response.data;
 };
 
+export const downloadPropertiesTemplateXlsx = async () => {
+  const response = await API.get("/bulk-uploads/properties/template.xlsx", {
+    responseType: "blob",
+  });
+  return response.data;
+};
+
 export const downloadUnitsTemplate = async () => {
   const response = await API.get("/bulk-uploads/units/template", {
     responseType: "blob",
@@ -22,8 +29,22 @@ export const downloadUnitsTemplate = async () => {
   return response.data;
 };
 
+export const downloadUnitsTemplateXlsx = async () => {
+  const response = await API.get("/bulk-uploads/units/template.xlsx", {
+    responseType: "blob",
+  });
+  return response.data;
+};
+
 export const downloadTenantsTemplate = async () => {
   const response = await API.get("/bulk-uploads/tenants/template", {
+    responseType: "blob",
+  });
+  return response.data;
+};
+
+export const downloadTenantsTemplateXlsx = async () => {
+  const response = await API.get("/bulk-uploads/tenants/template.xlsx", {
     responseType: "blob",
   });
   return response.data;
