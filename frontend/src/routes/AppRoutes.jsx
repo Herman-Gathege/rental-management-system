@@ -105,11 +105,37 @@ import BulkUpload from "../features/bulk-upload/BulkUpload";
 import Reconciliation from "../features/payments/Reconciliation";
 
 
+/* PUBLIC LANDING PAGES */
+import LandingLayout from "../components/landing/LandingLayout";
+// import Home from "../pages/Home";
+import About from "../pages/About";
+import Contact from "../pages/Contact";
+import Features from "../pages/Features";
+
 export default function AppRoutes() {
   return (
     <Routes>
       {/* PUBLIC */}
-      <Route path="/" element={<Home />} />
+      <Route path="/" element={
+        <LandingLayout>
+          <Home />
+        </LandingLayout>
+      } />
+      <Route path="/about" element={
+        <LandingLayout>
+          <About />
+        </LandingLayout>
+      } />
+      <Route path="/features" element={
+        <LandingLayout>
+          <Features />
+        </LandingLayout>
+      } />
+      <Route path="/contact" element={
+        <LandingLayout>
+          <Contact />
+        </LandingLayout>
+      } />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/accept-invite/:token" element={<AcceptInvitation />} />

@@ -10,7 +10,6 @@ import "./styles/utilities.css";
 import "./styles/dashboard.css";
 import "./styles/customers.css";
 import "./styles/pos.css";
-import "./styles/home.css";
 import "./styles/properties.css";
 import "./styles/team.css";
 import "./styles/inspection.css";

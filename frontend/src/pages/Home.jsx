@@ -1,10 +1,6 @@
-// // frontend/src/features/home/Home.jsx
-
-
-
 import { useNavigate } from "react-router-dom";
 import SEO from "../components/SEO";
-import logo from "../assets/aplha1_logo_.png";
+import logo from "../assets/hero-1.png";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -13,41 +9,37 @@ export default function Home() {
     {
       title: "Track Rent Payments",
       desc: "Monitor paid rent, overdue balances, and monthly income from one AlphaOne dashboard.",
-      icon: "💰",
-      color: "#2563eb",
+      icon: "fa-solid fa-money-bill-wave",
     },
     {
       title: "Manage Tenants Easily",
-      desc: "Store tenant records, lease details, documents, and occupancy history securely with AlphaOne.",
-      icon: "👥",
-      color: "#24a5fb",
+      desc: "Store tenant records, lease details, documents, and occupancy history securely.",
+      icon: "fa-solid fa-users",
     },
     {
       title: "Organize Properties",
-      desc: "Manage apartments, units, and multiple properties without spreadsheets using AlphaOne.",
-      icon: "🏢",
-      color: "#16a34a",
+      desc: "Manage apartments, units, and multiple properties without spreadsheets.",
+      icon: "fa-solid fa-building",
     },
     {
       title: "Handle Operations Faster",
-      desc: "Track inspections, maintenance, and property activity in one place with AlphaOne.",
-      icon: "🛠️",
-      color: "#ef4444",
+      desc: "Track inspections, maintenance, and property activity in one place.",
+      icon: "fa-solid fa-clipboard-check",
     },
   ];
 
   const stats = [
-    { value: "2.4M+", label: "Rent Collected", icon: "💰" },
-    { value: "94%", label: "Occupancy Rate", icon: "📈" },
-    { value: "12K+", label: "Active Tenants", icon: "👥" },
-    { value: "4.8★", label: "User Rating", icon: "⭐" },
+    { value: "2.4M+", label: "Rent Collected" },
+    { value: "94%", label: "Occupancy Rate" },
+    { value: "12K+", label: "Active Tenants" },
+    { value: "4.8/5", label: "User Rating" },
   ];
 
   const benefits = [
-    { icon: "⏱️", title: "Save Hours", desc: "Automate rent collection and reporting with AlphaOne" },
-    { icon: "🔒", title: "Secure Data", desc: "Bank-grade encryption for your records on AlphaOne" },
-    { icon: "⚡", title: "Lightning Fast", desc: "Real-time updates and insights with AlphaOne" },
-    { icon: "📦", title: "All-in-One", desc: "Everything you need in one place with AlphaOne" },
+    { icon: "fa-solid fa-clock", title: "Save Hours Every Week", desc: "Automate rent collection, invoicing, and follow-ups so your team can focus on what matters." },
+    { icon: "fa-solid fa-shield-halved", title: "Bank-Grade Security", desc: "Your data is encrypted and protected with the same standards used by leading financial institutions." },
+    { icon: "fa-solid fa-bolt", title: "Real-Time Insights", desc: "See collections, occupancy, and cash flow update instantly across your portfolio." },
+    { icon: "fa-solid fa-layer-group", title: "All-in-One Platform", desc: "Properties, tenants, leases, payments, expenses, and reports in one connected system." },
   ];
 
   return (
@@ -57,375 +49,170 @@ export default function Home() {
         description="Streamline rent collection, tenant management, and property operations across Kenya and East Africa. The smart rental property management platform built for landlords, property managers, and tenants."
         canonical="https://alphaone.africa"
       />
-      <div className="home">
-      {/* ================= HERO ================= */}
-      <section className="home-hero-modern">
-        <div className="page-container home-hero-grid-modern">
-          {/* LEFT */}
-          <div className="home-hero-content-modern">
-            <img src={logo} alt="AlphaOne" className="home-logo" />
 
-            <div className="hero-badge-modern">
-              ✨ AI-Powered Rental Management
-            </div>
-
-            <h1 className="hero-title">
-              The Modern Way to Manage
-              <span className="gradient-text"> Rental Properties</span>
-            </h1>
-
-            <p className="hero-description-modern">
-              Track rent, manage tenants, organize leases, and monitor property
-              operations from one intelligent dashboard.
-            </p>
-
-            <div className="hero-actions">
-              <button
-                className="btn btn-primary hero-btn"
-                onClick={() => navigate("/register")}
-              >
-                Start Free Trial →
-              </button>
-
-              <button
-                className="btn btn-secondary hero-btn-secondary"
-                onClick={() => navigate("/login")}
-              >
-                Sign In
-              </button>
-            </div>
-
-            {/* QUICK STATS */}
-            <div className="hero-stats">
-              {stats.map((stat, idx) => (
-                <div key={idx} className="hero-stat">
-                  <div className="hero-stat-icon">{stat.icon}</div>
-                  <div>
-                    <div className="hero-stat-value">{stat.value}</div>
-                    <div className="hero-stat-label">{stat.label}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* RIGHT - DASHBOARD PREVIEW */}
-          <div className="home-hero-visual">
-            <div className="dashboard-preview-modern">
-              <div className="dashboard-preview-header">
-                <div className="dashboard-preview-title">
-                  📊 <span>Dashboard Overview</span>
-                </div>
-                <div className="dashboard-preview-dots">
-                  <span className="dot red"></span>
-                  <span className="dot yellow"></span>
-                  <span className="dot green"></span>
-                </div>
+      {/* HERO */}
+      <section className="parallax-hero">
+        <div className="hero-overlay"></div>
+        <div className="container">
+          <div className="hero-grid">
+            <div className="hero-content">
+              <div className="hero-badge">
+                <i className="fa-solid fa-star"></i> Trusted by 12,000+ tenants
               </div>
-
-              <div className="dashboard-preview-body">
-                <div className="dashboard-preview-grid">
-                  <div className="preview-card">
-                    <span className="preview-label">Total Rent</span>
-                    <strong className="preview-value">KES 2.4M</strong>
-                    <span className="preview-change positive">↑ 12.5%</span>
-                  </div>
-                  <div className="preview-card">
-                    <span className="preview-label">Occupancy</span>
-                    <strong className="preview-value">94%</strong>
-                    <span className="preview-change positive">↑ 3.2%</span>
-                  </div>
-                  <div className="preview-card">
-                    <span className="preview-label">Properties</span>
-                    <strong className="preview-value">48</strong>
-                    <span className="preview-change neutral">Active</span>
-                  </div>
-                  <div className="preview-card">
-                    <span className="preview-label">Tenants</span>
-                    <strong className="preview-value">156</strong>
-                    <span className="preview-change positive">+12</span>
-                  </div>
-                </div>
-
-                <div className="preview-chart">
-                  <div className="chart-bar-container">
-                    <div className="chart-bar" style={{ height: "65%" }}></div>
-                    <div className="chart-bar" style={{ height: "45%" }}></div>
-                    <div className="chart-bar" style={{ height: "80%" }}></div>
-                    <div className="chart-bar" style={{ height: "55%" }}></div>
-                    <div className="chart-bar" style={{ height: "90%" }}></div>
-                    <div className="chart-bar" style={{ height: "70%" }}></div>
-                    <div className="chart-bar" style={{ height: "50%" }}></div>
-                  </div>
-                  <div className="chart-labels">
-                    <span>Mon</span>
-                    <span>Tue</span>
-                    <span>Wed</span>
-                    <span>Thu</span>
-                    <span>Fri</span>
-                    <span>Sat</span>
-                    <span>Sun</span>
-                  </div>
-                </div>
-
-                <div className="preview-recent">
-                  <div className="recent-item">
-                    <span className="recent-dot paid"></span>
-                    <span className="recent-text">Rent paid - Unit 4B</span>
-                    <span className="recent-time">2 min ago</span>
-                  </div>
-                  <div className="recent-item">
-                    <span className="recent-dot alert"></span>
-                    <span className="recent-text">Maintenance request</span>
-                    <span className="recent-time">15 min ago</span>
-                  </div>
-                  <div className="recent-item">
-                    <span className="recent-dot paid"></span>
-                    <span className="recent-text">New tenant signed</span>
-                    <span className="recent-time">1 hour ago</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= BENEFITS STRIP ================= */}
-      <section className="benefits-strip">
-        <div className="page-container">
-          <div className="benefits-grid">
-            {benefits.map((benefit, idx) => (
-              <div key={idx} className="benefit-item">
-                <div className="benefit-icon">{benefit.icon}</div>
-                <div>
-                  <h4>{benefit.title}</h4>
-                  <p className="text-muted">{benefit.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ================= FEATURES ================= */}
-      <section className="home-features-modern">
-        <div className="page-container">
-          <div className="section-header-modern text-center">
-            <span className="section-tag">Features</span>
-            <h2>Everything you need to manage rental properties with AlphaOne</h2>
-            <p className="text-muted">
-              No spreadsheets. No scattered records. No manual chaos.
-            </p>
-          </div>
-
-          <div className="home-feature-grid-modern">
-            {features.map((feature) => (
-              <div className="feature-card-modern" key={feature.title}>
-                <div className="feature-icon-modern" style={{ color: feature.color }}>
-                  {feature.icon}
-                </div>
-                <h3>{feature.title}</h3>
-                <p className="text-muted">{feature.desc}</p>
-                <div className="feature-link">
-                  Learn more →
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ================= HOW IT WORKS ================= */}
-      <section className="how-it-works">
-        <div className="page-container">
-          <div className="section-header-modern text-center">
-            <span className="section-tag">Simple Setup</span>
-            <h2>Get started with AlphaOne in 3 easy steps</h2>
-            <p className="text-muted">Start managing your properties in minutes.</p>
-          </div>
-
-          <div className="steps-grid">
-            <div className="step-card">
-              <div className="step-number-modern">1</div>
-              <div className="step-icon">🏠</div>
-              <h3>Add Your Properties</h3>
-              <p className="text-muted">Create properties, units, and organize your portfolio.</p>
-            </div>
-
-            <div className="step-connector">
-              <div className="connector-line"></div>
-            </div>
-
-            <div className="step-card">
-              <div className="step-number-modern">2</div>
-              <div className="step-icon">📄</div>
-              <h3>Add Tenants & Leases</h3>
-              <p className="text-muted">Store tenant records, lease agreements, and occupancy details.</p>
-            </div>
-
-            <div className="step-connector">
-              <div className="connector-line"></div>
-            </div>
-
-            <div className="step-card">
-              <div className="step-number-modern">3</div>
-              <div className="step-icon">📊</div>
-              <h3>Track & Optimize</h3>
-              <p className="text-muted">Monitor payments, inspections, and property performance easily.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= TRUST SECTION ================= */}
-      <section className="trust-section">
-        <div className="page-container">
-          <div className="trust-content">
-            <div className="trust-left">
-              <span className="section-tag">Trusted by landlords</span>
-              <h2>Why property managers choose AlphaOne</h2>
-              <p className="text-muted">
-                Join thousands of landlords who have transformed their property management workflow with AlphaOne.
+              <h1>Property Management That Actually Works</h1>
+              <p>
+                From rent collection to lease renewals, AlphaOne gives landlords and property managers the tools to run a tighter, more profitable portfolio.
               </p>
-
-              <div className="trust-checklist">
-                {[
-                  "Automated rent collection with AlphaOne",
-                  "Real-time financial insights from AlphaOne",
-                  "Secure document storage on AlphaOne",
-                  "24/7 customer support from AlphaOne",
-                ].map((item, idx) => (
-                  <div key={idx} className="trust-check">
-                    <span style={{ color: "#2563eb", fontSize: "20px" }}>✓</span>
-                    <span>{item}</span>
+              <div className="hero-buttons">
+                <button className="btn btn-primary" onClick={() => navigate("/register")}>
+                  Start Free Trial <i className="fa-solid fa-arrow-right"></i>
+                </button>
+                <button className="btn btn-outline" onClick={() => navigate("/features")}>
+                  Explore Features
+                </button>
+              </div>
+              {/* <div className="hero-stats">
+                {stats.map((stat, idx) => (
+                  <div className="stat" key={idx}>
+                    <div className="count">{stat.value}</div>
+                    <p>{stat.label}</p>
                   </div>
                 ))}
-              </div>
-
-              <button
-                className="btn btn-primary"
-                onClick={() => navigate("/register")}
-              >
-                Start Free Trial
-              </button>
+              </div> */}
             </div>
+            <div className="hero-image">
+              <img src={logo} alt="AlphaOne Dashboard Preview" />
+            </div>
+          </div>
+        </div>
+      </section>
 
-            <div className="trust-right">
-              <div className="testimonial-card">
-                <div className="testimonial-quote">"</div>
-                <p className="testimonial-text">
-                  AlphaOne has completely revolutionized how we manage our properties.
-                  The dashboard gives us real-time insights we never had before.
-                </p>
-                <div className="testimonial-author">
-                  <div className="testimonial-avatar">JD</div>
-                  <div>
-                    <div className="testimonial-name">John Doe</div>
-                    <div className="testimonial-role">Portfolio Manager</div>
-                  </div>
+      {/* BENEFITS STRIP */}
+      <section className="section" style={{ background: "#fff", borderBottom: "1px solid var(--border)" }}>
+        <div className="container">
+          <div className="benefits-grid">
+            {benefits.map((benefit, idx) => (
+              <div className="benefit-item" key={idx}>
+                <div className="benefit-icon">
+                  <i className={benefit.icon}></i>
+                </div>
+                <div>
+                  <h4>{benefit.title}</h4>
+                  <p>{benefit.desc}</p>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-              <div className="trust-badge-grid">
-                <div className="trust-badge">
-                  <span style={{ fontSize: "24px" }}>🔒</span>
-                  <span>Bank-grade security</span>
+      {/* FEATURES */}
+      <section className="section">
+        <div className="container">
+          <div className="section-header">
+            <span className="section-tag">Features</span>
+            <h2>Everything you need to manage rental properties</h2>
+            <p>No spreadsheets. No scattered records. No manual chaos. One platform built for how you actually work.</p>
+          </div>
+          <div className="services-grid">
+            {features.map((feature) => (
+              <div className="service-card" key={feature.title}>
+                <div className="card-icon">
+                  <i className={feature.icon}></i>
                 </div>
-                <div className="trust-badge">
-                  <span style={{ fontSize: "24px" }}>☁️</span>
-                  <span>Cloud-based</span>
-                </div>
-                <div className="trust-badge">
-                  <span style={{ fontSize: "24px" }}>📱</span>
-                  <span>Mobile ready</span>
-                </div>
-                <div className="trust-badge">
-                  <span style={{ fontSize: "24px" }}>🎧</span>
-                  <span>Dedicated support</span>
-                </div>
+                <h3>{feature.title}</h3>
+                <p>{feature.desc}</p>
+                <span className="card-link">Learn more <i className="fa-solid fa-arrow-right"></i></span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* HOW IT WORKS */}
+      <section className="section" style={{ background: "#fff" }}>
+        <div className="container">
+          <div className="section-header">
+            <span className="section-tag">Simple Setup</span>
+            <h2>Get started with AlphaOne in 3 easy steps</h2>
+            <p>Start managing your properties in minutes, not months.</p>
+          </div>
+          <div className="steps-grid">
+            <div className="step-card">
+              <div className="step-number">1</div>
+              <div className="step-icon"><i className="fa-solid fa-plus"></i></div>
+              <h3>Add Your Properties</h3>
+              <p>Create properties, add units, and organize your portfolio in a few clicks.</p>
+            </div>
+            <div className="step-card">
+              <div className="step-number">2</div>
+              <div className="step-icon"><i className="fa-solid fa-file-signature"></i></div>
+              <h3>Add Tenants & Leases</h3>
+              <p>Store tenant records, lease agreements, and occupancy details in one place.</p>
+            </div>
+            <div className="step-card">
+              <div className="step-number">3</div>
+              <div className="step-icon"><i className="fa-solid fa-chart-line"></i></div>
+              <h3>Track & Optimize</h3>
+              <p>Monitor payments, inspections, and property performance with real-time reports.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* TRUST / TESTIMONIALS */}
+      <section className="testimonials">
+        <div className="container">
+          <div className="section-header">
+            <span className="section-tag">Testimonials</span>
+            <h2>Trusted by property managers across Kenya</h2>
+            <p>See why landlords and managers are switching to AlphaOne.</p>
+          </div>
+          <div className="testimonials-grid">
+            <div className="testimonial-card">
+              <p className="testimonial-text">
+                "AlphaOne has completely revolutionized how we manage our properties. The dashboard gives us real-time insights we never had before."
+              </p>
+              <div className="testimonial-author">
+                <strong>James Mwangi</strong> &mdash; Portfolio Manager, Nairobi
+              </div>
+            </div>
+            <div className="testimonial-card">
+              <p className="testimonial-text">
+                "We cut our rent collection follow-up time by 70%. The payment tracking and automated reminders are a game changer."
+              </p>
+              <div className="testimonial-author">
+                <strong>Sarah Kimani</strong> &mdash; Property Manager, Karen
+              </div>
+            </div>
+            <div className="testimonial-card">
+              <p className="testimonial-text">
+                "Finally, a system that works for East African landlords. M-Pesa integration and local support make all the difference."
+              </p>
+              <div className="testimonial-author">
+                <strong>David Ochieng</strong> &mdash; Landlord, Kisumu
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ================= CTA ================= */}
-      <section className="home-cta-modern">
-        <div className="page-container">
-          <div className="cta-content">
-            <div className="cta-text">
-              <span className="section-tag" style={{ color: "#dbeafe" }}>Get Started</span>
-              <h2>Ready to transform your property management with AlphaOne?</h2>
-              <p className="cta-description">
-                Join thousands of landlords who are already using AlphaOne to save time and grow their portfolio.
-              </p>
-            </div>
-            <div className="cta-actions">
-              <button
-                className="btn btn-primary cta-btn-primary"
-                onClick={() => navigate("/register")}
-              >
-                Start Free Trial →
-              </button>
-              <button
-                className="btn cta-btn-secondary"
-                onClick={() => navigate("/login")}
-              >
-                Sign In
-              </button>
-            </div>
+      {/* CTA */}
+      <section className="cta-section">
+        <div className="container">
+          <span className="section-tag" style={{ color: "var(--light-accent)", background: "rgba(255,255,255,0.1)" }}>Get Started</span>
+          <h2>Ready to transform your property management?</h2>
+          <p>Join thousands of landlords and property managers who are already using AlphaOne to save time and grow their portfolio.</p>
+          <div className="cta-actions">
+            <button className="btn btn-white" onClick={() => navigate("/register")}>
+              Start Free Trial <i className="fa-solid fa-arrow-right"></i>
+            </button>
+            <button className="btn btn-outline" style={{ borderColor: "rgba(255,255,255,0.4)", color: "#fff" }} onClick={() => navigate("/contact")}>
+              Talk to Sales
+            </button>
           </div>
         </div>
       </section>
-
-      {/* ================= FOOTER ================= */}
-      <footer className="home-footer-modern">
-        <div className="page-container">
-          <div className="footer-grid">
-            <div>
-              <h3 className="footer-brand">AlphaOne</h3>
-              <p className="text-muted text-sm">
-                Built for landlords and property managers who want to work smarter.
-              </p>
-            </div>
-
-            <div>
-              <h4>Product</h4>
-              <ul>
-                <li><a href="#">Features</a></li>
-                <li><a href="#">Pricing</a></li>
-                <li><a href="#">Integrations</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4>Company</h4>
-              <ul>
-                <li><a href="#">About</a></li>
-                <li><a href="#">Blog</a></li>
-                <li><a href="#">Careers</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4>Support</h4>
-              <ul>
-                <li><a href="#">Help Center</a></li>
-                <li><a href="#">Contact</a></li>
-                <li><a href="#">Privacy Policy</a></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="footer-bottom">
-            <p className="text-sm text-muted">
-              © {new Date().getFullYear()} AlphaOne. All rights reserved.
-            </p>
-          </div>
-        </div>
-      </footer>
-    </div>
     </>
   );
 }
