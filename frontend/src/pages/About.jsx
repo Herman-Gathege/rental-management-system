@@ -107,7 +107,7 @@ export default function About() {
                 <p className="team-role">Creative Director</p>
               </div>
             </div>
-            <div className="team-card">
+            {/* <div className="team-card">
               <div className="team-avatar"><i className="fa-solid fa-user"></i></div>
               <div className="team-info">
                 <h3>Development Team</h3>
@@ -120,7 +120,7 @@ export default function About() {
                 <h3>Operations Team</h3>
                 <p className="team-role">Customer Success</p>
               </div>
-            </div>
+            </div> */}
           </div>
         </div>
       </section>

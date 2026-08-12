@@ -435,6 +435,7 @@
   text-align: left;
   transition: transform 0.3s ease;
   border: 1px solid var(--border);
+  min-width: 0;
 }
 
 .service-card:hover {
@@ -499,6 +500,7 @@
   border: 1px solid var(--border);
   transition: all 0.3s ease;
   position: relative;
+  min-width: 0;
 }
 
 .step-card:hover {
@@ -561,6 +563,7 @@
   border-radius: 12px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
   transition: transform 0.3s ease;
+  min-width: 0;
 }
 
 .testimonial-card:hover {
@@ -654,6 +657,7 @@
   background-color: #f9f9f9;
   transition: border 0.3s ease;
   font-family: var(--font-primary);
+  width: 100%;
 }
 
 .contact-form input:focus,
@@ -672,6 +676,7 @@
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.3s ease;
+  width: 100%;
 }
 
 .contact-form button:hover {
@@ -790,6 +795,7 @@
   border: 1px solid var(--border);
   text-align: center;
   transition: all 0.3s ease;
+  min-width: 0;
 }
 
 .value-card:hover {
@@ -834,6 +840,7 @@
   border: 1px solid var(--border);
   text-align: center;
   transition: all 0.3s ease;
+  min-width: 0;
 }
 
 .team-card:hover {
@@ -945,6 +952,7 @@
   border-radius: 12px;
   border: 1px solid var(--border);
   transition: all 0.3s ease;
+  min-width: 0;
 }
 
 .feature-item:hover {
@@ -1034,6 +1042,7 @@
   align-items: center;
   gap: 1rem;
   text-align: left;
+  min-width: 0;
 }
 
 .benefit-icon {
@@ -1082,6 +1091,7 @@
   padding: 2rem;
   border-radius: 16px;
   border: 1px solid var(--border);
+  min-width: 0;
 }
 
 .mission-card h3 {
@@ -1116,6 +1126,7 @@
 
   .footer-grid {
     grid-template-columns: 1fr 1fr;
+    gap: 24px;
   }
 
   .hero-grid {
@@ -1129,10 +1140,23 @@
 
   .benefits-grid {
     grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+  }
+
+  .benefit-item,
+  .service-card,
+  .step-card,
+  .testimonial-card,
+  .feature-item,
+  .value-card,
+  .mission-card,
+  .team-card {
+    min-width: 0;
   }
 
   .trust-content {
     grid-template-columns: 1fr !important;
+    gap: 2rem !important;
   }
 }
 
@@ -1170,6 +1194,11 @@
 
   .contact-grid {
     grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .contact-form {
+    padding: var(--space-md);
   }
 
   .about-hero h1,
@@ -1188,10 +1217,12 @@
 
   .benefits-grid {
     grid-template-columns: 1fr !important;
+    gap: 1rem !important;
   }
 
   .footer-grid {
     grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 
   .parallax-hero {
@@ -1219,6 +1250,7 @@
 
   .footer-grid {
     grid-template-columns: 1fr;
+    gap: 1.25rem;
   }
 
   .hero-image img {
@@ -1232,4 +1264,19 @@
   .hero-stats {
     gap: 1rem;
   }
+
+  .contact-form {
+    padding: 1rem;
+  }
 }
+
+  .benefit-item,
+  .service-card,
+  .step-card,
+  .testimonial-card,
+  .feature-item,
+  .value-card,
+  .mission-card,
+  .team-card {
+    min-width: 0;
+  }

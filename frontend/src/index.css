@@ -89,10 +89,10 @@ button:hover {
 /* Responsive */
 @media (max-width: 600px) {
   #root {
-    padding: 1rem;
+    padding: 0;
   }
 
   input, button {
-    width: 100%;
+    max-width: 100%;
   }
 }
