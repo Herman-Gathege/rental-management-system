@@ -9,3 +9,4 @@ build/
 .env
 backend/uploads/
 file-structure.txt
+backups/*.sql.gz

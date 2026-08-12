@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import logo from "../../assets/aplha1_logo_.png";
+import landingLogo from "../../assets/aplha1_logo_.png";
 import "./LandingLayout.css";
 
 export default function LandingLayout({ children }) {
-  const [scrolled, setScrolled] = useState(false);
+  const [landingScrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
 
@@ -27,37 +27,37 @@ export default function LandingLayout({ children }) {
 
   return (
     <div className="landing-root">
-      <nav className={`landing-navbar ${scrolled ? "scrolled" : ""}`} aria-label="Primary navigation">
-        <div className="container navbar-container">
-          <div className="logo">
-            <Link to="/" className="logo-link">
-              <img src={logo} alt="AlphaOne" className="logo-img" />
-              <span className="logo-text">AlphaOne</span>
+      <nav className={`landing-navbar ${landingScrolled ? "landing-scrolled" : ""}`} aria-label="Primary navigation">
+        <div className="container landing-navbar-container">
+          <div className="landing-logo">
+            <Link to="/" className="landing-logo-link">
+              <img src={landingLogo} alt="AlphaOne" className="landing-logo-img" />
+              <span className="landing-logo-text">AlphaOne</span>
             </Link>
           </div>
-          <ul className="nav-links" id="main-navigation">
+          <ul className="landing-nav-links" id="main-navigation">
             {navLinks.map((link) => (
               <li key={link.href}>
                 <Link
                   to={link.href}
-                  className={location.pathname === link.href ? "active" : ""}
+                  className={location.pathname === link.href ? "landing-active" : ""}
                 >
                   {link.label}
                 </Link>
               </li>
             ))}
           </ul>
-          <div className="nav-actions">
-            <Link to="/login" className="btn btn-outline nav-cta">
+          <div className="landing-nav-actions">
+            <Link to="/login" className="btn btn-outline landing-nav-cta">
               Sign In
             </Link>
-            <Link to="/register" className="btn btn-primary nav-cta">
+            <Link to="/register" className="btn btn-primary landing-nav-cta">
               Get Started
             </Link>
           </div>
           <button
             type="button"
-            className={`burger ${mobileOpen ? "toggle" : ""}`}
+            className={`landing-burger ${mobileOpen ? "landing-toggle" : ""}`}
             aria-label="Toggle navigation"
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -68,13 +68,13 @@ export default function LandingLayout({ children }) {
           </button>
         </div>
         {mobileOpen && (
-          <div className="mobile-menu">
+          <div className="landing-mobile-menu">
             <ul>
               {navLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     to={link.href}
-                    className={location.pathname === link.href ? "active" : ""}
+                    className={location.pathname === link.href ? "landing-active" : ""}
                   >
                     {link.label}
                   </Link>
@@ -101,9 +101,9 @@ export default function LandingLayout({ children }) {
         <div className="container">
           <div className="footer-grid">
             <div className="footer-brand">
-              <Link to="/" className="logo-link" style={{ marginBottom: "1rem" }}>
-                <img src={logo} alt="AlphaOne" className="logo-img" />
-                <span className="logo-text">AlphaOne</span>
+              <Link to="/" className="landing-logo-link" style={{ marginBottom: "1rem" }}>
+                <img src={landingLogo} alt="AlphaOne" className="landing-logo-img" />
+                <span className="landing-logo-text">AlphaOne</span>
               </Link>
               <p>
                 The modern property management platform built for landlords, property managers, and tenants across Kenya and East Africa.
