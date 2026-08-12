@@ -142,7 +142,15 @@ export default function Navbar() {
       </div>
 
       {/* CENTER */}
-      <div className="flex flex-col items-center text-sm hidden-mobile gap-md">
+      <div
+        className="flex flex-col items-center text-sm hidden-mobile gap-md"
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+        }}
+      >
         <span className="text-muted mr-sm">{formattedDate}</span>
         <span className="text-bold">{formattedTime}</span>
       </div>
