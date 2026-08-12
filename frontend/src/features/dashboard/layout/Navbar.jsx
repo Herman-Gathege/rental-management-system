@@ -124,7 +124,15 @@ export default function Navbar() {
   return (
     <header className="navbar flex justify-between items-center p-md">
       {/* LEFT */}
-      <div className="flex items-center gap-md">
+      <div
+        className="flex items-center gap-md"
+        style={{
+          position: "absolute",
+          left: 0,
+          top: "50%",
+          transform: "translateY(-50%)",
+        }}
+      >
         <button
           type="button"
           onClick={toggleFullscreen}
@@ -151,12 +159,20 @@ export default function Navbar() {
           transform: "translate(-50%, -50%)",
         }}
       >
-        <span className="text-muted mr-sm">{formattedDate}</span>
+        <span className="text-muted mr-md">{formattedDate}</span>
         <span className="text-bold">{formattedTime}</span>
       </div>
 
       {/* RIGHT */}
-      <div className="relative flex items-center gap-xs">
+      <div
+        className="flex items-center gap-xs"
+        style={{
+          position: "absolute",
+          right: 0,
+          top: "50%",
+          transform: "translateY(-50%)",
+        }}
+      >
         {/* Avatar */}
         <div className="avatar cursor-pointer" onClick={() => setOpen((o) => !o)}>
           {avatarLetter}
