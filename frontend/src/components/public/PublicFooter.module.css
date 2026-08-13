@@ -1,0 +1,91 @@
+.alphaPublicFooter {
+  background: #0f172a;
+  color: #e5e7eb;
+  padding: 64px 0 32px;
+}
+
+.alphaPublicFooterInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.alphaPublicFooterGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 48px;
+  padding-bottom: 48px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.alphaPublicFooterLogo {
+  height: 36px;
+  width: auto;
+  margin-bottom: 16px;
+}
+
+.alphaPublicFooterDesc {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #9ca3af;
+  max-width: 280px;
+  margin: 0;
+}
+
+.alphaPublicFooterHeading {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f9fafb;
+  margin: 0 0 20px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.alphaPublicFooterList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.alphaPublicFooterLink {
+  text-decoration: none;
+  color: #9ca3af;
+  font-size: 14px;
+  transition: color 0.2s ease;
+}
+
+.alphaPublicFooterLink:hover {
+  color: #f9fafb;
+}
+
+.alphaPublicFooterBottom {
+  padding-top: 32px;
+  text-align: center;
+}
+
+.alphaPublicFooterCopy {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .alphaPublicFooterGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+
+  .alphaPublicFooterBrand {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .alphaPublicFooterGrid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}

@@ -1,0 +1,232 @@
+.alphaPublicNav {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.alphaPublicNavInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.alphaPublicNavLogo {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.alphaPublicNavLogoImg {
+  height: 40px;
+  width: auto;
+}
+
+.alphaPublicNavDesktop {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.alphaPublicNavLink {
+  text-decoration: none;
+  color: #374151;
+  font-size: 15px;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+}
+
+.alphaPublicNavLink:hover {
+  color: #dc2626;
+}
+
+.alphaPublicNavLinkActive {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.alphaPublicNavDesktopActions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.alphaPublicNavLogin {
+  text-decoration: none;
+  color: #374151;
+  font-size: 15px;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+}
+
+.alphaPublicNavLogin:hover {
+  color: #dc2626;
+}
+
+.alphaPublicNavCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+}
+
+.alphaPublicNavCta:hover {
+  background: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
+}
+
+.alphaPublicNavHamburger {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 40px;
+  height: 40px;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+.alphaPublicNavHamburger:hover {
+  background: #f3f4f6;
+}
+
+.alphaPublicNavHamburger span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: #111827;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+  transform-origin: center;
+}
+
+.alphaPublicNavHamburgerOpen span:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+}
+
+.alphaPublicNavHamburgerOpen span:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+
+.alphaPublicNavHamburgerOpen span:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
+}
+
+.alphaPublicNavMobile {
+  display: none;
+}
+
+.alphaPublicNavOverlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .alphaPublicNavDesktop,
+  .alphaPublicNavDesktopActions {
+    display: none;
+  }
+
+  .alphaPublicNavHamburger {
+    display: flex;
+  }
+
+  .alphaPublicNavMobile {
+    display: block;
+    position: fixed;
+    top: 72px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(12px);
+    z-index: 999;
+    padding: 24px;
+    overflow-y: auto;
+    animation: alphaPublicSlideDown 0.3s ease forwards;
+  }
+
+  .alphaPublicNavMobileInner {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .alphaPublicNavMobileLink {
+    display: block;
+    padding: 16px 0;
+    font-size: 18px;
+    font-weight: 500;
+    color: #111827;
+    text-decoration: none;
+    border-bottom: 1px solid #f3f4f6;
+    transition: color 0.2s ease;
+  }
+
+  .alphaPublicNavMobileLink:hover {
+    color: #dc2626;
+  }
+
+  .alphaPublicNavMobileActions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  .alphaPublicNavOverlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 998;
+    animation: alphaPublicFadeIn 0.3s ease forwards;
+  }
+}
+
+@keyframes alphaPublicSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes alphaPublicFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
