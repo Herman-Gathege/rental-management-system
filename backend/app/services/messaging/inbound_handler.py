@@ -63,17 +63,23 @@ The only change here vs. the Phase 2 version is writing `title` instead of
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from datetime import datetime
 from typing import Any, Optional
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.message import Message
 from app.models.tenant import Tenant
 from app.models.ticket import Ticket
+from app.models.payment_review_item import PaymentReviewItem
+from app.models.lease import Lease
 from app.services.audit_service import log_action
 from app.services.messaging import send_notification
+from app.core.encryption import blind_index
+from app.services.whatsapp_payment_parser import parse_whatsapp_payment
 
 logger = logging.getLogger(__name__)
 
@@ -228,34 +234,42 @@ def _find_tenant_by_phone(
     Returns None if no match — the ticket is still created with
     tenant_id=null so staff can triage.
 
-    We try the normalized form first (matches what tenant CRUD stores),
-    then fall back to the raw inbound phone in case tenants were
-    created with the Meta-style no-'+' format.
+    Tenant.phone and Tenant.alternative_phone are encrypted (Fernet), so
+    equality comparison against the plaintext is meaningless. We instead
+    compute blind indexes for the normalized incoming phone and compare
+    against Tenant.phone_hash / Tenant.alternative_phone_hash.
+
+    We try multiple normalized forms to maximise match rate:
+      - E.164 with '+' (e.g. +254725123456)
+      - digits-only (e.g. 254725123456)
+    This mirrors the tenant search filter behaviour in tenants.py.
     """
+    if not phone:
+        return None
+
     normalized = _normalize_phone(phone)
+    digits_only = re.sub(r"[^\d]", "", phone)
+
+    candidates = [normalized]
+    if digits_only and digits_only not in candidates:
+        candidates.append(digits_only)
+
+    hashes = [blind_index(c) for c in candidates if c]
+    hashes = [h for h in hashes if h]
+    if not hashes:
+        return None
 
     tenant = (
         db.query(Tenant)
         .filter(
             Tenant.organization_id == organization_id,
-            Tenant.phone == normalized,
+            or_(
+                Tenant.phone_hash.in_(hashes),
+                Tenant.alternative_phone_hash.in_(hashes),
+            ),
         )
         .first()
     )
-    if tenant:
-        return tenant
-
-    # Fallback: maybe the tenant was stored without the leading '+'
-    if normalized != phone:
-        tenant = (
-            db.query(Tenant)
-            .filter(
-                Tenant.organization_id == organization_id,
-                Tenant.phone == phone,
-            )
-            .first()
-        )
-
     return tenant
 
 
@@ -377,6 +391,128 @@ def _send_ticket_confirmation(
 
 
 # ─────────────────────────────────────────────────────────────────────────
+# WhatsApp payment-evidence helpers
+# ─────────────────────────────────────────────────────────────────────────
+
+def _resolve_active_lease(db: Session, organization_id: str, tenant_id: str) -> tuple[Optional[str], Optional[str]]:
+    """Return (lease_id, flag_reason) for the tenant's active lease.
+
+    If exactly one active lease exists, returns (lease_id, None).
+    If multiple active leases exist, returns (None, "multiple_leases").
+    If no active lease exists, returns (None, "no_active_lease").
+    """
+    active_leases = (
+        db.query(Lease)
+        .filter(
+            Lease.tenant_id == tenant_id,
+            Lease.organization_id == organization_id,
+            Lease.status == "active",
+        )
+        .all()
+    )
+    if len(active_leases) == 1:
+        return active_leases[0].id, None
+    if len(active_leases) > 1:
+        return None, "multiple_leases"
+    return None, "no_active_lease"
+
+
+def _create_payment_review_item(
+    db: Session,
+    organization_id: str,
+    message: Message,
+    tenant: Optional[Tenant],
+    parsed: dict,
+    parser_result: dict,
+) -> Optional[PaymentReviewItem]:
+    """Create a PaymentReviewItem from WhatsApp payment evidence.
+
+    Returns the created item, or None if creation fails (logged, not raised).
+    Duplicate protection: skips if a pending review item already exists for
+    the same source_message_id or extracted reference.
+    """
+    try:
+        payer_phone = _normalize_phone(parsed["from_phone"])
+        payer_phone_hash = blind_index(payer_phone)
+
+        # Duplicate guard: same message already queued.
+        existing = (
+            db.query(PaymentReviewItem)
+            .filter(
+                PaymentReviewItem.organization_id == organization_id,
+                PaymentReviewItem.source == "whatsapp",
+                PaymentReviewItem.source_message_id == message.id,
+                PaymentReviewItem.status == "pending_review",
+            )
+            .first()
+        )
+        if existing:
+            return None
+
+        # Duplicate guard: same reference already pending.
+        ref = parser_result.get("reference")
+        if ref:
+            existing_ref = (
+                db.query(PaymentReviewItem)
+                .filter(
+                    PaymentReviewItem.organization_id == organization_id,
+                    PaymentReviewItem.reference == ref,
+                    PaymentReviewItem.status == "pending_review",
+                )
+                .first()
+            )
+            if existing_ref:
+                return None
+
+        tenant_id = tenant.id if tenant else None
+        lease_id = None
+        flag_reason = "manual_flag"
+
+        if tenant_id:
+            lease_id, lease_flag = _resolve_active_lease(db, organization_id, tenant_id)
+            if lease_flag:
+                flag_reason = lease_flag
+
+        amount = parser_result.get("amount") or 0
+        try:
+            amount = float(amount)
+        except (TypeError, ValueError):
+            amount = 0
+
+        item = PaymentReviewItem(
+            id=str(uuid.uuid4()),
+            organization_id=organization_id,
+            source="whatsapp",
+            source_message_id=message.id,
+            tenant_id=tenant_id,
+            lease_id=lease_id,
+            amount=amount,
+            reference=ref,
+            payer_phone=payer_phone,
+            payer_phone_hash=payer_phone_hash,
+            payer_name=parsed.get("sender_name"),
+            raw_transaction=parsed["body"],
+            extracted_reference=ref,
+            extracted_amount=parser_result.get("amount"),
+            message_timestamp=parsed.get("timestamp"),
+            status="pending_review",
+            flag_reason=flag_reason,
+            created_by_user_id=None,
+        )
+        db.add(item)
+        db.flush()
+        return item
+
+    except Exception as exc:  # noqa: BLE001 — never break the webhook
+        logger.exception(
+            "Failed to create payment review item for message %s: %s",
+            message.id, exc,
+        )
+        db.rollback()
+        return None
+
+
+# ─────────────────────────────────────────────────────────────────────────
 # Public entrypoints
 # ─────────────────────────────────────────────────────────────────────────
 
@@ -462,6 +598,40 @@ def handle_inbound_message(
     #    confirmation doesn't undo the ticket.
     db.commit()
 
+    # 5a) If the message looks like payment evidence, create a pending
+    #     PaymentReviewItem. This is additive and best-effort: a failure
+    #     here must not break the webhook or roll back the ticket.
+    review_item = None
+    try:
+        parser_result = parse_whatsapp_payment(parsed["body"])
+    except Exception:  # noqa: BLE001
+        logger.exception(
+            "Payment parser failed for message %s", message.id,
+        )
+        parser_result = {"is_payment_evidence": False}
+
+    if parser_result.get("is_payment_evidence"):
+        try:
+            review_item = _create_payment_review_item(
+                db=db,
+                organization_id=organization_id,
+                message=message,
+                tenant=tenant,
+                parsed=parsed,
+                parser_result=parser_result,
+            )
+            if review_item:
+                logger.info(
+                    "Created payment review item %s for WhatsApp message %s",
+                    review_item.id, message.id,
+                )
+        except Exception:  # noqa: BLE001
+            logger.exception(
+                "Payment review item creation failed for message %s",
+                message.id,
+            )
+            db.rollback()
+
     # 6) Send confirmation (best-effort, logged on failure, own commit)
     _send_ticket_confirmation(
         db=db,
@@ -481,6 +651,7 @@ def handle_inbound_message(
         "ticket_id": ticket.id,
         "tenant_id": tenant_id,
         "duplicate": False,
+        "payment_review_item_id": review_item.id if review_item else None,
     }
 
 

@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from app.models.tenant import Tenant
 from app.models.lease import Lease
 from app.models.payment import Payment
+from app.core.encryption import blind_index, decrypt_value
 
 # "MPESA TO ACC 0100316372900 UDTQS2OHFR TIMESTAMP: 254724735509 TO 0100316372900"
 _CODE_RE = re.compile(r"ACC\s+\d+\s+([A-Z0-9]+)\s+TIMESTAMP", re.IGNORECASE)
@@ -115,8 +116,8 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
 
     Per-row status:
       matched         -> tenant found, exactly one active lease (ready to record)
-      multiple_leases -> tenant found, >1 active lease (needs manual lease pick)
-      no_active_lease -> tenant found, no active lease (needs review)
+      multiple_leases  -> tenant found, >1 active lease (needs manual lease pick)
+      no_active_lease  -> tenant found, no active lease (needs review)
       unmatched       -> no tenant for that phone (needs review)
       duplicate       -> M-Pesa reference already recorded (skip)
       parse_error     -> couldn't read amount/phone from the row
@@ -125,11 +126,27 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
     non-terminal statuses still surface the tenant name.
     """
     tenants = db.query(Tenant).filter(Tenant.organization_id == org_id).all()
-    by_phone = {}
+    # Build a lookup by normalized phone hash. We hash both the raw phone
+    # string and the digits-only variant so "+254725123456" and "254725123456"
+    # both resolve to the same tenant.
+    by_hash = {}
     for t in tenants:
-        np = _norm_phone(t.phone)
-        if np:
-            by_phone.setdefault(np, t)
+        for raw in (t.phone, t.alternative_phone):
+            if not raw:
+                continue
+            # raw is Fernet ciphertext; decrypt to get the stored form.
+            plain = decrypt_value(raw)
+            if not plain:
+                continue
+            h = blind_index(plain)
+            if h:
+                by_hash[h] = t
+            # Also index the digits-only form.
+            digits = re.sub(r"[^\d]", "", plain)
+            if digits:
+                h2 = blind_index(digits)
+                if h2:
+                    by_hash[h2] = t
 
     results = []
     for p in parsed:
@@ -145,6 +162,7 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
             "tenant_name": None,
             "lease_id": None,
             "lease_options": [],
+            "whatsapp_matches": [],
         }
 
         if not p["amount"] or not p["phone"]:
@@ -157,7 +175,12 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
         # so duplicates still show who the CSV belongs to. If phone doesn't
         # match anyone in the org, tenant stays None and status will fall
         # through to 'unmatched' below.
-        tenant = by_phone.get(_norm_phone(p["phone"]))
+        phone_hash = blind_index(p["phone"])
+        tenant = by_hash.get(phone_hash)
+        if not tenant:
+            digits_only = re.sub(r"[^\d]", "", p["phone"] or "")
+            if digits_only:
+                tenant = by_hash.get(blind_index(digits_only))
         if tenant:
             item["tenant_id"] = tenant.id
             item["tenant_name"] = tenant.full_name

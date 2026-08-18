@@ -30,6 +30,7 @@ from app.models.tenant import Tenant
 from app.models.lease import Lease
 from app.services.audit_service import log_action
 from app.services.billing_service import recompute_lease_settlement
+from app.core.encryption import blind_index
 
 
 VALID_FLAG_REASONS = {
@@ -49,10 +50,13 @@ def to_dict(item: PaymentReviewItem) -> dict:
     return {
         "id": item.id,
         "organization_id": item.organization_id,
+        "source": item.source,
+        "source_message_id": item.source_message_id,
         "amount": float(item.amount) if item.amount is not None else 0,
         "payment_date": item.payment_date.isoformat() if item.payment_date else None,
         "reference": item.reference,
         "payer_phone": item.payer_phone,
+        "payer_phone_hash": item.payer_phone_hash,
         "payer_name": item.payer_name,
         "raw_transaction": item.raw_transaction,
         "tenant_id": item.tenant_id,
@@ -66,6 +70,9 @@ def to_dict(item: PaymentReviewItem) -> dict:
         "resolution_payment_id": item.resolution_payment_id,
         "rejection_reason": item.rejection_reason,
         "created_at": item.created_at.isoformat() if item.created_at else None,
+        "extracted_reference": item.extracted_reference,
+        "extracted_amount": float(item.extracted_amount) if item.extracted_amount is not None else None,
+        "message_timestamp": item.message_timestamp.isoformat() if item.message_timestamp else None,
     }
 
 
@@ -206,6 +213,7 @@ def list_review_items(
     db: Session,
     organization_id: str,
     status: Optional[str] = None,
+    source: Optional[str] = None,
 ) -> List[PaymentReviewItem]:
     q = db.query(PaymentReviewItem).filter(
         PaymentReviewItem.organization_id == organization_id
@@ -220,6 +228,57 @@ def list_review_items(
         q = q.filter(PaymentReviewItem.status == status)
     elif not status:
         q = q.filter(PaymentReviewItem.status == "pending_review")
+
+    if source:
+        q = q.filter(PaymentReviewItem.source == source)
+
+    return q.order_by(PaymentReviewItem.created_at.desc()).all()
+
+
+def find_whatsapp_match(
+    db: Session,
+    organization_id: str,
+    reference: Optional[str],
+    tenant_id: Optional[str],
+    amount: Optional[float],
+    payment_date: Optional[date],
+) -> List[PaymentReviewItem]:
+    """Search for pending WhatsApp payment evidence that matches a CSV transaction.
+
+    Matching signals (all optional, evaluated in order of strength):
+      1. reference (exact match)
+      2. tenant_id (exact match)
+      3. amount (exact match when both sides have it)
+      4. payment_date within a configurable tolerance
+
+    Returns all candidate matches. The caller decides confidence.
+    """
+    q = (
+        db.query(PaymentReviewItem)
+        .filter(
+            PaymentReviewItem.organization_id == organization_id,
+            PaymentReviewItem.source == "whatsapp",
+            PaymentReviewItem.status == "pending_review",
+        )
+    )
+
+    if reference:
+        q = q.filter(PaymentReviewItem.reference == reference)
+
+    if tenant_id:
+        q = q.filter(PaymentReviewItem.tenant_id == tenant_id)
+
+    # Amount filter: only apply if both sides have a non-null amount.
+    if amount is not None:
+        q = q.filter(PaymentReviewItem.amount == amount)
+
+    # Date tolerance: allow up to 3 days difference.
+    if payment_date is not None:
+        from datetime import timedelta
+        q = q.filter(
+            PaymentReviewItem.message_timestamp >= payment_date - timedelta(days=3),
+            PaymentReviewItem.message_timestamp <= payment_date + timedelta(days=3),
+        )
 
     return q.order_by(PaymentReviewItem.created_at.desc()).all()
 

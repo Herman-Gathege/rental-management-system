@@ -16,14 +16,24 @@ export const saveReviewItems = async (items) => {
 
 // status: null | "pending_review" | "applied" | "rejected" | "all"
 // Default (null) returns pending_review only.
-export const listReviewItems = async (status = null) => {
-  const params = status ? { status } : {};
+// source: null | "whatsapp" | "csv" — filter by evidence source.
+export const listReviewItems = async (status = null, source = null) => {
+  const params = {};
+  if (status) params.status = status;
+  if (source) params.source = source;
   const { data } = await API.get("/payments/reconciliation", { params });
   return data;
 };
 
 export const getReviewItem = async (itemId) => {
   const { data } = await API.get(`/payments/reconciliation/${itemId}`);
+  return data;
+};
+
+// Find WhatsApp matches for a CSV transaction.
+// payload: { reference?, tenant_id?, amount?, payment_date? }
+export const findWhatsAppMatch = async (payload) => {
+  const { data } = await API.post("/payments/reconciliation/find-whatsapp-match", payload);
   return data;
 };
 

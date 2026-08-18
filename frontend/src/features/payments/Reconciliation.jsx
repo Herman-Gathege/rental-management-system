@@ -24,6 +24,7 @@ import { getLeases } from "../../api/leases";
 
 const money = (n) => "KES " + Number(n || 0).toLocaleString();
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("en-GB") : "—");
+const fmtDateTime = (d) => (d ? new Date(d).toLocaleString("en-GB") : "—");
 
 const FLAG_LABEL = {
   unmatched: "Unmatched",
@@ -35,11 +36,22 @@ const FLAG_LABEL = {
   manual_flag: "Manual flag",
 };
 
+const SOURCE_LABEL = {
+  whatsapp: "WhatsApp",
+  csv: "CSV",
+};
+
 const STATUS_TABS = [
   { key: "pending_review", label: "Pending" },
   { key: "applied", label: "Applied" },
   { key: "rejected", label: "Rejected" },
   { key: "all", label: "All" },
+];
+
+const SOURCE_TABS = [
+  { key: "", label: "All sources" },
+  { key: "whatsapp", label: "WhatsApp" },
+  { key: "csv", label: "CSV" },
 ];
 
 // Role → base path so back-link + nav feel right for both owner and finance.
@@ -55,6 +67,7 @@ export default function Reconciliation() {
   const base = dashboardBase(user?.role);
 
   const [statusFilter, setStatusFilter] = useState("pending_review");
+  const [sourceFilter, setSourceFilter] = useState("");
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -65,7 +78,7 @@ export default function Reconciliation() {
     setLoading(true);
     setError("");
     try {
-      const data = await listReviewItems(statusFilter);
+      const data = await listReviewItems(statusFilter, sourceFilter || null);
       setItems(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err?.response?.data?.detail || "Failed to load review queue");
@@ -77,7 +90,7 @@ export default function Reconciliation() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, sourceFilter]);
 
   const handleReject = async (item) => {
     const reason = prompt(
@@ -134,6 +147,19 @@ export default function Reconciliation() {
         ))}
       </div>
 
+      {/* Source tabs */}
+      <div className="flex gap-sm mt-sm flex-wrap">
+        {SOURCE_TABS.map((t) => (
+          <button
+            key={t.key}
+            className={`btn btn-sm ${sourceFilter === t.key ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setSourceFilter(t.key)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {error && <div className="error-text mt-md">{error}</div>}
 
       {loading ? (
@@ -149,6 +175,7 @@ export default function Reconciliation() {
             <table className="properties-table">
               <thead>
                 <tr>
+                  <th>Source</th>
                   <th>Date</th>
                   <th>Amount</th>
                   <th>Reference</th>
@@ -207,11 +234,26 @@ export default function Reconciliation() {
 
 function ReviewRow({ item, onApply, onReject, onDelete }) {
   const isPending = item.status === "pending_review";
+  const isWhatsApp = item.source === "whatsapp";
   return (
     <tr>
-      <td>{fmtDate(item.payment_date)}</td>
+      <td>
+        {isWhatsApp ? (
+          <span className="role-badge" style={{ background: "#dcf8c6" }}>WhatsApp</span>
+        ) : (
+          <span className="role-badge">CSV</span>
+        )}
+      </td>
+      <td>
+        {isWhatsApp ? fmtDateTime(item.message_timestamp) : fmtDate(item.payment_date)}
+      </td>
       <td>{money(item.amount)}</td>
-      <td>{item.reference || "—"}</td>
+      <td>
+        {item.reference || "—"}
+        {isWhatsApp && item.extracted_reference && item.extracted_reference !== item.reference && (
+          <div className="text-sm text-muted">Parser: {item.extracted_reference}</div>
+        )}
+      </td>
       <td>{item.payer_phone || item.payer_name || "—"}</td>
       <td>{item.tenant_name || "—"}</td>
       <td>
@@ -245,6 +287,7 @@ function ReviewRow({ item, onApply, onReject, onDelete }) {
 
 function ReviewCard({ item, onApply, onReject, onDelete }) {
   const isPending = item.status === "pending_review";
+  const isWhatsApp = item.source === "whatsapp";
   return (
     <div className="property-card card">
       <div className="flex items-center justify-between">
@@ -254,8 +297,25 @@ function ReviewCard({ item, onApply, onReject, onDelete }) {
         </span>
       </div>
       <div className="text-sm">
-        <div><span className="text-muted">Date: </span>{fmtDate(item.payment_date)}</div>
-        <div><span className="text-muted">Reference: </span>{item.reference || "—"}</div>
+        <div>
+          <span className="text-muted">Source: </span>
+          {isWhatsApp ? (
+            <span className="role-badge" style={{ background: "#dcf8c6" }}>WhatsApp</span>
+          ) : (
+            <span className="role-badge">CSV</span>
+          )}
+        </div>
+        <div>
+          <span className="text-muted">Date: </span>
+          {isWhatsApp ? fmtDateTime(item.message_timestamp) : fmtDate(item.payment_date)}
+        </div>
+        <div>
+          <span className="text-muted">Reference: </span>
+          {item.reference || "—"}
+          {isWhatsApp && item.extracted_reference && item.extracted_reference !== item.reference && (
+            <span className="text-muted"> (parser: {item.extracted_reference})</span>
+          )}
+        </div>
         <div><span className="text-muted">Payer: </span>{item.payer_phone || item.payer_name || "—"}</div>
         <div><span className="text-muted">Tenant: </span>{item.tenant_name || "—"}</div>
         <div>
@@ -393,7 +453,16 @@ function ApplyModal({ item, onClose, onApplied }) {
 
         {item.raw_transaction && (
           <div className="text-sm text-muted mb-sm" style={{ background: "#f9fafb", padding: 8, borderRadius: 4 }}>
-            <strong>Source: </strong>{item.raw_transaction}
+            <strong>Original message: </strong>{item.raw_transaction}
+          </div>
+        )}
+        {item.source === "whatsapp" && (
+          <div className="text-sm text-muted mb-sm" style={{ background: "#f9fafb", padding: 8, borderRadius: 4 }}>
+            <strong>WhatsApp evidence</strong><br />
+            Message date: {fmtDateTime(item.message_timestamp)}<br />
+            Extracted reference: {item.extracted_reference || "—"}<br />
+            Extracted amount: {item.extracted_amount ? money(item.extracted_amount) : "—"}<br />
+            Parser confidence: {item.extracted_reference ? "reference found" : "no reference"}
           </div>
         )}
 

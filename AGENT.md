@@ -1,256 +1,657 @@
-# AlphaOne Public Website Redesign — Strict Isolation & Implementation Instructions
-
-## 0. ROLE AND OBJECTIVE
-
-You are working on the **AlphaOne Rental Property Management Tool**, a React/Vite application containing both:
-
-1. A public-facing marketing website
-2. A production SaaS application with authenticated dashboards and role-based interfaces
-
-Your task is to **redesign and rebuild ONLY the public-facing website experience** while keeping the existing SaaS application completely stable.
-
-The public website should feel modern, polished, premium, trustworthy, and product-focused.
-
-The final public-facing website should contain:
-
-* Landing / Home page
-* About Us page
-* Contact Us page
-* Featured / Product Features page
-
-The SaaS application already contains substantial styling and functionality. **DO NOT redesign, refactor, rewrite, simplify, or "clean up" the existing SaaS UI.**
-
-The public website must have its own isolated styling system.
+# AlphaOne — Payment Reconciliation Iteration
+## WhatsApp Tenant Payment Capture + Bank CSV Reconciliation
 
 ---
 
-# 1. ABSOLUTE SAFETY RULES
+# 0. ROLE AND OBJECTIVE
 
-These rules have the highest priority.
+You are working on the **AlphaOne Rental Property Management Tool**, a React/Vite application with a production SaaS backend supporting landlords, property managers, tenants, finance operations, payments, leases, and reporting.
 
-## DO NOT modify existing SaaS styling
+The public website redesign has already been completed.
 
-Do NOT modify or rewrite existing styles merely to make the public website easier to build.
+The current task is **NOT a UI redesign task**.
 
-Treat the following files as PROTECTED:
+The objective is to implement a controlled iteration of the existing **batch payment reconciliation workflow**.
 
-```text
-frontend/src/index.css
-frontend/src/App.css
+The business requirement is to improve how tenant payment information is captured before the landlord uploads the bank CSV.
 
-frontend/src/styles/
-├── base.css
-├── components.css
-├── customers.css
-├── dashboard.css
-├── home.css
-├── inspection.css
-├── layout.css
-├── pos.css
-├── properties.css
-├── team.css
-└── utilities.css
-```
+The new workflow should allow tenants to submit payment-related messages through the existing WhatsApp integration.
 
-Also treat existing dashboard/component CSS and CSS modules as protected unless a change is absolutely required to correctly route/render the public website.
+The system should:
+
+1. Receive a tenant's WhatsApp message.
+2. Identify the authenticated/linked tenant who sent it.
+3. Store the original message/payload.
+4. Extract the likely payment reference from the message.
+5. Store the extracted payment information as a **Pending Reconciliation Record**.
+6. Preserve the tenant relationship from the WhatsApp sender.
+7. Preserve the original message for audit/debugging.
+8. Allow the landlord/user to upload the bank CSV through the existing reconciliation workflow.
+9. Match bank transactions against the pending tenant-submitted records.
+10. Use transaction reference, tenant identity, amount, dates/timestamps, phone number and other available evidence to determine the best match.
+11. Automatically move confidently matched payments into official payment history.
+12. Move unmatched or ambiguous records into an **Issues / Reconciliation Exceptions** area for manual resolution.
+13. Never silently discard payment submissions or overwrite the original evidence.
+
+The goal is to reduce dependence on inconsistent bank SMS/message formats while retaining the bank CSV as the authoritative transaction source.
+
+---
+
+# 1. CURRENT BUSINESS PROBLEM
+
+The current batch reconciliation process expects the landlord/user to upload a CSV obtained from the bank.
+
+The existing system attempts to identify:
+
+- transaction/payment reference
+- phone number
+
+from the bank transaction information and then connect that transaction to an active tenant's payment record.
+
+The problem is that banks do not consistently format transaction messages.
 
 Examples include:
 
 ```text
-components/PropertySwitcher/PropertySwitcher.css
-components/ui/*
-features/auth/AuthForm.module.css
-features/dashboard/layout/DashboardLayout.module.css
-features/dashboard/widgets/*
-```
+02-Feb-2026
+UAVO15EI8G 25479****032 - TIMOTHY **
+03-Feb-2026
+MPESA TO ACC 0100316372900 UB31M5J6YF TIMESTAMP: 254725342986 TO 0100316372900
+04-Feb-2026
+MPESA TO ACC 0100316372900 UB4P65OGQ8 TIMESTAMP: 254720891840 TO 0100316372900
+06-Feb-2026
+CASH DEP AT 2796 20:27:15 06022026 24625269 DEPOSIT 1212120000000000/0/020620270116
+06-Feb-2026
+29-Apr-2026
+PESA 0007000220260429102657BCE6A459 ELIJAH MAKAMBI OMBEO 0007 DE4116FA5C6E4B52AD2365438BB530B1 RENT FOR MAY 2026 AND DEPOSIT
+12-May-2026
+UEAS8BMFQS 4601470 - KINGPIN SOLUTIO
+07-Jul-2026
+UG6HVA47T5 070****107 - CINDY IRAMWE
+10-Jul-2026
+MPESA TO ACC 0100316372900 UGAFKB0GXM TIMESTAMP: 254705073918 TO 0100316372900
+11-Jul-2026
+UGAS82J1LC 4601470 - KINGPIN SOLUTIO
+11-Jul-2026
+MPESA TO ACC 0100316372900 UGBAPB3X8W TIMESTAMP: 254707173178 TO 0100316372900 11/07/2026 UGAS82J1LC 4601470 - KINGPIN SOLUTIO
+27-Jul-2026
+MPESA TO ACC 0100316372900 UGQ930GXXD TIMESTAMP: 254111435559 TO 0100316372900
+01-Aug-2026
+MPESA TO ACC 0100316372900 UH1561L65S TIMESTAMP: 178556135482 TO 0100316372900
 
-Do NOT alter these files to solve public website styling problems.
+The exact format must NOT be assumed to be stable.
 
----
+2. IMPORTANT BUSINESS DECISION
 
-# 2. NEVER USE GLOBAL CSS FOR THE PUBLIC WEBSITE
+A previous idea was to require tenants to create tickets containing payment information.
 
-This is extremely important.
+This was rejected because it creates unnecessary UX friction.
 
-The new public website MUST NOT introduce styling such as:
+The preferred workflow is now:
 
-```css
-body {}
-html {}
-h1 {}
-h2 {}
-h3 {}
-p {}
-a {}
-button {}
-img {}
-section {}
-header {}
-nav {}
-```
+Tenant sends payment information through WhatsApp.
 
-Do NOT create global selectors that could affect the SaaS.
+WhatsApp is already integrated into the platform and therefore provides a more natural tenant experience.
 
-Do NOT reset the entire document globally.
+The tenant should not need to understand reconciliation, CSV files, transaction parsing, or payment matching.
 
-Do NOT add:
+They simply send the payment message/information.
 
-```css
-* {}
-```
+The system handles the structured processing behind the scenes.
 
-unless it is strictly scoped beneath a public website root selector.
+3. CORE DATA FLOW
 
-Even then, prefer component-level styling.
+The intended architecture is:
 
----
+TENANT
+   │
+   │ sends WhatsApp message
+   ▼
+WHATSAPP INTEGRATION
+   │
+   │ identifies sender
+   ▼
+TENANT IDENTITY RESOLUTION
+   │
+   │ identifies linked active tenant
+   ▼
+MESSAGE/PAYMENT PARSER
+   │
+   ├── original message
+   ├── sender phone
+   ├── tenant ID
+   ├── detected reference
+   ├── detected amount (if available)
+   ├── detected date/time (if available)
+   └── parser metadata
+   │
+   ▼
+PENDING RECONCILIATION RECORD
+   │
+   │ waits for bank CSV
+   ▼
+LANDLORD UPLOADS BANK CSV
+   │
+   ▼
+BANK TRANSACTION PARSER
+   │
+   ▼
+MATCHING ENGINE
+   │
+   ├── confident match
+   │       ▼
+   │   PAYMENT HISTORY
+   │
+   └── uncertain/unmatched
+           ▼
+      RECONCILIATION ISSUES
+4. AUTHORITATIVE DATA PRINCIPLE
 
-# 3. PUBLIC WEBSITE STYLE ISOLATION
+This distinction is critical.
 
-Create a completely isolated public website styling namespace.
+Tenant WhatsApp message
 
-Use a unique namespace such as:
+The WhatsApp message is:
 
-```text
-alpha-public
-```
+evidence
+a payment claim
+a source of tenant identity
+a source of a possible transaction reference
+a source of possible amount/date information
 
-Every public page should have a root wrapper similar to:
+It is NOT the authoritative financial transaction.
 
-```jsx
-<div className="alpha-public">
-```
+Bank CSV
 
-or preferably a more structured unique class such as:
+The bank CSV remains the authoritative financial transaction source.
 
-```jsx
-<div className="alpha-public-page">
-```
+Therefore:
 
-All public website classes must be uniquely prefixed.
+WhatsApp submission
+        +
+Bank transaction
+        ↓
+Reconciled payment
 
-Examples:
+A WhatsApp message alone MUST NOT automatically create a finalized payment in payment history.
 
-```text
-alpha-public
-alpha-public-page
-alpha-public-nav
-alpha-public-hero
-alpha-public-hero-content
-alpha-public-hero-title
-alpha-public-hero-subtitle
-alpha-public-feature
-alpha-public-feature-grid
-alpha-public-feature-card
-alpha-public-contact
-alpha-public-contact-form
-alpha-public-footer
-```
+The system must wait for reconciliation against a bank transaction.
 
-DO NOT create generic classes such as:
+5. PENDING RECONCILIATION RECORD
 
-```text
-.container
-.header
-.nav
-.hero
-.card
-.button
-.title
-.section
-.footer
-.content
-```
+When a tenant sends a payment message, create a pending reconciliation record.
 
-These are forbidden for the new public website because they can collide with existing SaaS styling.
+The exact schema must first be discovered from the existing application.
 
----
+Do NOT invent a parallel payment system if the existing reconciliation/payment models can safely support the workflow.
 
-# 4. PREFER CSS MODULES
+The pending record should conceptually contain information such as:
 
-Where practical, use CSS Modules for the new public website.
+id
+tenant_id
+sender_phone
+original_message
+extracted_reference
+extracted_amount
+message_date
+message_timestamp
+status
+source
+created_at
+updated_at
+matched_bank_transaction_id
+match_confidence
+match_reason
+
+These are conceptual fields only.
+
+Before implementation, inspect the existing models and determine:
+
+what already exists
+what can be reused
+what needs to be added
+how existing payment records are represented
+how existing reconciliation records are represented
+how tenants are represented
+how leases are represented
+how WhatsApp payloads are currently stored
+
+Do NOT blindly create all of the above fields.
+
+6. TENANT IDENTIFICATION
+
+The WhatsApp sender should be the primary mechanism for associating the message with a tenant.
+
+The system should resolve:
+
+WhatsApp phone number
+        ↓
+Tenant
+        ↓
+Active lease
+        ↓
+Property/unit
+
+Only tenants with an appropriate active lease/payment relationship should be eligible for automatic reconciliation.
+
+Do NOT assume every WhatsApp sender is a tenant.
+
+The existing tenant/account/phone-number architecture must be inspected first.
+
+Normalize phone numbers before matching.
+
+For example, the system should account for Kenyan formats such as:
+
+0725xxxxxx
+254725xxxxxx
++254725xxxxxx
+
+without creating duplicate identities.
+
+7. PAYMENT REFERENCE EXTRACTION
+
+The parser must NOT assume one fixed bank format.
+
+The system should attempt to identify transaction references from the tenant's submitted message.
+
+Examples of references include:
+
+UB31M5J6YF
+UB4P65OGQ8
+UG6HVA47T5
+UGAS82J1LC
+UGBAPB3X8W
+UGQ930GXXD
+UH1561L65S
+UAVO15EI8G
+UEAS8BMFQS
+
+However:
+
+DO NOT hard-code these specific examples as the only valid formats.
+
+The implementation should first inspect the actual existing parser/reconciliation logic.
+
+Use robust extraction strategies such as:
+
+existing parser utilities
+configurable patterns
+transaction-reference heuristics
+normalization
+confidence scoring
+
+Avoid replacing a working parser unnecessarily.
+
+8. ORIGINAL MESSAGE MUST BE PRESERVED
+
+Never discard the original WhatsApp message after extracting information.
+
+Store the original payload/message where the existing architecture allows.
+
+This is required for:
+
+auditing
+troubleshooting
+manual reconciliation
+improving parsing logic later
+understanding bank-format variations
+
+The system should be able to answer:
+
+"What exactly did the tenant send?"
+
+without reconstructing the message from extracted fields.
+
+9. BANK CSV RECONCILIATION
+
+The existing CSV upload workflow should remain the central reconciliation mechanism.
+
+When the landlord uploads a bank CSV:
+
+CSV transaction
+        ↓
+parse transaction
+        ↓
+extract reference / amount / date / phone / description
+        ↓
+compare against pending tenant submissions
+
+The matching engine should consider multiple signals.
+
+Potential signals include:
+
+Strong signals
+Transaction reference
+Tenant identity where deterministically available
+Exact amount
+Transaction date/time
+Supporting signals
+Phone number
+Sender phone
+Bank transaction description
+Lease/payment period
+Other existing reconciliation metadata
+
+Do not treat every signal as equally strong.
+
+10. MATCHING SHOULD BE EVIDENCE-BASED
+
+Do not simply match on:
+
+reference == reference
+
+if the existing business rules require more context.
+
+The system should evaluate the available evidence.
+
+Conceptually:
+
+reference match
++
+amount match
++
+reasonable date/time proximity
++
+tenant relationship
+=
+high-confidence reconciliation
+
+A match should also account for payment timing.
 
 For example:
 
-```text
+A tenant may send a payment message near the end of one month for rent intended for the following month.
+
+Therefore the system must distinguish:
+
+transaction date
+payment message date
+payment period
+lease period
+
+Do not blindly equate:
+
+transaction date == rent month
+11. PAYMENT PERIOD
+
+The reconciliation process must support cases such as:
+
+29-Apr-2026
+...
+RENT FOR MAY 2026 AND DEPOSIT
+
+This means the system must not assume that the month in which the transaction occurred is always the month being paid for.
+
+Where the existing payment model supports payment periods, use it.
+
+Where the WhatsApp message explicitly states a payment period, preserve that information as evidence.
+
+Do not invent payment-period inference rules without inspecting the current payment logic.
+
+12. MATCH RESULTS
+
+Every reconciliation attempt should produce a clear outcome.
+
+Recommended conceptual statuses:
+
+PENDING
+MATCHED
+AMBIGUOUS
+UNMATCHED
+REVIEW_REQUIRED
+
+Use the existing application's status conventions if they already exist.
+
+MATCHED
+
+The system has sufficient evidence to safely associate the bank transaction with a tenant/payment.
+
+The transaction can proceed into official payment history according to existing business rules.
+
+AMBIGUOUS
+
+Multiple possible tenant/payment matches exist.
+
+Do NOT automatically finalize it.
+
+Send it to reconciliation issues for manual resolution.
+
+UNMATCHED
+
+No suitable tenant/payment match was found.
+
+Send it to reconciliation issues.
+
+REVIEW_REQUIRED
+
+The parser found transaction information but confidence is insufficient.
+
+Send it to reconciliation issues.
+
+13. RECONCILIATION ISSUES TABLE
+
+Payments that cannot be safely reconciled should NOT disappear.
+
+Create or extend an existing reconciliation issues mechanism.
+
+The table should provide enough information for a landlord/finance user to resolve the issue manually.
+
+Useful information includes:
+
+bank transaction
+amount
+transaction date
+reference
+bank description
+candidate tenant
+tenant-submitted reference
+tenant phone
+original WhatsApp message
+reason for failure
+match confidence
+status
+
+Again, inspect existing models/UI before creating new structures.
+
+Do not duplicate existing functionality unnecessarily.
+
+14. SUCCESSFUL RECONCILIATION
+
+For a high-confidence match:
+
+Bank transaction
+        +
+Pending tenant submission
+        ↓
+Validated payment
+        ↓
+Existing payment history
+
+The implementation must use the existing payment-history creation flow if one exists.
+
+Do NOT create a second parallel payment-history system.
+
+The pending reconciliation record should retain a relationship to the finalized payment/reconciliation result for traceability.
+
+15. DUPLICATE PROTECTION
+
+Duplicate payment submissions must be handled safely.
+
+Examples:
+
+Tenant sends the same payment reference multiple times.
+
+The same WhatsApp message is delivered more than once.
+
+The same bank transaction appears more than once in an uploaded CSV.
+
+The system should prevent duplicate finalized payments.
+
+Use existing unique identifiers where available.
+
+Potential deduplication signals include:
+
+transaction reference
+bank transaction ID
+WhatsApp message ID
+tenant ID
+timestamp
+amount
+
+Do not assume any single field is globally unique unless the existing system guarantees it.
+
+16. IDEMPOTENCY
+
+WhatsApp/webhook integrations can deliver duplicate events.
+
+The existing webhook implementation must be inspected.
+
+If the integration already has message/event IDs, use them for idempotency.
+
+A repeated webhook event should not create multiple pending reconciliation records.
+
+17. WHATSAPP INTEGRATION
+
+Before changing the WhatsApp integration:
+
+Locate the webhook endpoint.
+Inspect the incoming payload.
+Determine how sender identity is currently resolved.
+Determine how messages are stored.
+Determine whether conversation history is already stored.
+Determine whether message IDs are available.
+Determine whether tenant/account association already exists.
+
+Do not create a second WhatsApp integration.
+
+Extend the existing integration where possible.
+
+18. DO NOT OVERENGINEER THE MESSAGE PARSER
+
+The parser should be robust but maintainable.
+
+Avoid attempting to build a universal NLP system for arbitrary bank messages.
+
+Start with:
+
+normalization
+reference extraction
+amount extraction where available
+date/time extraction where available
+phone extraction where available
+preservation of raw message
+confidence scoring
+
+Support known patterns while keeping the parser extensible.
+
+The bank's inconsistent formats are expected.
+
+19. IMPORTANT: DO NOT ASSUME THE EXAMPLE FORMATS ARE COMPLETE
+
+The examples in this document are representative examples from the current business problem.
+
+They are NOT a complete specification.
+
+The agent MUST inspect:
+
+existing parser code
+current CSV reconciliation logic
+WhatsApp integration
+payment models
+tenant models
+lease models
+payment history
+existing reconciliation UI
+
+before implementing.
+
+20. EXISTING SYSTEM FIRST
+
+Before making changes, identify:
+
+WhatsApp integration
+        ↓
+Webhook
+        ↓
+Message storage
+        ↓
+Tenant identity
+        ↓
+Payment/reconciliation models
+        ↓
+CSV upload
+        ↓
+CSV parser
+        ↓
+Matching logic
+        ↓
+Payment history
+        ↓
+Reconciliation issues
+
+Document the current implementation.
+
+Then propose the smallest safe integration point.
+
+Do NOT rewrite working reconciliation logic simply because a new workflow is being introduced.
+
+21. PROTECTED AREAS
+
+Unless explicitly required for this iteration, do NOT modify:
+
+Authentication
+Authorization
+JWT
+User roles
+Tenant dashboard
+Landlord dashboard
+Property management
+Lease management
+Finance unrelated to reconciliation
+Reports unrelated to reconciliation
+Inspections
+Maintenance
+Notifications unrelated to WhatsApp payment capture
+Public website
+Public website CSS
+Public website branding
+Infrastructure
+Docker configuration
+Environment configuration
+
+The public website is considered COMPLETE and should remain untouched.
+
+22. PUBLIC WEBSITE IS NOW OUT OF SCOPE
+
+The previous task was the AlphaOne public website redesign.
+
+That work is complete.
+
+For this iteration:
+
+DO NOT redesign or modify the public website.
+
+Do not modify:
+
 frontend/src/pages/public/
-├── PublicHome.jsx
-├── PublicHome.module.css
-├── About.jsx
-├── About.module.css
-├── Contact.jsx
-├── Contact.module.css
-├── Featured.jsx
-└── Featured.module.css
-```
-
-Shared public components can use:
-
-```text
 frontend/src/components/public/
-├── PublicNavbar.jsx
-├── PublicNavbar.module.css
-├── PublicFooter.jsx
-├── PublicFooter.module.css
-├── PublicButton.jsx
-├── PublicButton.module.css
-├── PublicSection.jsx
-└── PublicSection.module.css
-```
 
-CSS Modules are preferred because they provide another layer of protection against collisions.
+unless there is an explicitly approved integration requirement.
 
-If ordinary CSS must be used, every selector MUST be scoped under the unique public namespace.
+Do not change its visual system.
 
----
+Do not change its branding.
 
-# 5. DO NOT TOUCH THE SAAS LOGIC
+Do not change its responsive behavior.
 
-The following must remain functionally untouched unless there is an unavoidable routing integration requirement:
+Do not change its CSS.
 
-```text
-frontend/src/api/
-frontend/src/context/
-frontend/src/hooks/
-frontend/src/features/
-frontend/src/components/
-frontend/src/utils/
-```
+23. NO GIT OPERATIONS
 
-Do NOT modify:
+You MUST NOT perform Git operations autonomously.
 
-* authentication
-* login
-* registration
-* password handling
-* JWT handling
-* API clients
-* API endpoints
-* dashboards
-* role-based access control
-* tenant functionality
-* landlord functionality
-* property management functionality
-* finance functionality
-* payments
-* reports
-* inspections
-* tickets
-* settings
-* notifications
-* backend communication
+Do not:
 
-The public website is a presentation layer only.
-
----
-
-# 6. NO GIT OPERATIONS
-
-You MUST NOT perform any Git operation autonomously.
-
-Do NOT run:
-
-```bash
 git status
 git add
 git commit
@@ -264,1054 +665,478 @@ git reset
 git restore
 git stash
 git branch
-```
 
-Do not create branches.
+The human developer controls Git.
 
-Do not switch branches.
+24. NO SUDO
 
-Do not commit.
+Never run:
 
-Do not push.
-
-Do not pull.
-
-The human developer will handle all Git operations.
-
----
-
-# 7. NO SUDO
-
-You MUST NEVER autonomously run:
-
-```bash
 sudo ...
-```
 
 Do not install system packages.
 
-Do not modify system configuration.
+Do not modify system services.
 
-Do not modify Docker/system services.
-
-Do not modify permissions unless explicitly instructed by the developer.
-
----
-
-# 8. DO NOT CHANGE INFRASTRUCTURE
+25. NO INFRASTRUCTURE CHANGES
 
 Do not modify:
 
-```text
 docker-compose.yml
 Dockerfile
 Caddyfile
 nginx.conf
 .env
 .env.*
-```
 
-unless the developer explicitly requests an infrastructure change.
+unless explicitly instructed.
 
-The current deployment environment is considered stable.
+26. NO UNRELATED REFACTORING
 
----
+Do not:
 
-# 9. DO NOT "FIX" UNRELATED PROBLEMS
+clean up unrelated code
+rename unrelated models
+rewrite unrelated APIs
+refactor dashboards
+redesign existing tables
+change authentication
+upgrade dependencies
+reorganize the project
 
-While inspecting the project you may discover:
+Only implement the payment-reconciliation iteration.
 
-* old CSS
-* duplicated CSS
-* inconsistent naming
-* unused imports
-* old components
-* unrelated warnings
-* technical debt
-* existing styling inconsistencies
-
-DO NOT fix them.
-
-Do not refactor unrelated code.
-
-Do not improve unrelated components.
-
-Do not rename existing classes.
-
-Do not reorganize the project simply because you prefer another structure.
-
-Only make changes directly necessary for the public website redesign.
-
----
-
-# 10. FIRST PHASE — STUDY BEFORE MODIFYING
-
-Before writing or modifying code, you MUST first study the existing implementation.
-
-Do not immediately start coding.
-
-Inspect:
-
-```text
-frontend/src/pages/Home.jsx
-frontend/src/pages/Home.module.css
-frontend/src/App.jsx
-frontend/src/routes/AppRoutes.jsx
-frontend/src/routes/ProtectedRoute.jsx
-frontend/src/main.jsx
-frontend/src/components/SEO.jsx
-frontend/src/utils/seo.js
-```
-
-Also inspect the relevant existing public-page styling and the existing application layout.
-
-Study:
-
-* current landing page structure
-* current navigation
-* current footer
-* current typography
-* current colors
-* current branding
-* existing responsive behavior
-* existing routes
-* how Home is currently rendered
-* how authentication routes are protected
-* how public routes differ from protected routes
-* how assets are currently imported
-* existing logo usage
-* existing SEO implementation
-
-You are not studying this so that you can reuse its CSS blindly.
-
-You are studying it so you understand the existing architecture and can safely replace the public presentation layer without damaging the SaaS.
-
----
-
-# 11. STUDY THE EXISTING CSS
-
-Before creating new styling, inspect:
-
-```text
-frontend/src/index.css
-frontend/src/App.css
-frontend/src/styles/
-```
-
-Understand:
-
-* existing CSS architecture
-* global selectors
-* CSS variables
-* typography
-* spacing
-* colors
-* layout patterns
-* responsive breakpoints
-* naming conventions
-* potential collision risks
-
-Do NOT modify these files.
-
-The purpose is to understand what must be avoided.
-
----
-
-# 12. STUDY THE EXISTING ASSETS
-
-Inspect:
-
-```text
-frontend/src/assets/
-```
-
-There may be:
-
-* AlphaOne logo
-* SaaS screenshots
-* dashboard screenshots
-* product screenshots
-* promotional images
-* other PNG/JPG/SVG assets
-
-Use the existing assets where appropriate.
-
-Do not duplicate assets unnecessarily.
-
-Do not delete existing assets.
-
-Do not rename existing assets unless explicitly instructed.
-
-The SaaS screenshots should be treated as valuable product marketing assets.
-
-Use them to communicate what AlphaOne actually does.
-
----
-
-# 13. CURRENT PROJECT STRUCTURE
-
-The frontend currently contains approximately:
-
-```text
-frontend/src/
-├── api/
-├── assets/
-├── components/
-├── config/
-├── context/
-├── features/
-├── hooks/
-├── pages/
-├── routes/
-├── styles/
-└── utils/
-```
-
-The application already contains a substantial SaaS implementation.
-
-Do NOT reorganize this entire structure.
-
-Add the new public website cleanly alongside the existing application.
-
----
-
-# 14. PROPOSED PUBLIC WEBSITE STRUCTURE
-
-Create an isolated public website structure.
-
-Preferred approach:
-
-```text
-frontend/src/
-├── pages/
-│   ├── public/
-│   │   ├── PublicHome.jsx
-│   │   ├── PublicHome.module.css
-│   │   ├── About.jsx
-│   │   ├── About.module.css
-│   │   ├── Contact.jsx
-│   │   ├── Contact.module.css
-│   │   ├── Featured.jsx
-│   │   └── Featured.module.css
-│   │
-│   └── existing SaaS/public files...
-│
-└── components/
-    └── public/
-        ├── PublicNavbar.jsx
-        ├── PublicNavbar.module.css
-        ├── PublicFooter.jsx
-        ├── PublicFooter.module.css
-        ├── PublicButton.jsx
-        └── PublicButton.module.css
-```
-
-You may slightly adjust this structure if the existing routing architecture makes another arrangement safer.
-
-Do NOT move existing SaaS files merely for aesthetic reasons.
-
----
-
-# 15. PUBLIC WEBSITE ROUTES
-
-Create or preserve clean public routes such as:
-
-```text
-/
-```
-
-```text
-/about
-```
-
-```text
-/contact
-```
-
-```text
-/features
-```
-
-or:
-
-```text
-/featured
-```
-
-Use whichever naming best matches the existing project conventions, but keep the routes public.
-
-Existing authenticated routes MUST continue working.
-
-For example, do not break routes related to:
-
-```text
-/login
-/register
-/dashboard
-/owner
-/manager
-/finance
-/tenant
-/super-admin
-```
-
-The exact existing routes should be discovered from the current routing configuration before making changes.
-
----
-
-# 16. NAVIGATION REQUIREMENTS
-
-Create a dedicated public navigation component.
-
-It should contain:
-
-* AlphaOne logo
-* Home
-* Features / Featured
-* About
-* Contact
-* Login
-* Get Started / Register CTA
-
-The navigation must be responsive.
-
-Desktop:
-
-* clean horizontal navigation
-* strong CTA
-* premium SaaS appearance
-
-Mobile:
-
-* proper hamburger menu
-* accessible controls
-* smooth open/close behavior
-* no horizontal overflow
-* no interference with SaaS navigation
-
-Do NOT reuse the SaaS dashboard Navbar unless it is already specifically designed for the public website.
-
-Create a dedicated public navigation component.
-
----
-
-# 17. LANDING PAGE
-
-Build the landing page from scratch.
-
-The page should communicate immediately:
-
-### What AlphaOne is
-
-A modern rental property management platform for landlords, property managers, and tenants across Kenya and East Africa.
-
-### Hero
-
-Create a strong hero section containing:
-
-* clear headline
-* supporting statement
-* primary CTA
-* secondary CTA
-* product visual / SaaS screenshot
-* subtle visual depth
-* premium SaaS presentation
-
-Avoid generic template-looking design.
-
-The product should feel like a serious technology platform.
-
----
-
-# 18. LANDING PAGE SECTIONS
-
-Create a thoughtful marketing flow.
-
-Suggested structure:
-
-1. Navigation
-2. Hero
-3. Trust / positioning section
-4. Problem statement
-5. AlphaOne solution
-6. Product screenshot showcase
-7. Key capabilities
-8. Role-based benefits
-9. How AlphaOne works
-10. Feature highlights
-11. CTA section
-12. Footer
-
-You may improve this structure if the existing product information suggests a better storytelling flow.
-
-Do not invent unrealistic product capabilities.
-
-Use only capabilities that are supported by the existing application.
-
----
-
-# 19. FEATURED / FEATURES PAGE
-
-Create a dedicated product features page.
-
-Showcase actual AlphaOne capabilities such as those supported by the existing application.
-
-Potential categories include:
-
-* Property management
-* Unit management
-* Tenant management
-* Lease management
-* Rent/payment management
-* Finance
-* Expenses
-* Reports
-* Inspections
-* Maintenance/tickets
-* Team management
-* Notifications
-* Bulk uploads
-* Role-based dashboards
-
-Do not claim functionality that does not exist.
-
-Where appropriate, use SaaS screenshots from:
-
-```text
-frontend/src/assets/
-```
-
-Create an attractive visual product showcase.
-
----
-
-# 20. ABOUT PAGE
-
-The About page should establish:
-
-* what AlphaOne is
-* why it exists
-* the problem it addresses
-* who it serves
-* its Kenya/East Africa focus
-* the vision behind the platform
-* trust and credibility
-
-Do not invent fake statistics.
-
-Do not invent awards.
-
-Do not invent customers.
-
-Do not invent partnerships.
-
-Do not invent testimonials.
-
-Do not make unsupported claims.
-
-Use existing project information where available.
-
----
-
-# 21. CONTACT PAGE
-
-Create a professional contact page.
-
-Include appropriate contact options based on information already present in the project.
-
-Potential elements:
-
-* contact form
-* email
-* phone
-* location
-* business inquiry CTA
-* support CTA
-
-Do not invent contact details.
-
-If existing contact details are already present in the current application/SEO configuration, use those.
-
-The form should have excellent UX but should NOT invent a backend endpoint.
-
-If no contact API exists, build the frontend form UI and clearly leave integration isolated rather than pretending submissions are functional.
-
----
-
-# 22. VISUAL DESIGN DIRECTION
-
-The new public website should feel:
-
-* modern
-* premium
-* trustworthy
-* professional
-* clean
-* technology-focused
-* African-market aware
-* SaaS-oriented
-* spacious
-* responsive
-* polished
-
-Avoid:
-
-* generic Bootstrap appearance
-* excessive gradients
-* excessive glassmorphism
-* random animations
-* excessive shadows
-* childish illustrations
-* clutter
-* template-like sections
-* huge blocks of text
-* unnecessary UI decorations
-
-The product screenshots should be treated as a major visual asset.
-
-Let the actual product UI help sell the platform.
-
----
-
-# 23. RESPONSIVE DESIGN
-
-The public website MUST work well at:
-
-```text
-320px
-375px
-390px
-414px
-768px
-1024px
-1280px
-1440px+
-```
-
-Pay particular attention to:
-
-* navigation
-* hero
-* screenshots
-* feature grids
-* cards
-* buttons
-* typography
-* footer
-* spacing
-* overflow
-
-There must be no horizontal scrolling caused by the new public website.
-
----
-
-# 24. TYPOGRAPHY
-
-Do not globally modify typography.
-
-Do not change:
-
-```css
-body
-h1
-h2
-h3
-p
-button
-a
-```
-
-Instead, style typography through scoped classes/CSS modules.
-
-For example:
-
-```text
-alpha-public-hero-title
-alpha-public-section-title
-alpha-public-body
-alpha-public-card-title
-```
-
-The public website's typography must not affect dashboard typography.
-
----
-
-# 25. BUTTONS
-
-Do not globally style:
-
-```css
-button {}
-```
-
-Create dedicated public button classes/components.
-
-For example:
-
-```text
-alpha-public-button
-alpha-public-button-primary
-alpha-public-button-secondary
-alpha-public-button-outline
-```
-
-The SaaS buttons must remain unchanged.
-
----
-
-# 26. IMAGES
-
-Use assets from:
-
-```text
-frontend/src/assets/
-```
-
-especially:
-
-```text
-aplha1_logo_.png
-```
-
-and any SaaS screenshots found there.
-
-Before referencing an asset, verify its exact filename and path.
-
-Do not assume filenames.
-
-Do not create broken image references.
-
-Use appropriate:
-
-```jsx
-alt=""
-```
-
-text for accessibility.
-
----
-
-# 27. SEO
-
-Preserve the existing SEO architecture.
-
-Inspect:
-
-```text
-frontend/src/components/SEO.jsx
-frontend/src/utils/seo.js
-```
-
-Implement page-specific metadata where appropriate.
-
-The public pages should have appropriate:
-
-* title
-* description
-* canonical URL
-* Open Graph metadata
-* Twitter metadata
-
-Do not break existing SEO functionality.
-
-Do not introduce malformed HTML.
-
-Do not place Markdown URLs inside HTML attributes.
-
-Use actual HTML URLs.
-
----
-
-# 28. ACCESSIBILITY
-
-Build the public website with proper accessibility.
-
-Include:
-
-* semantic HTML
-* useful alt text
-* keyboard-accessible navigation
-* visible focus states
-* appropriate button/link semantics
-* aria labels where necessary
-* sufficient contrast
-* mobile navigation accessibility
-
-Do not sacrifice accessibility for visual design.
-
----
-
-# 29. ANIMATION
-
-Use animation sparingly.
-
-Good examples:
-
-* subtle hero entrance
-* hover states
-* image reveal
-* navigation transitions
-* card hover
-* CTA interaction
-
-Avoid:
-
-* excessive motion
-* constant animations
-* distracting effects
-* animations that make the website feel like a template
-
-Respect reduced-motion preferences where practical.
-
----
-
-# 30. IMPORTANT: DO NOT REUSE GENERIC EXISTING CLASSES
-
-Do not do this:
-
-```jsx
-<div className="container">
-```
-
-if `.container` already exists elsewhere.
-
-Do not do this:
-
-```jsx
-<button className="btn">
-```
-
-if `.btn` exists elsewhere.
-
-Do not do this:
-
-```jsx
-<section className="hero">
-```
-
-if `.hero` exists elsewhere.
-
-Instead use isolated names:
-
-```jsx
-<div className={styles.publicContainer}>
-```
-
-or:
-
-```jsx
-<div className="alpha-public-container">
-```
-
----
-
-# 31. DEVELOPMENT WORKFLOW
+27. DEVELOPMENT PROCESS
 
 Follow this order.
 
-## Phase 1 — READ ONLY
+PHASE 1 — READ ONLY DISCOVERY
 
-Inspect the current implementation.
+Before changing anything, inspect:
 
-Do not modify files.
+WhatsApp
+webhook route
+payload schema
+message storage
+sender identity
+message ID/idempotency
+Tenants
+tenant model
+phone-number fields
+active lease relationship
+Payments
+payment model
+payment history
+payment period
+existing payment status
+Reconciliation
+CSV upload endpoint
+CSV parser
+reference extraction
+phone extraction
+matching logic
+reconciliation result handling
+existing issue handling
+Frontend
+current reconciliation page
+payment history page
+any existing reconciliation issues UI
+Database
+relevant Alembic migrations
+foreign keys
+uniqueness constraints
+existing indexes
 
-Study:
+Do not code during discovery.
 
-* routing
-* Home
-* CSS
-* assets
-* SEO
-* application architecture
+28. DISCOVERY REPORT
 
-At the end of this phase, explain your understanding of:
+Before implementation, provide:
 
-1. How the current public page works
-2. How the SaaS routes work
-3. Which files are protected
-4. Where the new public website should live
-5. How styling isolation will be achieved
+Current WhatsApp flow
 
-Then proceed.
+Explain how incoming WhatsApp messages currently enter the system.
 
----
+Current tenant resolution
 
-## Phase 2 — PUBLIC WEBSITE ARCHITECTURE
+Explain how a WhatsApp sender is connected to a tenant.
 
-Create the isolated public website architecture.
+Current payment flow
 
-Implement:
+Explain how payments are currently stored.
 
-* public route structure
-* public layout
-* public navbar
-* public footer
-* public button system
-* isolated CSS modules
+Current CSV reconciliation
 
-Do not touch SaaS styling.
+Explain how the bank CSV is parsed and matched.
 
----
+Current limitations
 
-## Phase 3 — LANDING PAGE
+Identify exactly where the current implementation cannot support the new workflow.
 
-Build the new landing page.
+Proposed integration points
 
-Do not simply modify the old Home styling.
+Identify the smallest set of files/models/routes that should change.
 
-Create the new presentation from scratch while retaining useful existing content and product knowledge.
+Data model proposal
 
----
+Show which existing tables/models can be reused and which new fields/table, if any, are necessary.
 
-## Phase 4 — FEATURES PAGE
+Risk assessment
 
-Create the Features/Featured page.
+Identify any risk of:
 
-Use actual product capabilities and screenshots.
+duplicate payments
+incorrect tenant matching
+incorrect payment period
+webhook duplication
+CSV duplication
+data loss
 
----
+Do not implement until the discovery report is complete.
 
-## Phase 5 — ABOUT PAGE
+29. IMPLEMENTATION PHASE
 
-Create About.
+After discovery and approval:
 
----
+Implement the smallest safe iteration.
 
-## Phase 6 — CONTACT PAGE
+Preferred sequence:
 
-Create Contact.
+Add/reuse pending reconciliation storage.
+Extend WhatsApp message handling.
+Resolve tenant identity.
+Extract payment reference.
+Preserve original payload.
+Store pending reconciliation record.
+Extend bank CSV reconciliation.
+Match pending records against bank transactions.
+Create/update finalized payment through existing payment flow.
+Route ambiguous/unmatched records to reconciliation issues.
+Add or update UI only where required.
+Add duplicate/idempotency protection.
+Validate.
+30. FRONTEND REQUIREMENTS
 
----
+The frontend should only be changed where necessary to support the reconciliation workflow.
 
-## Phase 7 — VERIFY ISOLATION
+Potential UI areas:
 
-Before considering the work complete, inspect the changes and verify:
+Pending Reconciliation
 
-* SaaS dashboard still renders
-* Login still renders
-* Register still renders
-* public pages render
-* existing navigation works
-* public navigation works
-* SaaS CSS has not been modified
-* no global selectors were introduced
-* no generic class collisions were introduced
-* no API code was changed unnecessarily
-* no authentication code was changed
-* no backend code was changed
-* no Docker configuration was changed
-* no environment configuration was changed
+Display:
 
----
+tenant
+phone
+amount
+extracted reference
+message date
+submitted date
+status
+original message/evidence
+Reconciliation Issues
 
-# 32. IMPORTANT FILE CHANGE POLICY
+Display:
 
-Before modifying an existing file, ask:
+bank transaction
+reference
+amount
+date
+tenant candidate
+original WhatsApp evidence
+reason
+status
+action to resolve
 
-> Is this file part of the public website, routing integration, or absolutely necessary for the public website?
+Use the application's existing design system where appropriate.
 
-If the answer is no:
+Do NOT redesign the entire SaaS UI.
 
-**DO NOT MODIFY IT.**
+31. MANUAL RESOLUTION
 
-Prefer creating new files over modifying existing ones.
+The landlord/finance user must be able to resolve problematic records individually.
 
-If you can solve a problem by creating a new isolated component instead of editing an existing SaaS component, create the new component.
+Possible actions:
 
----
+assign tenant
+confirm payment
+reject payment
+correct reference
+correct payment period
+link to existing tenant/payment
+mark as resolved
 
-# 33. DO NOT COPY OLD CSS
+Only implement actions supported by the existing authorization model and business rules.
 
-The old public landing page may contain useful content and structure.
+Do not invent financial operations.
 
-However:
+32. MATCHING PRIORITY
 
-**DO NOT copy its CSS wholesale.**
+The implementation should prefer strong deterministic matches.
 
-Study it.
+Conceptually:
 
-Understand it.
+Tier 1
 
-Then create a fresh visual system.
+Exact transaction reference + compatible tenant/payment context.
 
-The objective is:
+Tier 2
 
-```text
-Existing SaaS
-      │
-      │
-      ├── Existing styling
-      ├── Existing components
-      ├── Existing functionality
-      └── PROTECTED
-       
-Public Website
-      │
-      ├── New components
-      ├── New CSS Modules
-      ├── New class names
-      ├── New visual system
-      └── ISOLATED
-```
+Exact reference + exact amount + compatible date/time.
 
----
+Tier 3
 
-# 34. DO NOT CHANGE APP BEHAVIOR
+Tenant identity + amount + compatible date/time.
 
-The public redesign must not accidentally alter:
+Tier 4
 
-* authentication state
-* API URLs
-* API requests
-* cookies
-* JWT
-* role detection
-* protected routes
-* dashboard routing
-* tenant routing
-* landlord routing
-* manager routing
-* finance routing
-* super-admin routing
+Phone/reference/description evidence requiring review.
 
-If a change appears necessary to `App.jsx` or `AppRoutes.jsx`, make the smallest possible routing-only change.
+Tier 5
 
-Do not refactor these files.
+No reliable match → issue.
 
----
+Do not automatically finalize low-confidence matches.
 
-# 35. VALIDATION
+The exact algorithm should be based on the existing data model and reconciliation implementation discovered in Phase 1.
 
-After implementation, run appropriate NON-DESTRUCTIVE development checks.
+33. TIME-AWARE RECONCILIATION
 
-For example:
+The matching system must consider:
 
-```bash
+tenant message time
+bank transaction time
+payment date
+payment period
+lease period
+
+It must support:
+
+current-month rent
+previous-month payments
+advance rent
+rent paid before the month starts
+payments referencing a future rent period
+
+Do not assume that:
+
+payment date = rent month
+34. AUDITABILITY
+
+Every important reconciliation action should remain traceable.
+
+The system should be able to determine:
+
+Who submitted the payment evidence?
+When was it submitted?
+What was the original message?
+What reference was extracted?
+Which bank transaction matched it?
+Why was it matched?
+When was it finalized?
+Who manually resolved it, if applicable?
+
+Reuse the existing audit/logging infrastructure where possible.
+
+35. VALIDATION
+
+Run safe project-local validation.
+
+Examples:
+
 npm run build
-```
 
-and, where appropriate:
+and backend tests/lint/type checks where available.
 
-```bash
-npm run dev
-```
+Do NOT use Git commands.
 
-You may inspect files and run safe project-local validation commands.
+Do NOT use sudo.
 
-DO NOT use sudo.
+Do NOT modify infrastructure.
 
-DO NOT run Git commands.
+Validate at minimum:
 
-DO NOT modify system configuration.
+WhatsApp
+valid tenant message
+unknown sender
+duplicate webhook
+malformed message
+Parsing
+reference extracted
+reference absent
+amount extracted
+multiple possible references
+unusual bank format
+Reconciliation
+exact match
+amount mismatch
+date mismatch
+duplicate transaction
+ambiguous match
+unmatched transaction
+Payment period
+current month
+previous month
+future/advance payment
+Finalization
+matched payment enters existing payment history
+unmatched payment remains visible
+issue can be manually resolved
+duplicate finalization is prevented
+36. FAILURE HANDLING
 
-If the build fails because of an unrelated pre-existing problem, do not start rewriting unrelated parts of the project.
+Never silently discard:
 
-Report the exact issue.
+WhatsApp messages
+payment references
+bank transactions
+failed matches
+ambiguous matches
 
----
+If parsing fails:
 
-# 36. IF SOMETHING BREAKS
+RAW MESSAGE
+     ↓
+PENDING / REVIEW REQUIRED
 
-If a public website change breaks the SaaS:
+If reconciliation fails:
 
-1. Stop.
-2. Identify exactly what caused the collision.
-3. Revert ONLY your own public-site-related change if necessary.
-4. Do not modify unrelated SaaS code to compensate.
-5. Reimplement the public feature using stronger isolation.
+BANK TRANSACTION
+     ↓
+RECONCILIATION ISSUE
 
-The solution to a CSS collision is NOT to modify the SaaS CSS.
+The system should preserve enough information for manual resolution.
 
----
+37. DO NOT INVENT BUSINESS RULES
 
-# 37. FINAL QUALITY STANDARD
+If the existing code does not clearly define:
 
-The final public website should feel like a deliberate product website for a serious SaaS company.
+payment period rules
+acceptable matching window
+duplicate policy
+tenant eligibility
+payment status
+manual resolution authority
 
-It should communicate:
+STOP and report the ambiguity.
 
-> "This is a real rental/property management platform."
+Do not silently invent a financial rule.
+
+38. FINAL QUALITY STANDARD
+
+The iteration should result in:
+
+Tenant submits payment evidence naturally via WhatsApp
+                    ↓
+System identifies tenant
+                    ↓
+System extracts payment reference
+                    ↓
+Pending reconciliation record created
+                    ↓
+Landlord uploads bank CSV
+                    ↓
+Bank transaction becomes authoritative evidence
+                    ↓
+Matching engine reconciles the two
+             ↙                 ↘
+      High confidence       Uncertain
+             ↓                 ↓
+      Payment history     Reconciliation issue
+
+The implementation must prioritize:
+
+Financial correctness
+Tenant identity correctness
+Duplicate prevention
+Auditability
+Preservation of raw evidence
+Accurate payment-period handling
+Minimal changes to existing architecture
+Maintainability
+Security
+SaaS stability
+39. FINAL REPORT
+
+When implementation is complete, provide:
+
+Discovery
+current WhatsApp architecture
+current payment architecture
+current reconciliation architecture
+Created
+
+List new files/models/migrations/components.
+
+Modified
+
+List only files genuinely required for this iteration.
+
+Data model
+
+Explain new fields/tables and relationships.
+
+WhatsApp
+
+Explain how tenant payment messages are captured.
+
+Parsing
+
+Explain reference extraction and normalization.
+
+Matching
+
+Explain matching priority and confidence handling.
+
+Reconciliation
+
+Explain how CSV transactions become finalized payments.
+
+Issues
+
+Explain how ambiguous/unmatched transactions are handled.
+
+Duplicate protection
+
+Explain idempotency and duplicate prevention.
+
+Validation
+
+Report tests/build checks and results.
+
+Risks / Follow-up
+
+List anything requiring explicit human approval.
+
+FINAL COMMANDMENT
+
+This is a payment reconciliation iteration, not a redesign.
+
+The financial data flow must remain conservative.
+
+Never turn tenant-submitted WhatsApp evidence directly into a finalized payment.
+
+Always follow:
+
+TENANT EVIDENCE → PENDING RECONCILIATION → BANK VERIFICATION → FINAL PAYMENT
+
+When uncertain:
+
+INSPECT EXISTING IMPLEMENTATION → PROPOSE → WAIT FOR APPROVAL
 
 rather than:
 
-> "This is a React template with some text added."
-
-Use the actual AlphaOne product interface and screenshots as visual proof of the product.
-
-Prioritize:
-
-1. Product clarity
-2. Visual hierarchy
-3. Trust
-4. Conversion
-5. Responsive design
-6. Accessibility
-7. Performance
-8. CSS isolation
-9. SaaS stability
-
----
-
-# 38. FINAL REPORT
-
-When finished, provide a concise implementation report containing:
-
-### Created
-
-List the new public website files.
-
-### Modified
-
-List ONLY the existing files that genuinely needed modification.
-
-### Protected
-
-Confirm that the SaaS styling and functionality were left untouched.
-
-### Routes
-
-List the public routes created.
-
-### Assets
-
-List the existing assets reused.
-
-### Validation
-
-Report the validation/build results.
-
-### Potential Follow-up
-
-List anything that requires explicit human approval before proceeding.
-
----
-
-# FINAL COMMANDMENT
-
-The SaaS application is the protected core product.
-
-The public website is a new isolated presentation layer.
-
-**NEVER sacrifice the SaaS to make the public website easier to build.**
-
-When in doubt:
-
-> CREATE NEW + SCOPE IT
-
-instead of:
-
-> MODIFY EXISTING + RISK COLLISION
-
-Do not use sudo.
+ASSUME → REWRITE → RISK INCORRECT FINANCIAL DATA
 
 Do not use Git.
 
+Do not use sudo.
+
 Do not modify infrastructure.
 
-Do not modify existing SaaS styling.
+Do not redesign the public website.
 
-Do not modify existing SaaS functionality.
+Do not refactor unrelated SaaS functionality.
 
-Study first.
+Study the existing payment and WhatsApp architecture first.
 
-Then build the public website cleanly and independently.
+Then implement the smallest safe integration.

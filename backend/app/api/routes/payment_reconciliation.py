@@ -121,11 +121,15 @@ def list_items(
         None,
         description="Filter: pending_review | applied | rejected | all. Default: pending_review.",
     ),
+    source: Optional[str] = Query(
+        None,
+        description="Filter by source: whatsapp | csv. Default: all sources.",
+    ),
     deps=Depends(require_money_role),
 ):
     user, membership, db = deps
     items = rec.list_review_items(
-        db, membership.organization_id, status=status,
+        db, membership.organization_id, status=status, source=source,
     )
     return [rec.to_dict(i) for i in items]
 
@@ -170,6 +174,30 @@ def apply_item(
         "item": rec.to_dict(item),
         "payment_id": payment.id,
     }
+
+
+class FindWhatsAppMatchPayload(BaseModel):
+    reference: Optional[str] = None
+    tenant_id: Optional[str] = None
+    amount: Optional[float] = None
+    payment_date: Optional[date] = None
+
+
+@router.post("/find-whatsapp-match")
+def find_whatsapp_match(
+    payload: FindWhatsAppMatchPayload,
+    deps=Depends(require_money_role),
+):
+    user, membership, db = deps
+    matches = rec.find_whatsapp_match(
+        db=db,
+        organization_id=membership.organization_id,
+        reference=payload.reference,
+        tenant_id=payload.tenant_id,
+        amount=payload.amount,
+        payment_date=payload.payment_date,
+    )
+    return [rec.to_dict(m) for m in matches]
 
 
 @router.post("/{item_id}/reject")

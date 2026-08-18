@@ -34,8 +34,20 @@ class PaymentReviewItem(Base):
     payment_date = Column(Date, nullable=True)
     reference = Column(String, nullable=True)
     payer_phone = Column(String, nullable=True)
+    payer_phone_hash = Column(String(64), nullable=True, index=True)
     payer_name = Column(String, nullable=True)
     raw_transaction = Column(Text, nullable=True)
+
+    # WhatsApp evidence (nullable — only present for whatsapp-sourced items).
+    source = Column(String, nullable=True)
+    source_message_id = Column(
+        String,
+        ForeignKey("messages.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    extracted_reference = Column(String, nullable=True)
+    extracted_amount = Column(Numeric(10, 2), nullable=True)
+    message_timestamp = Column(DateTime, nullable=True)
 
     # Best-guess matches (nullable). Depending on flag_reason one or both
     # may be null — e.g. an "unmatched" row has no tenant at all.
@@ -81,3 +93,4 @@ class PaymentReviewItem(Base):
     tenant = relationship("Tenant", foreign_keys=[tenant_id])
     lease = relationship("Lease", foreign_keys=[lease_id])
     resolution_payment = relationship("Payment", foreign_keys=[resolution_payment_id])
+    source_message = relationship("Message", foreign_keys=[source_message_id])
