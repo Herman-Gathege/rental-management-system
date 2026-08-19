@@ -181,6 +181,10 @@ def _clean(value) -> str:
         return ""
     if isinstance(value, (date, datetime)):
         return value.strftime("%Y-%m-%d")
+    if isinstance(value, float):
+        if value.is_integer():
+            return str(int(value))
+        return str(value)
     return str(value).strip()
 
 

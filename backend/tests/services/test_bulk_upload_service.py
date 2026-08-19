@@ -883,3 +883,231 @@ class TestTenantBulkUploadLeaseCreation:
         assert len(result.imported) == 0
         assert len(result.skipped) == 1
         assert "already used" in result.skipped[0].reason.lower()
+
+    def test_xlsx_billing_day_whole_number_float_normalized(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Billing Day Float",
+                "phone": "0712000030",
+                "email": "billingfloat@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "1.0",
+                "lease_status": "active",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+        db.commit()
+
+        assert len(result.imported) == 1
+        assert len(result.skipped) == 0
+
+        tenant = db.query(Tenant).filter(Tenant.full_name == "Billing Day Float").first()
+        assert tenant is not None
+        lease = db.query(Lease).filter(Lease.tenant_id == tenant.id).first()
+        assert lease is not None
+        assert lease.billing_day == 1
+
+    def test_xlsx_billing_day_15_point_0_normalized(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Billing Day 15",
+                "phone": "0712000031",
+                "email": "billing15@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "15.0",
+                "lease_status": "active",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+        db.commit()
+
+        assert len(result.imported) == 1
+        assert len(result.skipped) == 0
+
+        tenant = db.query(Tenant).filter(Tenant.full_name == "Billing Day 15").first()
+        assert tenant is not None
+        lease = db.query(Lease).filter(Lease.tenant_id == tenant.id).first()
+        assert lease is not None
+        assert lease.billing_day == 15
+
+    def test_xlsx_billing_day_31_point_0_normalized(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Billing Day 31",
+                "phone": "0712000032",
+                "email": "billing31@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "31.0",
+                "lease_status": "active",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+        db.commit()
+
+        assert len(result.imported) == 1
+        assert len(result.skipped) == 0
+
+        tenant = db.query(Tenant).filter(Tenant.full_name == "Billing Day 31").first()
+        assert tenant is not None
+        lease = db.query(Lease).filter(Lease.tenant_id == tenant.id).first()
+        assert lease is not None
+        assert lease.billing_day == 31
+
+    def test_xlsx_billing_day_non_whole_number_rejected(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Bad Billing Day",
+                "phone": "0712000033",
+                "email": "badbilling@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "1.5",
+                "lease_status": "active",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+
+        assert len(result.imported) == 0
+        assert len(result.skipped) == 1
+        assert "not a valid whole number" in result.skipped[0].reason.lower()
+
+    def test_xlsx_billing_day_out_of_range_rejected(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Bad Billing Day Range",
+                "phone": "0712000034",
+                "email": "badbillingrange@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "32.0",
+                "lease_status": "active",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+
+        assert len(result.imported) == 0
+        assert len(result.skipped) == 1
+        assert "billing_day must be between 1 and 31" in result.skipped[0].reason
+
+    def test_csv_billing_day_still_works(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "CSV Billing Day",
+                "phone": "0712000035",
+                "email": "csvbilling@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "15",
+                "lease_status": "active",
+            }
+        ]
+        csv_bytes = _to_csv_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, csv_bytes, inspector_user_id=landlord_user.id
+        )
+        db.commit()
+
+        assert len(result.imported) == 1
+        assert len(result.skipped) == 0
+
+        tenant = db.query(Tenant).filter(Tenant.full_name == "CSV Billing Day").first()
+        assert tenant is not None
+        lease = db.query(Lease).filter(Lease.tenant_id == tenant.id).first()
+        assert lease is not None
+        assert lease.billing_day == 15
+
+    def test_xlsx_dates_and_billing_day_together(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Combined Xlsx",
+                "phone": "0712000036",
+                "email": "combined@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "5.0",
+                "lease_status": "active",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+        db.commit()
+
+        assert len(result.imported) == 1
+        assert len(result.skipped) == 0
+
+        tenant = db.query(Tenant).filter(Tenant.full_name == "Combined Xlsx").first()
+        assert tenant is not None
+        lease = db.query(Lease).filter(Lease.tenant_id == tenant.id).first()
+        assert lease is not None
+        assert lease.start_date == date(2026, 9, 1)
+        assert lease.end_date == date(2027, 8, 31)
+        assert lease.billing_day == 5
