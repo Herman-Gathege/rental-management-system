@@ -5,7 +5,9 @@ import csv
 import io
 
 import pytest
-from datetime import date
+from datetime import date, datetime
+
+import openpyxl
 
 from app.services import bulk_upload_service
 from app.models.tenant import Tenant
@@ -24,6 +26,35 @@ def _to_csv_bytes(rows: list[dict], headers: list[str]) -> bytes:
     for row in rows:
         writer.writerow({h: row.get(h, "") for h in headers})
     return out.getvalue().encode("utf-8")
+
+
+def _to_xlsx_bytes(rows: list[dict], headers: list[str]) -> bytes:
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(headers)
+    for row in rows:
+        converted_row = []
+        for h in headers:
+            val = row.get(h, "")
+            if h in ("start_date", "end_date") and val:
+                try:
+                    converted_row.append(datetime.strptime(val, "%Y-%m-%d"))
+                except ValueError:
+                    converted_row.append(val)
+            elif h in ("rent_amount", "deposit_amount", "billing_day") and val != "":
+                try:
+                    converted_row.append(int(val))
+                except ValueError:
+                    try:
+                        converted_row.append(float(val))
+                    except ValueError:
+                        converted_row.append(val)
+            else:
+                converted_row.append(val)
+        ws.append(converted_row)
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
 
 
 class TestTenantBulkUploadLeaseCreation:
@@ -617,3 +648,238 @@ class TestTenantBulkUploadLeaseCreation:
 
         lease = db.query(Lease).first()
         assert lease is None
+
+    def test_xlsx_date_cells_imported_successfully(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Xlsx Date Tenant",
+                "phone": "0712000020",
+                "email": "xlsxdate@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "1",
+                "lease_status": "active",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+        db.commit()
+
+        assert len(result.imported) == 1
+        assert len(result.skipped) == 0
+
+        tenant = db.query(Tenant).filter(Tenant.full_name == "Xlsx Date Tenant").first()
+        assert tenant is not None
+
+        lease = db.query(Lease).filter(Lease.tenant_id == tenant.id).first()
+        assert lease is not None
+        assert lease.start_date == date(2026, 9, 1)
+        assert lease.end_date == date(2027, 8, 31)
+        assert lease.rent_amount == 35000
+        assert lease.deposit_amount == 35000
+
+    def test_xlsx_datetime_values_normalized(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Xlsx DateTime Tenant",
+                "phone": "0712000021",
+                "email": "xlsdatetime@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "1",
+                "lease_status": "active",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+        db.commit()
+
+        assert len(result.imported) == 1
+        assert len(result.skipped) == 0
+
+        tenant = db.query(Tenant).filter(Tenant.full_name == "Xlsx DateTime Tenant").first()
+        assert tenant is not None
+
+        lease = db.query(Lease).filter(Lease.tenant_id == tenant.id).first()
+        assert lease is not None
+        assert lease.start_date == date(2026, 9, 1)
+        assert lease.end_date == date(2027, 8, 31)
+
+    def test_xlsx_invalid_date_still_rejected(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Bad Xlsx Date",
+                "phone": "0712000022",
+                "email": "badxlsx@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "not-a-date",
+                "end_date": "2027-08-31",
+                "billing_day": "1",
+                "lease_status": "active",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+
+        assert len(result.imported) == 0
+        assert len(result.skipped) == 1
+        assert "not a valid date" in result.skipped[0].reason.lower()
+
+    def test_xlsx_end_date_before_start_date_still_rejected(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Bad Xlsx Date Order",
+                "phone": "0712000023",
+                "email": "badorder@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "2027-08-31",
+                "end_date": "2026-09-01",
+                "billing_day": "1",
+                "lease_status": "active",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+
+        assert len(result.imported) == 0
+        assert len(result.skipped) == 1
+        assert "start_date must be before end_date" in result.skipped[0].reason
+
+    def test_tenant_only_xlsx_without_lease_columns_works(self, db, org, landlord_user):
+        rows = [
+            {
+                "full_name": "Xlsx Tenant Only",
+                "phone": "0712000024",
+                "email": "xlsxtenant@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "",
+                "unit": "",
+                "rent_amount": "",
+                "deposit_amount": "",
+                "start_date": "",
+                "end_date": "",
+                "billing_day": "",
+                "lease_status": "",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+        db.commit()
+
+        assert len(result.imported) == 1
+        assert len(result.skipped) == 0
+
+        tenant = db.query(Tenant).filter(Tenant.full_name == "Xlsx Tenant Only").first()
+        assert tenant is not None
+
+        lease = db.query(Lease).filter(Lease.tenant_id == tenant.id).first()
+        assert lease is None
+
+    def test_xlsx_numeric_rent_deposit_parsing_works(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Xlsx Numeric Tenant",
+                "phone": "0712000025",
+                "email": "xlsxnumeric@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "1",
+                "lease_status": "active",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+        db.commit()
+
+        assert len(result.imported) == 1
+        assert len(result.skipped) == 0
+
+        tenant = db.query(Tenant).filter(Tenant.full_name == "Xlsx Numeric Tenant").first()
+        assert tenant is not None
+
+        lease = db.query(Lease).filter(Lease.tenant_id == tenant.id).first()
+        assert lease is not None
+        assert lease.rent_amount == 35000
+        assert lease.deposit_amount == 35000
+
+    def test_xlsx_uniqueness_validation_works(self, db, org, landlord_user):
+        existing = Tenant(
+            id="tenant-xlsx-dup", organization_id=org.id,
+            full_name="Existing Xlsx", phone="0712000026", email="existingxlsx@example.com",
+        )
+        db.add(existing)
+        db.flush()
+
+        rows = [
+            {
+                "full_name": "Existing Xlsx",
+                "phone": "0712000026",
+                "email": "existingxlsx@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "1",
+                "lease_status": "active",
+            }
+        ]
+        xlsx_bytes = _to_xlsx_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, xlsx_bytes, inspector_user_id=landlord_user.id
+        )
+
+        assert len(result.imported) == 0
+        assert len(result.skipped) == 1
+        assert "already used" in result.skipped[0].reason.lower()

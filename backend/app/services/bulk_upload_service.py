@@ -179,6 +179,8 @@ def _read_spreadsheet(csv_bytes: bytes) -> _SpreadsheetReader:
 def _clean(value) -> str:
     if value is None:
         return ""
+    if isinstance(value, (date, datetime)):
+        return value.strftime("%Y-%m-%d")
     return str(value).strip()
 
 
