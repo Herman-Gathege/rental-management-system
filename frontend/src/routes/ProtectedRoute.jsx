@@ -35,8 +35,9 @@ export default function ProtectedRoute({ children, allowedRoles, skipPhoneGate =
   }
 
   return (
-    <SEO noindex>
+    <>
+      <SEO noindex />
       {children}
-    </SEO>
+    </>
   );
 }
