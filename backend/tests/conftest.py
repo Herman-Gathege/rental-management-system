@@ -28,6 +28,8 @@ from app.models.payment import Payment
 from app.models.payment_review_item import PaymentReviewItem
 from app.models.message import Message
 from app.models.ticket import Ticket
+from app.models.property import Property
+from app.models.unit import Unit
 from app.core.encryption import encrypt_value
 
 
@@ -160,3 +162,36 @@ def active_lease(db: Session, org, tenant_record):
     db.add(lease)
     db.flush()
     return lease
+
+
+@pytest.fixture
+def property(db: Session, org):
+    prop = Property(
+        id=str(uuid.uuid4()),
+        organization_id=org.id,
+        name="Silverleaf Apartments",
+        address="123 Riverside Drive",
+        city="Nairobi",
+        country="Kenya",
+    )
+    db.add(prop)
+    db.flush()
+    return prop
+
+
+@pytest.fixture
+def unit(db: Session, org, property):
+    unit = Unit(
+        id=str(uuid.uuid4()),
+        property_id=property.id,
+        name="A1",
+        description="Corner unit",
+        bedrooms=2,
+        bathrooms=1,
+        size_sqm=65.5,
+        rent_amount=35000,
+        is_active=True,
+    )
+    db.add(unit)
+    db.flush()
+    return unit

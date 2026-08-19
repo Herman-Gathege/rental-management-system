@@ -233,6 +233,21 @@ def download_tenants_template_xlsx(deps=Depends(require_landlord)):
     )
 
 
+@router.post("/tenants/preview")
+async def preview_tenants(
+    file: UploadFile = File(...),
+    deps=Depends(require_landlord),
+):
+    user, membership, db = deps
+    contents = await _read_upload(file)
+
+    preview = bulk_upload_service.build_tenant_preview(
+        db, membership.organization_id, contents
+    )
+
+    return preview
+
+
 @router.post("/tenants")
 async def upload_tenants(
     file: UploadFile = File(...),
@@ -242,7 +257,8 @@ async def upload_tenants(
     contents = await _read_upload(file)
 
     result = bulk_upload_service.parse_and_import_tenants(
-        db, membership.organization_id, contents
+        db, membership.organization_id, contents,
+        inspector_user_id=user.id,
     )
 
     log_action(

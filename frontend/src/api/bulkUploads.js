@@ -79,6 +79,15 @@ export const uploadTenantsCSV = async (file) => {
   return data;
 };
 
+export const previewTenantsCSV = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await API.post("/bulk-uploads/tenants/preview", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+};
+
 // ─── Browser download helper ────────────────────────────────────────
 
 // Wraps a Blob in the standard "create link, click, revoke" download
