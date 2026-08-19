@@ -27,9 +27,40 @@ export default function Contact() {
   return (
     <div className={styles.alphaPublicRoot}>
       <SEO
-        title="Contact AlphaOne — Get In Touch"
-        description="Contact AlphaOne for enquiries about rental property management software. Reach our team for support, partnerships, or general questions."
+        title="Contact AlphaOne — Rental Property Management Support"
+        description="Contact AlphaOne for rental property management software support and enquiries. Reach our team in Kenya for sales, support, or general questions."
         canonical="https://alphaone.africa/contact"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "ContactPage",
+          "@id": "https://alphaone.africa/contact/#contactpage",
+          "url": "https://alphaone.africa/contact",
+          "name": "Contact AlphaOne — Rental Property Management Support",
+          "description": "Contact AlphaOne for enquiries about rental property management software. Reach our team for support, partnerships, or general questions.",
+          "isPartOf": {
+            "@id": "https://alphaone.africa/#website"
+          },
+          "about": {
+            "@id": "https://alphaone.africa/#organization"
+          },
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://alphaone.africa/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Contact",
+                "item": "https://alphaone.africa/contact"
+              }
+            ]
+          }
+        }}
       />
 
       <PublicNavbar />

@@ -80,9 +80,40 @@ export default function Featured() {
   return (
     <div className={styles.alphaPublicRoot}>
       <SEO
-        title="Featured — AlphaOne Product Capabilities"
-        description="Explore AlphaOne's full suite of property management capabilities: properties, tenants, leases, payments, finance, reports, tickets, inspections, and team management."
+        title="AlphaOne Features — Rental Property Management Capabilities for Kenya & East Africa"
+        description="Explore AlphaOne's rental property management capabilities: properties, tenants, leases, payments, finance, reports, tickets, inspections, and team management."
         canonical="https://alphaone.africa/featured"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          "@id": "https://alphaone.africa/featured/#collectionpage",
+          "url": "https://alphaone.africa/featured",
+          "name": "AlphaOne Features — Rental Property Management Capabilities for Kenya & East Africa",
+          "description": "Explore AlphaOne's full suite of property management capabilities: properties, tenants, leases, payments, finance, reports, tickets, inspections, and team management.",
+          "isPartOf": {
+            "@id": "https://alphaone.africa/#website"
+          },
+          "about": {
+            "@id": "https://alphaone.africa/#organization"
+          },
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://alphaone.africa/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Features",
+                "item": "https://alphaone.africa/featured"
+              }
+            ]
+          }
+        }}
       />
 
       <PublicNavbar />

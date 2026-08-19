@@ -9,6 +9,7 @@ const SEO = ({
   ogImage,
   ogType,
   noindex = false,
+  jsonLd,
 }) => {
   useEffect(() => {
     updateSEO({
@@ -34,7 +35,18 @@ const SEO = ({
         robots.setAttribute("content", "index, follow");
       }
     }
-  }, [title, description, keywords, canonical, ogImage, ogType, noindex]);
+
+    if (jsonLd) {
+      let script = document.querySelector('script[type="application/ld+json"][data-seo-jsonld]');
+      if (!script) {
+        script = document.createElement("script");
+        script.setAttribute("type", "application/ld+json");
+        script.setAttribute("data-seo-jsonld", "true");
+        document.head.appendChild(script);
+      }
+      script.textContent = JSON.stringify(jsonLd);
+    }
+  }, [title, description, keywords, canonical, ogImage, ogType, noindex, jsonLd]);
 
   return null;
 };

@@ -21,11 +21,11 @@ const KEYWORDS = [
 export const DEFAULT_SEO = {
   title: `${SITE_NAME} — Rental Property Management Platform for Kenya & East Africa`,
   description:
-    "Streamline rent collection, tenant management, and property operations across Kenya and East Africa. The smart rental property management platform built for landlords, property managers, and tenants.",
+    "AlphaOne is the rental property management platform for landlords, property managers, and tenants across Kenya and East Africa. Streamline rent collection, tenant management, and property operations.",
   keywords: KEYWORDS.join(", "),
   canonical: SITE_URL,
   ogType: "website",
-  ogImage: "https://alphaone.africa/assets/aplha1_logo_.png",
+  ogImage: "https://alphaone.africa/aplha1_logo_bg.png",
 };
 
 export const updateSEO = ({

@@ -1,6 +1,7 @@
 //frontend/src/routes/ProtectedRoute.jsx
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import SEO from "../components/SEO";
 
 // `skipPhoneGate` is set on the /verify-phone route itself so the gate doesn't
 // redirect it back onto itself (infinite loop). Everywhere else, an
@@ -33,5 +34,9 @@ export default function ProtectedRoute({ children, allowedRoles, skipPhoneGate =
     return <Navigate to="/dashboard" />; // redirect to decision layer
   }
 
-  return children;
+  return (
+    <SEO noindex>
+      {children}
+    </SEO>
+  );
 }

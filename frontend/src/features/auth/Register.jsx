@@ -56,6 +56,7 @@ export default function Register() {
         title="Create Account — AlphaOne Rental Property Management Kenya"
         description="Join AlphaOne and start managing your rental properties in Kenya and East Africa. Sign up for free to track rent, manage tenants, and streamline property operations."
         canonical="https://alphaone.africa/register"
+        noindex
       />
       <div className="auth-page">
       <form className="auth-card card form-stack" onSubmit={handleSubmit}>

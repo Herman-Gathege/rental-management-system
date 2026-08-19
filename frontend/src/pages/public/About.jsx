@@ -29,9 +29,40 @@ export default function About() {
   return (
     <div className={styles.alphaPublicRoot}>
       <SEO
-        title="About AlphaOne — Rental Property Management Platform"
-        description="Learn about AlphaOne, the modern rental property management platform built for landlords, property managers, and tenants across Kenya and East Africa."
+        title="About AlphaOne — Rental Property Management Platform for Kenya & East Africa"
+        description="AlphaOne is the rental property management platform built for landlords, property managers, and tenants across Kenya and East Africa. Learn about our mission to digitize property management in Africa."
         canonical="https://alphaone.africa/about"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "AboutPage",
+          "@id": "https://alphaone.africa/about/#aboutpage",
+          "url": "https://alphaone.africa/about",
+          "name": "About AlphaOne — Rental Property Management Platform for Kenya & East Africa",
+          "description": "Learn about AlphaOne, the modern rental property management platform built for landlords, property managers, and tenants across Kenya and East Africa.",
+          "isPartOf": {
+            "@id": "https://alphaone.africa/#website"
+          },
+          "about": {
+            "@id": "https://alphaone.africa/#organization"
+          },
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://alphaone.africa/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "About",
+                "item": "https://alphaone.africa/about"
+              }
+            ]
+          }
+        }}
       />
 
       <PublicNavbar />

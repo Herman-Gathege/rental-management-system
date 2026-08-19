@@ -29,6 +29,7 @@ export default function Login() {
         title="Login — AlphaOne Rental Property Management"
         description="Sign in to your AlphaOne account to manage rental properties, track rent, and streamline tenant operations across Kenya and East Africa."
         canonical="https://alphaone.africa/login"
+        noindex
       />
       <div className="auth-page">
       <form className="auth-card card form-stack" onSubmit={handleSubmit}>

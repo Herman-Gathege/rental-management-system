@@ -76,9 +76,34 @@ export default function PublicHome() {
   return (
     <div className={styles.alphaPublicRoot}>
       <SEO
-        title="AlphaOne — Rental Property Management Platform for Kenya & East Africa"
-        description="Streamline rent collection, tenant management, and property operations across Kenya and East Africa. The smart rental property management platform built for landlords, property managers, and tenants."
-        canonical="https://alphaone.africa"
+        title="AlphaOne | Rental Property Management Platform for Kenya & East Africa"
+        description="AlphaOne is the rental property management platform for landlords, property managers, and tenants across Kenya and East Africa. Streamline rent collection, tenant management, and property operations."
+        canonical="https://alphaone.africa/"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          "@id": "https://alphaone.africa/#webpage",
+          "url": "https://alphaone.africa/",
+          "name": "AlphaOne | Rental Property Management Platform for Kenya & East Africa",
+          "description": "Streamline rent collection, tenant management, and property operations across Kenya and East Africa. The smart rental property management platform built for landlords, property managers, and tenants.",
+          "isPartOf": {
+            "@id": "https://alphaone.africa/#website"
+          },
+          "about": {
+            "@id": "https://alphaone.africa/#organization"
+          },
+          "breadcrumb": {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://alphaone.africa/"
+              }
+            ]
+          }
+        }}
       />
 
       <PublicNavbar />
