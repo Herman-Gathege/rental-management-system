@@ -119,17 +119,18 @@ function BulkUploadPanel({
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
-  const [templateLoading, setTemplateLoading] = useState(false);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [xlsxLoading, setXlsxLoading] = useState(false);
 
-  const handleDownloadTemplate = async (fn, filename) => {
-    setTemplateLoading(true);
+  const handleDownloadTemplate = async (fn, filename, setLoading) => {
+    setLoading(true);
     try {
       const blob = await fn();
       downloadBlob(blob, filename);
     } catch (err) {
       alert(err?.response?.data?.detail || "Failed to download template");
     } finally {
-      setTemplateLoading(false);
+      setLoading(false);
     }
   };
 
@@ -162,18 +163,18 @@ function BulkUploadPanel({
       <div className="flex gap-sm items-center flex-wrap mt-md">
         <button
           className="btn btn-secondary btn-sm"
-          onClick={() => handleDownloadTemplate(templateCsvFn, templateCsvFilename)}
-          disabled={templateLoading}
+          onClick={() => handleDownloadTemplate(templateCsvFn, templateCsvFilename, setCsvLoading)}
+          disabled={csvLoading || xlsxLoading}
         >
-          {templateLoading ? "Preparing…" : "CSV Template"}
+          {csvLoading ? "Preparing…" : "CSV Template"}
         </button>
 
         <button
           className="btn btn-secondary btn-sm"
-          onClick={() => handleDownloadTemplate(templateXlsxFn, templateXlsxFilename)}
-          disabled={templateLoading}
+          onClick={() => handleDownloadTemplate(templateXlsxFn, templateXlsxFilename, setXlsxLoading)}
+          disabled={csvLoading || xlsxLoading}
         >
-          Excel Template
+          {xlsxLoading ? "Preparing…" : "Excel Template"}
         </button>
 
         <input
@@ -269,18 +270,19 @@ function TenantBulkUploadPanel({
   const [previewing, setPreviewing] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
-  const [templateLoading, setTemplateLoading] = useState(false);
+  const [csvLoading, setCsvLoading] = useState(false);
+  const [xlsxLoading, setXlsxLoading] = useState(false);
   const [preview, setPreview] = useState(null);
 
-  const handleDownloadTemplate = async (fn, filename) => {
-    setTemplateLoading(true);
+  const handleDownloadTemplate = async (fn, filename, setLoading) => {
+    setLoading(true);
     try {
       const blob = await fn();
       downloadBlob(blob, filename);
     } catch (err) {
       alert(err?.response?.data?.detail || "Failed to download template");
     } finally {
-      setTemplateLoading(false);
+      setLoading(false);
     }
   };
 
@@ -348,18 +350,18 @@ function TenantBulkUploadPanel({
       <div className="flex gap-sm items-center flex-wrap mt-md">
         <button
           className="btn btn-secondary btn-sm"
-          onClick={() => handleDownloadTemplate(templateCsvFn, templateCsvFilename)}
-          disabled={templateLoading}
+          onClick={() => handleDownloadTemplate(templateCsvFn, templateCsvFilename, setCsvLoading)}
+          disabled={csvLoading || xlsxLoading}
         >
-          {templateLoading ? "Preparing…" : "CSV Template"}
+          {csvLoading ? "Preparing…" : "CSV Template"}
         </button>
 
         <button
           className="btn btn-secondary btn-sm"
-          onClick={() => handleDownloadTemplate(templateXlsxFn, templateXlsxFilename)}
-          disabled={templateLoading}
+          onClick={() => handleDownloadTemplate(templateXlsxFn, templateXlsxFilename, setXlsxLoading)}
+          disabled={csvLoading || xlsxLoading}
         >
-          Excel Template
+          {xlsxLoading ? "Preparing…" : "Excel Template"}
         </button>
 
         <input

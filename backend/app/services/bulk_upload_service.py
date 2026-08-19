@@ -176,15 +176,17 @@ def _read_spreadsheet(csv_bytes: bytes) -> _SpreadsheetReader:
     return _read_csv(csv_bytes)
 
 
-def _clean(value: Optional[str]) -> str:
-    return (value or "").strip()
+def _clean(value) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
 
 
 def _parse_int(value: str) -> Optional[int]:
     if not value:
         return None
     try:
-        return int(value)
+        return int(value.replace(",", "").replace(" ", ""))
     except ValueError:
         raise ValueError(f"'{value}' is not a valid whole number")
 
@@ -193,7 +195,7 @@ def _parse_float(value: str) -> Optional[float]:
     if not value:
         return None
     try:
-        return float(value)
+        return float(value.replace(",", "").replace(" ", ""))
     except ValueError:
         raise ValueError(f"'{value}' is not a valid number")
 
@@ -202,7 +204,7 @@ def _parse_decimal_required(value: str, field_name: str) -> Decimal:
     if not value:
         raise ValueError(f"{field_name} is required")
     try:
-        return Decimal(value)
+        return Decimal(value.replace(",", "").replace(" ", ""))
     except InvalidOperation:
         raise ValueError(f"'{value}' is not a valid amount for {field_name}")
 
@@ -660,7 +662,7 @@ def _validate_lease_row(
     deposit_amount = None
     if deposit_amount_raw:
         try:
-            deposit_amount = Decimal(deposit_amount_raw)
+            deposit_amount = Decimal(deposit_amount_raw.replace(",", "").replace(" ", ""))
         except InvalidOperation:
             return None, identifier, f"'{deposit_amount_raw}' is not a valid amount for deposit_amount"
 
@@ -680,6 +682,9 @@ def _validate_lease_row(
 
     if start_date and end_date and start_date >= end_date:
         return None, identifier, "start_date must be before end_date"
+
+    if not start_date:
+        return None, identifier, "start_date is required for lease"
 
     billing_day = 1
     if billing_day_raw:

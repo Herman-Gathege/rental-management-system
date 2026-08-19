@@ -511,3 +511,109 @@ class TestTenantBulkUploadLeaseCreation:
 
         leases = db.query(Lease).all()
         assert len(leases) == 1
+
+    def test_comma_formatted_numbers_accepted(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Comma Tenant",
+                "phone": "0712000011",
+                "email": "comma@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35,000",
+                "deposit_amount": "35,000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "1",
+                "lease_status": "active",
+            }
+        ]
+        csv_bytes = _to_csv_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, csv_bytes, inspector_user_id=landlord_user.id
+        )
+        db.commit()
+
+        assert len(result.imported) == 1
+        assert len(result.skipped) == 0
+
+        tenant = db.query(Tenant).filter(Tenant.full_name == "Comma Tenant").first()
+        assert tenant is not None
+
+        lease = db.query(Lease).filter(Lease.tenant_id == tenant.id).first()
+        assert lease is not None
+        assert lease.rent_amount == 35000
+        assert lease.deposit_amount == 35000
+
+    def test_space_formatted_numbers_accepted(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "Space Tenant",
+                "phone": "0712000012",
+                "email": "space@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35 000",
+                "deposit_amount": "35 000",
+                "start_date": "2026-09-01",
+                "end_date": "2027-08-31",
+                "billing_day": "1",
+                "lease_status": "active",
+            }
+        ]
+        csv_bytes = _to_csv_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, csv_bytes, inspector_user_id=landlord_user.id
+        )
+        db.commit()
+
+        assert len(result.imported) == 1
+        assert len(result.skipped) == 0
+
+        tenant = db.query(Tenant).filter(Tenant.full_name == "Space Tenant").first()
+        assert tenant is not None
+
+        lease = db.query(Lease).filter(Lease.tenant_id == tenant.id).first()
+        assert lease is not None
+        assert lease.rent_amount == 35000
+        assert lease.deposit_amount == 35000
+
+    def test_missing_start_date_in_lease_row_rejected(self, db, org, property, unit, landlord_user):
+        rows = [
+            {
+                "full_name": "No Start Date",
+                "phone": "0712000013",
+                "email": "nostart@example.com",
+                "alternative_phone": "",
+                "id_number": "",
+                "emergency_contact": "",
+                "property_name": "Silverleaf Apartments",
+                "unit": "A1",
+                "rent_amount": "35000",
+                "deposit_amount": "35000",
+                "start_date": "",
+                "end_date": "2027-08-31",
+                "billing_day": "1",
+                "lease_status": "active",
+            }
+        ]
+        csv_bytes = _to_csv_bytes(rows, self.HEADERS)
+        result = bulk_upload_service.parse_and_import_tenants(
+            db, org.id, csv_bytes, inspector_user_id=landlord_user.id
+        )
+
+        assert len(result.imported) == 0
+        assert len(result.skipped) == 1
+        assert "start_date is required for lease" in result.skipped[0].reason.lower()
+
+        tenant = db.query(Tenant).filter(Tenant.full_name == "No Start Date").first()
+        assert tenant is None
+
+        lease = db.query(Lease).first()
+        assert lease is None
