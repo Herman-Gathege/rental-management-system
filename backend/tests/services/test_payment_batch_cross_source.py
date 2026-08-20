@@ -16,6 +16,7 @@ from app.models.payment import Payment
 from app.models.payment_review_item import PaymentReviewItem
 from app.services.payment_reconciliation_service import find_whatsapp_match, save_review_items
 from app.services.messaging.inbound_handler import handle_inbound_message
+from app.services import payment_batch_service
 
 
 @pytest.fixture
@@ -256,3 +257,212 @@ class TestCrossSourceMatching:
         assert wa_item is not None
         assert wa_item.source == "whatsapp"
         assert wa_item.reference == "UAVO15EI8G"
+
+
+class TestBatchPreviewReviewItemMatching:
+    def test_reference_match_uses_review_item_tenant(self, db: Session, org, tenant_record, active_lease, landlord_user):
+        ref = "BATCH-REF-001"
+        review_item = PaymentReviewItem(
+            id=str(uuid.uuid4()),
+            organization_id=org.id,
+            source="whatsapp",
+            source_message_id=str(uuid.uuid4()),
+            amount=25000,
+            payment_date=datetime(2026, 1, 15).date(),
+            reference=ref,
+            payer_phone="+254725123456",
+            payer_phone_hash=None,
+            payer_name="Test Tenant",
+            raw_transaction="MPESA ...",
+            extracted_reference=ref,
+            extracted_amount=25000,
+            message_timestamp=datetime(2026, 1, 15, 10, 0, 0),
+            tenant_id=tenant_record.id,
+            lease_id=active_lease.id,
+            status="pending_review",
+            flag_reason="manual_flag",
+            created_by_user_id=landlord_user.id,
+        )
+        db.add(review_item)
+        db.flush()
+
+        csv_content = (
+            "Date,Transaction,Currency,Deposit\n"
+            "15/01/2026,MPESA TO ACC 0100316372900 BATCH-REF-001 TIMESTAMP: 254725123456 TO 0100316372900,KES,25000.00\n"
+        ).encode("utf-8")
+        parsed = payment_batch_service.parse_statement(csv_content)
+        preview = payment_batch_service.build_preview(db, org.id, parsed)
+
+        assert preview["total_rows"] == 1
+        row = preview["rows"][0]
+        assert row["status"] == "matched"
+        assert row["tenant_id"] == tenant_record.id
+        assert row["tenant_name"] == "Test Tenant"
+        assert row["lease_id"] == active_lease.id
+        assert row["amount"] == 25000.0
+        assert len(row["whatsapp_matches"]) == 1
+        assert row["whatsapp_matches"][0]["review_item_id"] == review_item.id
+
+    def test_reference_match_falls_back_to_phone_when_no_review_item(self, db: Session, org, tenant_record, active_lease):
+        csv_content = (
+            "Date,Transaction,Currency,Deposit\n"
+            "15/01/2026,MPESA TO ACC 0100316372900 UNKNOWN-REF TIMESTAMP: 254725123456 TO 0100316372900,KES,25000.00\n"
+        ).encode("utf-8")
+        parsed = payment_batch_service.parse_statement(csv_content)
+        preview = payment_batch_service.build_preview(db, org.id, parsed)
+
+        assert preview["total_rows"] == 1
+        row = preview["rows"][0]
+        assert row["status"] == "matched"
+        assert row["tenant_id"] == tenant_record.id
+        assert row["tenant_name"] == "Test Tenant"
+        assert row["lease_id"] == active_lease.id
+
+    def test_reference_match_without_lease_falls_through_to_active_lease_lookup(
+        self, db: Session, org, tenant_record, active_lease, landlord_user
+    ):
+        ref = "BATCH-REF-LEASE-LOOKUP"
+        review_item = PaymentReviewItem(
+            id=str(uuid.uuid4()),
+            organization_id=org.id,
+            source="whatsapp",
+            source_message_id=str(uuid.uuid4()),
+            amount=25000,
+            payment_date=datetime(2026, 1, 15).date(),
+            reference=ref,
+            payer_phone="+254725123456",
+            payer_phone_hash=None,
+            payer_name="Test Tenant",
+            raw_transaction="MPESA ...",
+            extracted_reference=ref,
+            extracted_amount=25000,
+            message_timestamp=datetime(2026, 1, 15, 10, 0, 0),
+            tenant_id=tenant_record.id,
+            lease_id=None,
+            status="pending_review",
+            flag_reason="manual_flag",
+            created_by_user_id=landlord_user.id,
+        )
+        db.add(review_item)
+        db.flush()
+
+        csv_content = (
+            "Date,Transaction,Currency,Deposit\n"
+            "15/01/2026,MPESA TO ACC 0100316372900 BATCH-REF-LEASE-LOOKUP TIMESTAMP: 254725123456 TO 0100316372900,KES,25000.00\n"
+        ).encode("utf-8")
+        parsed = payment_batch_service.parse_statement(csv_content)
+        preview = payment_batch_service.build_preview(db, org.id, parsed)
+
+        assert preview["total_rows"] == 1
+        row = preview["rows"][0]
+        assert row["status"] == "matched"
+        assert row["tenant_id"] == tenant_record.id
+        assert row["lease_id"] == active_lease.id
+
+    def test_reference_duplicate_still_flagged(self, db: Session, org, tenant_record, active_lease, landlord_user):
+        ref = "BATCH-DUP-REF"
+        review_item = PaymentReviewItem(
+            id=str(uuid.uuid4()),
+            organization_id=org.id,
+            source="whatsapp",
+            source_message_id=str(uuid.uuid4()),
+            amount=25000,
+            payment_date=datetime(2026, 1, 15).date(),
+            reference=ref,
+            payer_phone="+254725123456",
+            payer_phone_hash=None,
+            payer_name="Test Tenant",
+            raw_transaction="MPESA ...",
+            extracted_reference=ref,
+            extracted_amount=25000,
+            message_timestamp=datetime(2026, 1, 15, 10, 0, 0),
+            tenant_id=tenant_record.id,
+            lease_id=active_lease.id,
+            status="pending_review",
+            flag_reason="manual_flag",
+            created_by_user_id=landlord_user.id,
+        )
+        db.add(review_item)
+        db.flush()
+
+        existing_payment = Payment(
+            id=str(uuid.uuid4()),
+            organization_id=org.id,
+            tenant_id=tenant_record.id,
+            lease_id=active_lease.id,
+            amount=25000,
+            payment_method="mpesa",
+            reference=ref,
+            payment_date=datetime(2026, 1, 15).date(),
+        )
+        db.add(existing_payment)
+        db.flush()
+
+        csv_content = (
+            "Date,Transaction,Currency,Deposit\n"
+            "15/01/2026,MPESA TO ACC 0100316372900 BATCH-DUP-REF TIMESTAMP: 254725123456 TO 0100316372900,KES,25000.00\n"
+        ).encode("utf-8")
+        parsed = payment_batch_service.parse_statement(csv_content)
+        preview = payment_batch_service.build_preview(db, org.id, parsed)
+
+        assert preview["total_rows"] == 1
+        row = preview["rows"][0]
+        assert row["status"] == "duplicate"
+        assert row["tenant_id"] == tenant_record.id
+
+    def test_missing_amount_still_parse_error(self, db: Session, org):
+        csv_content = (
+            "Date,Transaction,Currency,Deposit\n"
+            "15/01/2026,MPESA TO ACC 0100316372900 NO-AMT TIMESTAMP: 254725123456 TO 0100316372900,KES,\n"
+        ).encode("utf-8")
+        parsed = payment_batch_service.parse_statement(csv_content)
+        preview = payment_batch_service.build_preview(db, org.id, parsed)
+
+        assert preview["total_rows"] == 1
+        row = preview["rows"][0]
+        assert row["status"] == "parse_error"
+
+    def test_review_item_different_org_not_matched(self, db: Session, org, tenant_record, active_lease, landlord_user):
+        other_org = Organization(id=str(uuid.uuid4()), name="Other Org", owner_id=landlord_user.id)
+        db.add(other_org)
+        db.flush()
+
+        ref = "BATCH-REF-OTHER-ORG"
+        review_item = PaymentReviewItem(
+            id=str(uuid.uuid4()),
+            organization_id=other_org.id,
+            source="whatsapp",
+            source_message_id=str(uuid.uuid4()),
+            amount=25000,
+            payment_date=datetime(2026, 1, 15).date(),
+            reference=ref,
+            payer_phone="+254725123456",
+            payer_phone_hash=None,
+            payer_name="Test Tenant",
+            raw_transaction="MPESA ...",
+            extracted_reference=ref,
+            extracted_amount=25000,
+            message_timestamp=datetime(2026, 1, 15, 10, 0, 0),
+            tenant_id=tenant_record.id,
+            lease_id=active_lease.id,
+            status="pending_review",
+            flag_reason="manual_flag",
+            created_by_user_id=landlord_user.id,
+        )
+        db.add(review_item)
+        db.flush()
+
+        csv_content = (
+            "Date,Transaction,Currency,Deposit\n"
+            "15/01/2026,MPESA TO ACC 0100316372900 BATCH-REF-OTHER-ORG TIMESTAMP: 254725123456 TO 0100316372900,KES,25000.00\n"
+        ).encode("utf-8")
+        parsed = payment_batch_service.parse_statement(csv_content)
+        preview = payment_batch_service.build_preview(db, org.id, parsed)
+
+        assert preview["total_rows"] == 1
+        row = preview["rows"][0]
+        assert row["status"] == "matched"
+        assert row["tenant_id"] == tenant_record.id
+        assert row["tenant_name"] == "Test Tenant"
+        assert row["lease_id"] == active_lease.id
+        assert len(row["whatsapp_matches"]) == 0

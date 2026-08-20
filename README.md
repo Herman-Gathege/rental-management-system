@@ -120,8 +120,7 @@ git pull
 docker compose up -d --build
 
 nano .env
-docker compose exec postgres psql -U rental_user -d rental_db
-```
+                            ```
 
 ### 🔑 Default Architecture Ports
 Container	Internal Port	Host Port

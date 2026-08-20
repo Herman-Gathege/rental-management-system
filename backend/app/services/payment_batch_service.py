@@ -11,16 +11,17 @@ review and fix flagged rows before any money is recorded.
 Expected statement format (headers: Date, Transaction, Currency, Deposit):
     29/04/2026,"MPESA TO ACC 0100316372900 UDTQS2OHFR TIMESTAMP: 254724735509 TO 0100316372900","KES","26,000.00"
 
-Matching strategy:
-  - The payer phone (after "TIMESTAMP:") identifies the tenant -> tenant.phone,
-    compared on the last 9 local digits so 0724…/254724…/+254724… all match.
-  - The M-Pesa code (the token after the ACC number) is the transaction
-    reference, stored on the payment and used for duplicate detection.
+Matching strategy (Sprint 7.1 — review-item-first):
+  1. Reference lookup: the M-Pesa reference from the statement is matched
+     against payment_review_items (created from WhatsApp payment evidence).
+     If a review item with a tenant_id is found, the tenant, phone, and lease
+     are taken from that record.
+  2. Phone fallback: if no review-item match is found, the payer phone
+     (after "TIMESTAMP:") identifies the tenant -> tenant.phone,
+     compared on the last 9 local digits so 0724…/254724…/+254724… all match.
 
-Sprint 7 cleanup: tenant lookup now runs BEFORE the duplicate check so
-duplicates still surface the tenant name — previously the early `continue`
-on duplicate rows meant a row we KNEW belonged to a specific tenant showed
-their column as blank, which made the review UI look broken.
+The M-Pesa code (the token after the ACC number) is the transaction
+reference, stored on the payment and used for duplicate detection.
 """
 import csv
 import io
@@ -32,10 +33,11 @@ from sqlalchemy.orm import Session
 from app.models.tenant import Tenant
 from app.models.lease import Lease
 from app.models.payment import Payment
+from app.models.payment_review_item import PaymentReviewItem
 from app.core.encryption import blind_index, decrypt_value
 
 # "MPESA TO ACC 0100316372900 UDTQS2OHFR TIMESTAMP: 254724735509 TO 0100316372900"
-_CODE_RE = re.compile(r"ACC\s+\d+\s+([A-Z0-9]+)\s+TIMESTAMP", re.IGNORECASE)
+_CODE_RE = re.compile(r"ACC\s+\d+\s+([A-Z0-9-]+)\s+TIMESTAMP", re.IGNORECASE)
 _PHONE_RE = re.compile(r"TIMESTAMP:\s*(\d+)")
 
 
@@ -112,41 +114,53 @@ def parse_statement(content: bytes) -> list:
 
 
 def build_preview(db: Session, org_id: str, parsed: list) -> dict:
-    """Match parsed rows to tenants (by phone) + active leases. No DB writes.
+    """Match parsed rows to tenants (review-item-first) + active leases. No DB writes.
 
     Per-row status:
-      matched         -> tenant found, exactly one active lease (ready to record)
+      matched         -> tenant found (via review item or phone), exactly one active lease
       multiple_leases  -> tenant found, >1 active lease (needs manual lease pick)
       no_active_lease  -> tenant found, no active lease (needs review)
-      unmatched       -> no tenant for that phone (needs review)
+      unmatched       -> no tenant found (needs review)
       duplicate       -> M-Pesa reference already recorded (skip)
-      parse_error     -> couldn't read amount/phone from the row
+      parse_error     -> couldn't read amount from the row
 
-    Sprint 7 cleanup: tenant lookup runs first so duplicates and other
-    non-terminal statuses still surface the tenant name.
+    Matching strategy:
+      1. Reference lookup: match the M-Pesa reference against payment_review_items
+         in the same org. If a review item with tenant_id is found, the tenant,
+         phone, and lease are taken from that record.
+      2. Phone fallback: if no review-item match, fall back to the existing
+         phone-based tenant lookup.
     """
     tenants = db.query(Tenant).filter(Tenant.organization_id == org_id).all()
-    # Build a lookup by normalized phone hash. We hash both the raw phone
-    # string and the digits-only variant so "+254725123456" and "254725123456"
-    # both resolve to the same tenant.
     by_hash = {}
     for t in tenants:
         for raw in (t.phone, t.alternative_phone):
             if not raw:
                 continue
-            # raw is Fernet ciphertext; decrypt to get the stored form.
             plain = decrypt_value(raw)
             if not plain:
                 continue
             h = blind_index(plain)
             if h:
                 by_hash[h] = t
-            # Also index the digits-only form.
             digits = re.sub(r"[^\d]", "", plain)
             if digits:
                 h2 = blind_index(digits)
                 if h2:
                     by_hash[h2] = t
+
+    review_items_by_ref = {
+        ri.reference: ri
+        for ri in (
+            db.query(PaymentReviewItem)
+            .filter(
+                PaymentReviewItem.organization_id == org_id,
+                PaymentReviewItem.tenant_id.isnot(None),
+            )
+            .all()
+        )
+        if ri.reference
+    }
 
     results = []
     for p in parsed:
@@ -165,25 +179,45 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
             "whatsapp_matches": [],
         }
 
-        if not p["amount"] or not p["phone"]:
+        if not p["amount"]:
             item["status"] = "parse_error"
             results.append(item)
             continue
 
-        # ─── Sprint 7 cleanup: tenant lookup FIRST ───
-        # Populate tenant on the item BEFORE any early-return on duplicate,
-        # so duplicates still show who the CSV belongs to. If phone doesn't
-        # match anyone in the org, tenant stays None and status will fall
-        # through to 'unmatched' below.
-        phone_hash = blind_index(p["phone"])
-        tenant = by_hash.get(phone_hash)
-        if not tenant:
-            digits_only = re.sub(r"[^\d]", "", p["phone"] or "")
-            if digits_only:
-                tenant = by_hash.get(blind_index(digits_only))
+        tenant = None
+        phone = p["phone"]
+
+        # ─── Step 1: reference -> payment_review_items ───
+        review_item = None
+        if p["reference"]:
+            review_item = review_items_by_ref.get(p["reference"])
+            if review_item:
+                phone = review_item.payer_phone or phone
+                if review_item.tenant_id:
+                    tenant = next(
+                        (t for t in tenants if t.id == review_item.tenant_id),
+                        None,
+                    )
+                    item["whatsapp_matches"].append({
+                        "review_item_id": review_item.id,
+                        "source": review_item.source,
+                        "message_timestamp": review_item.message_timestamp.isoformat() if review_item.message_timestamp else None,
+                        "payer_name": review_item.payer_name,
+                    })
+
+        # ─── Step 2: phone fallback if no review-item match ───
+        if not tenant and phone:
+            phone_hash = blind_index(phone)
+            tenant = by_hash.get(phone_hash)
+            if not tenant:
+                digits_only = re.sub(r"[^\d]", "", phone or "")
+                if digits_only:
+                    tenant = by_hash.get(blind_index(digits_only))
+
         if tenant:
             item["tenant_id"] = tenant.id
             item["tenant_name"] = tenant.full_name
+            item["phone"] = phone or item["phone"]
 
         # Duplicate reference check — takes precedence over unmatched /
         # multi-lease / etc. since a payment already exists.
@@ -207,30 +241,38 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
             results.append(item)
             continue
 
-        # Tenant matched, no duplicate — decide on lease.
-        active_leases = (
-            db.query(Lease)
-            .filter(
-                Lease.tenant_id == tenant.id,
-                Lease.organization_id == org_id,
-                Lease.status == "active",
+        # Determine lease: prefer review-item lease, then active leases for tenant.
+        lease_id = None
+        if review_item and review_item.lease_id:
+            lease_id = review_item.lease_id
+        else:
+            active_leases = (
+                db.query(Lease)
+                .filter(
+                    Lease.tenant_id == tenant.id,
+                    Lease.organization_id == org_id,
+                    Lease.status == "active",
+                )
+                .all()
             )
-            .all()
-        )
+            if len(active_leases) == 1:
+                lease_id = active_leases[0].id
+            elif len(active_leases) > 1:
+                item["status"] = "multiple_leases"
+                item["lease_options"] = [
+                    {
+                        "lease_id": l.id,
+                        "unit_id": l.unit_id,
+                        "rent_amount": float(l.rent_amount) if l.rent_amount is not None else None,
+                    }
+                    for l in active_leases
+                ]
+                results.append(item)
+                continue
 
-        if len(active_leases) == 1:
+        if lease_id:
             item["status"] = "matched"
-            item["lease_id"] = active_leases[0].id
-        elif len(active_leases) > 1:
-            item["status"] = "multiple_leases"
-            item["lease_options"] = [
-                {
-                    "lease_id": l.id,
-                    "unit_id": l.unit_id,
-                    "rent_amount": float(l.rent_amount) if l.rent_amount is not None else None,
-                }
-                for l in active_leases
-            ]
+            item["lease_id"] = lease_id
         else:
             item["status"] = "no_active_lease"
 
