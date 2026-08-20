@@ -9,8 +9,14 @@
 //   - Save response now surfaces WHY items were skipped ("already in
 //     review queue", "already recorded as a payment", etc.) so
 //     "Saved 0" doesn't look like a bug when it's really dedup working.
+//   - "Clear" button next to the file picker — retract a picked file
+//     before previewing, or wipe an in-progress preview to start over.
+//     Clears the file, preview, selections, lease choices, and any
+//     error / result / saveResult banners. Also resets the underlying
+//     <input type="file"> so the visible filename disappears (setting
+//     state alone doesn't do this — the DOM element holds its own copy).
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   previewBatch,
   commitBatch,
@@ -38,6 +44,7 @@ const SAVABLE_STATUSES = new Set([
 ]);
 
 export default function BatchPayments() {
+  const fileInputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [selected, setSelected] = useState({});
@@ -67,6 +74,22 @@ export default function BatchPayments() {
     setResult(null);
     setSaveResult(null);
     setError("");
+  };
+
+  // Wipe file + preview + selections + banners. Also reset the file input
+  // DOM node so its visible filename disappears — React state doesn't
+  // control that; the <input type="file"> keeps its own value.
+  const handleClear = () => {
+    setFile(null);
+    setPreview(null);
+    setSelected({});
+    setLeaseChoice({});
+    setResult(null);
+    setSaveResult(null);
+    setError("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleDownloadTemplate = async () => {
@@ -211,7 +234,12 @@ export default function BatchPayments() {
           >
             {templateLoading ? "Preparing…" : "Download Template"}
           </button>
-          <input type="file" accept=".csv" onChange={handleFile} />
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleFile}
+            ref={fileInputRef}
+          />
           <button
             className="btn btn-primary"
             onClick={runPreview}
@@ -219,6 +247,16 @@ export default function BatchPayments() {
           >
             {loading ? "Reading…" : "Preview"}
           </button>
+          {(file || preview) && (
+            <button
+              className="btn btn-secondary"
+              onClick={handleClear}
+              disabled={loading || committing || savingForReview}
+              title="Clear the picked file and any preview"
+            >
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
