@@ -97,6 +97,32 @@ TEMPLATES = {
         "language_code": "en_US",
     },
 
+    # ─── Payment evidence received (auto-ack for forwarded M-Pesa SMS) ───
+    # Fired the moment a tenant forwards an M-Pesa confirmation SMS and the
+    # parser successfully extracts a reference AND amount. Distinct from
+    # payment_receipt (which is sent after actual reconciliation with the
+    # bank statement, when the Payment row is created).
+    "payment_evidence_received": {
+        "param_order": ["tenant_name", "amount", "reference"],
+        "template_body_freeform": (
+            "✅ Payment record received\n\n"
+            "Hi {tenant_name}, we've received your M-Pesa confirmation for "
+            "KES {amount} (Ref: {reference}).\n\n"
+            "Your official receipt will be sent once we reconcile the payment "
+            "against our bank records — usually within 1-2 business days. "
+            "Thank you."
+        ),
+        "template_body_meta": (
+            "✅ Payment record received\n\n"
+            "Hi {{1}}, we've received your M-Pesa confirmation for "
+            "KES {{2}} (Ref: {{3}}).\n\n"
+            "Your official receipt will be sent once we reconcile the payment "
+            "against our bank records — usually within 1-2 business days. "
+            "Thank you."
+        ),
+        "language_code": "en_US",
+    },
+
     # ─── Overdue notice ───
     "overdue_notice": {
         "param_order": ["tenant_name", "amount", "days_overdue"],

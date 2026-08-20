@@ -27,7 +27,15 @@ Pipeline for a single inbound message:
               commit
                        │
                        ▼
-              send "ticket_received" confirmation via messaging_service
+              parse for payment evidence
+                       │
+                       ▼
+              if payment evidence: create PaymentReviewItem
+                       │
+                       ▼
+              send appropriate confirmation:
+                - payment_evidence_received  (if payment parsed w/ ref + amt)
+                - ticket_received            (otherwise — generic ack)
                        │
                        ▼
               commit confirmation
@@ -56,8 +64,6 @@ doesn't poison the rest. The webhook endpoint always returns 200 to Meta
 Sprint 6 note: the tickets table was evolved (subject -> title, plus
 property/assignee/priority/category/lifecycle fields). WhatsApp tickets keep
 arriving uncategorized with source="whatsapp"; staff triage them in the hub.
-The only change here vs. the Phase 2 version is writing `title` instead of
-`subject`.
 """
 
 from __future__ import annotations
@@ -390,6 +396,49 @@ def _send_ticket_confirmation(
         db.rollback()
 
 
+def _send_payment_evidence_ack(
+    db: Session,
+    organization_id: str,
+    phone: str,
+    tenant: Optional[Tenant],
+    review_item: PaymentReviewItem,
+) -> bool:
+    """
+    Fire the 'payment_evidence_received' template when a tenant forwards an
+    M-Pesa confirmation SMS that we've successfully parsed.
+
+    Returns True on successful send, False otherwise. Failures are logged
+    but never re-raised (same policy as _send_ticket_confirmation).
+
+    Sent INSTEAD OF the generic ticket_received ack so tenants don't get
+    two confirmations for the same forward.
+    """
+    try:
+        amount_val = float(review_item.amount or 0)
+        send_notification(
+            db=db,
+            organization_id=organization_id,
+            phone_number=_normalize_phone(phone),
+            template_name="payment_evidence_received",
+            variables={
+                "tenant_name": tenant.full_name if tenant else "there",
+                "amount": f"{amount_val:,.0f}",
+                "reference": review_item.reference or "—",
+            },
+            tenant_id=tenant.id if tenant else None,
+            message_type="notification",
+        )
+        db.commit()
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.exception(
+            "Failed to send payment_evidence_received for review item %s: %s",
+            review_item.id, exc,
+        )
+        db.rollback()
+        return False
+
+
 # ─────────────────────────────────────────────────────────────────────────
 # WhatsApp payment-evidence helpers
 # ─────────────────────────────────────────────────────────────────────────
@@ -530,6 +579,7 @@ def handle_inbound_message(
             "ticket_id": str | None,
             "tenant_id": str | None,
             "duplicate": bool,
+            "payment_review_item_id": str | None,
         }
     """
     # 1) Find tenant first (informs whether the inbound message row
@@ -622,8 +672,12 @@ def handle_inbound_message(
             )
             if review_item:
                 logger.info(
-                    "Created payment review item %s for WhatsApp message %s",
+                    "Created payment review item %s for WhatsApp message %s "
+                    "(ref=%s, amount=%s, confidence=%s)",
                     review_item.id, message.id,
+                    review_item.reference,
+                    review_item.amount,
+                    parser_result.get("confidence"),
                 )
         except Exception:  # noqa: BLE001
             logger.exception(
@@ -632,18 +686,40 @@ def handle_inbound_message(
             )
             db.rollback()
 
-    # 6) Send confirmation (best-effort, logged on failure, own commit)
-    _send_ticket_confirmation(
-        db=db,
-        organization_id=organization_id,
-        phone=parsed["from_phone"],
-        ticket_id=ticket.id,
-        tenant_id=tenant_id,
-    )
+    # 6) Send the appropriate confirmation.
+    #    If we've parsed a payment WITH both a reference AND a positive amount,
+    #    send the payment-specific acknowledgment. Otherwise fall back to the
+    #    generic ticket_received template so the sender still knows the message
+    #    landed. Never send both — the tenant would get two confirmations for
+    #    one forward.
+    sent_payment_ack = False
+    if (
+        review_item is not None
+        and review_item.reference
+        and review_item.amount
+        and float(review_item.amount) > 0
+    ):
+        sent_payment_ack = _send_payment_evidence_ack(
+            db=db,
+            organization_id=organization_id,
+            phone=parsed["from_phone"],
+            tenant=tenant,
+            review_item=review_item,
+        )
+
+    if not sent_payment_ack:
+        _send_ticket_confirmation(
+            db=db,
+            organization_id=organization_id,
+            phone=parsed["from_phone"],
+            ticket_id=ticket.id,
+            tenant_id=tenant_id,
+        )
 
     logger.info(
-        "Inbound WhatsApp processed: message_id=%s ticket_id=%s tenant_id=%s phone=%s",
-        message.id, ticket.id, tenant_id, parsed["from_phone"],
+        "Inbound WhatsApp processed: message_id=%s ticket_id=%s tenant_id=%s "
+        "phone=%s payment_ack=%s",
+        message.id, ticket.id, tenant_id, parsed["from_phone"], sent_payment_ack,
     )
 
     return {

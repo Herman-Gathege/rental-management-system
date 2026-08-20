@@ -17,6 +17,20 @@ Design goals:
   - Detection is additive: a false positive (treating a normal message as
     payment evidence) is preferable to silently dropping a real payment, but
     ordinary tenant conversations should not flood the review queue.
+
+Supported input formats:
+  1) Bank statement row (M-Pesa Paybill export):
+       "MPESA TO ACC 0100316372900 UDTQS2OHFR TIMESTAMP: 254724735509 TO ..."
+  2) M-Pesa customer confirmation SMS (what tenants forward via WhatsApp):
+       "UDTQS2OHFR Confirmed. Ksh26,000.00 sent to LANDLORD NAME for account
+        0100316372900 on 29/4/26 at 8:30 AM. New M-PESA balance is Ksh1,240.00.
+        Transaction cost, Ksh0.00."
+  3) Standalone reference-phone-name format:
+       "UAVO15EI8G 25479****032 - TIMOTHY **"
+  4) PESA longhex format:
+       "PESA 0007000220260429102657BCE6A459 ELIJAH MAKAMBI ..."
+  5) Cash deposit slips (amount only, no reference):
+       "CASH DEP AT 2796 DEPOSIT 15000"
 """
 
 from __future__ import annotations
@@ -42,10 +56,23 @@ _STANDALONE_REF_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# M-Pesa standard format:
+# M-Pesa bank-statement format (Co-op / KCB / Equity export):
 #   MPESA TO ACC <account> <reference> TIMESTAMP: <ts> TO <account>
 _MPESA_ACC_PATTERN = re.compile(
     r"MPESA\s+TO\s+ACC\s+\d+\s+([A-Z0-9]+)\s+TIMESTAMP",
+    re.IGNORECASE,
+)
+
+# M-Pesa customer confirmation SMS format (what tenants forward via WhatsApp):
+#   "UDTQS2OHFR Confirmed. Ksh26,000.00 sent to LANDLORD NAME for account
+#    0100316372900 on 29/4/26 at 8:30 AM. New M-PESA balance is Ksh1,240.00."
+#
+# Reference: 8-12 uppercase alphanumeric chars followed by "Confirmed".
+# M-Pesa references are typically exactly 10 chars (e.g. QDX7RTF8YZ) but we
+# allow 8-12 for forward-compat. Requires \b on both sides so we don't match
+# fragments embedded in longer tokens.
+_MPESA_CONFIRMATION_REF_PATTERN = re.compile(
+    r"\b([A-Z][A-Z0-9]{7,11})\s+Confirmed\b",
     re.IGNORECASE,
 )
 
@@ -63,6 +90,17 @@ _PESA_REF_PATTERN = re.compile(
 # rather than stopping at the first 1-3 digit chunk.
 _DEPOSIT_AMOUNT_PATTERN = re.compile(
     r"DEPOSIT\s+(\d+(?:,\d{3})*|\d{1,3}(?:,\d{3})*)(?:\.\d+)?",
+    re.IGNORECASE,
+)
+
+# M-Pesa amount pattern: Ksh<amount> or KES<amount> (with optional space/dot,
+# comma thousand separators, decimals). Used for customer confirmation SMS
+# where the standalone-number fallback would grab wrong numbers (phone digits,
+# dates, account numbers).
+#
+# Matches: Ksh26,000.00 / Ksh 26,000 / KES 26000.00 / Kes.5000
+_MPESA_AMOUNT_PATTERN = re.compile(
+    r"\bK(?:sh|ES)\.?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\b",
     re.IGNORECASE,
 )
 
@@ -143,6 +181,10 @@ def parse_whatsapp_payment(body: str) -> dict[str, Any]:
         is_payment_evidence = True
         evidence.append("mpesa_acc_format")
 
+    if _MPESA_CONFIRMATION_REF_PATTERN.search(body):
+        is_payment_evidence = True
+        evidence.append("mpesa_customer_confirmation_format")
+
     if _PESA_REF_PATTERN.search(body):
         is_payment_evidence = True
         evidence.append("pesa_keyword_with_longhex")
@@ -185,21 +227,32 @@ def parse_whatsapp_payment(body: str) -> dict[str, Any]:
     # Priority order: most reliable patterns first.
 
     if m := _MPESA_ACC_PATTERN.search(body):
-        ref = m.group(1)
+        ref = m.group(1).upper()
         evidence.append("reference_from_mpesa_acc")
 
+    elif m := _MPESA_CONFIRMATION_REF_PATTERN.search(body):
+        # Customer-forwarded M-Pesa SMS — normalize ref to uppercase for
+        # cross-source matching against bank-statement references.
+        ref = m.group(1).upper()
+        evidence.append("reference_from_mpesa_confirmation")
+
     elif m := _STANDALONE_REF_PATTERN.search(body):
-        ref = m.group(1)
+        ref = m.group(1).upper()
         evidence.append("reference_from_standalone_format")
 
     elif m := _PESA_REF_PATTERN.search(body):
-        ref = m.group(1)
+        ref = m.group(1).upper()
         evidence.append("reference_from_pesa_longhex")
 
     if ref:
-        # M-Pesa ACC and PESA longhex patterns are structurally strong enough
-        # to count as high confidence even without an extracted amount.
-        if _MPESA_ACC_PATTERN.search(body) or _PESA_REF_PATTERN.search(body):
+        # Structurally strong formats (M-Pesa ACC, customer confirmation, or
+        # PESA longhex) count as high confidence even without an extracted
+        # amount. Standalone-format ref is medium unless an amount lifts it.
+        if (
+            _MPESA_ACC_PATTERN.search(body)
+            or _MPESA_CONFIRMATION_REF_PATTERN.search(body)
+            or _PESA_REF_PATTERN.search(body)
+        ):
             confidence = "high"
         else:
             confidence = "medium"  # will be upgraded to high if amount also found
@@ -209,11 +262,17 @@ def parse_whatsapp_payment(body: str) -> dict[str, Any]:
         evidence.append("no_confident_reference")
 
     # ── Step 3: amount extraction ───────────────────────────────────────────
-    # Only extract amount if we also have a reference (require both for medium+).
-    # Exception: DEPOSIT keyword messages may have an amount without a reference.
+    # Extraction priority:
+    #   1) DEPOSIT <amount>  (cash deposit slips)
+    #   2) Ksh<amount>       (M-Pesa customer confirmation SMS)
+    #   3) standalone number (fallback for structured formats where ref exists)
+    #
+    # Only extract amount if we also have a reference (require both for
+    # medium+). Exception: DEPOSIT keyword messages may have an amount without
+    # a reference.
     has_deposit_keyword = bool(re.search(r'\bDEPOSIT\b', body, re.IGNORECASE))
     if ref or has_deposit_keyword:
-        # Try DEPOSIT <amount> first (common in cash-deposit messages).
+        # (1) Try DEPOSIT <amount> first (cash deposit messages).
         if m := _DEPOSIT_AMOUNT_PATTERN.search(body):
             candidate = m.group(1).replace(",", "")
             try:
@@ -225,7 +284,24 @@ def parse_whatsapp_payment(body: str) -> dict[str, Any]:
             except ValueError:
                 pass
 
-        # Fallback: standalone large number that doesn't look like a date
+        # (2) Try Ksh<amount> for M-Pesa customer confirmation SMS.
+        # The FIRST valid Ksh amount is the transaction amount; subsequent
+        # ones are typically balance ("New M-PESA balance is Ksh...") or
+        # transaction cost ("Transaction cost, Ksh0.00" — rejected by the
+        # val >= 1 check).
+        if amount is None:
+            for m in _MPESA_AMOUNT_PATTERN.finditer(body):
+                candidate = m.group(1).replace(",", "")
+                try:
+                    val = float(candidate)
+                    if 1 <= val <= 10_000_000:
+                        amount = val
+                        evidence.append("amount_from_mpesa_ksh")
+                        break
+                except ValueError:
+                    continue
+
+        # (3) Fallback: standalone large number that doesn't look like a date
         # and isn't part of the reference or a phone/account number.
         if amount is None and ref:
             for m in _STANDALONE_AMOUNT_PATTERN.finditer(body):
