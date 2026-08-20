@@ -22,17 +22,29 @@ Matching strategy (Sprint 7.1 — review-item-first):
 
 The M-Pesa code (the token after the ACC number) is the transaction
 reference, stored on the payment and used for duplicate detection.
+
+Sprint 6.2 (#7) — deposit awareness in preview:
+  When a matched row lands on a lease with an outstanding deposit charge, we
+  compare row.amount against the remaining deposit balance. If the row can't
+  cover the deposit in full, it's flagged as `insufficient_first_payment`
+  instead of `matched`. Rule from spec:
+    - New tenant, first payment MUST cover at least the full deposit.
+    - Partial deposits are not allowed.
+  Commit-time also enforces this — preview is a heads-up so the landlord
+  doesn't waste a click on Record. Split (deposit + rent) happens at commit.
 """
 import csv
 import io
 import re
 from datetime import datetime
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.tenant import Tenant
 from app.models.lease import Lease
 from app.models.payment import Payment
+from app.models.charge import Charge
 from app.models.payment_review_item import PaymentReviewItem
 from app.core.encryption import blind_index, decrypt_value
 
@@ -113,16 +125,45 @@ def parse_statement(content: bytes) -> list:
     return parsed
 
 
+def _deposit_outstanding_by_lease(db: Session, org_id: str) -> dict:
+    """Return {lease_id: remaining_deposit_balance} for every lease in the org
+    whose deposit charge(s) aren't fully paid. Sums across deposit charges in
+    case a lease somehow has multiple (data drift). Excludes leases whose
+    deposit is fully paid so the caller can do a simple `if lease_id in dict`.
+    """
+    balances = {}
+    rows = (
+        db.query(
+            Charge.lease_id,
+            func.coalesce(func.sum(Charge.amount - Charge.amount_paid), 0).label("remaining"),
+        )
+        .filter(
+            Charge.organization_id == org_id,
+            Charge.charge_type == "deposit",
+        )
+        .group_by(Charge.lease_id)
+        .all()
+    )
+    for lease_id, remaining in rows:
+        remaining = float(remaining or 0)
+        # Small tolerance for float noise around 0.
+        if remaining > 0.01:
+            balances[lease_id] = remaining
+    return balances
+
+
 def build_preview(db: Session, org_id: str, parsed: list) -> dict:
     """Match parsed rows to tenants (review-item-first) + active leases. No DB writes.
 
     Per-row status:
-      matched         -> tenant found (via review item or phone), exactly one active lease
-      multiple_leases  -> tenant found, >1 active lease (needs manual lease pick)
-      no_active_lease  -> tenant found, no active lease (needs review)
-      unmatched       -> no tenant found (needs review)
-      duplicate       -> M-Pesa reference already recorded (skip)
-      parse_error     -> couldn't read amount from the row
+      matched                       -> tenant + single active lease, amount OK
+      insufficient_first_payment    -> matched lease has outstanding deposit and
+                                       row.amount < deposit balance
+      multiple_leases               -> tenant found, >1 active lease (needs pick)
+      no_active_lease               -> tenant found, no active lease
+      unmatched                     -> no tenant found
+      duplicate                     -> M-Pesa reference already recorded
+      parse_error                   -> couldn't read amount from the row
 
     Matching strategy:
       1. Reference lookup: match the M-Pesa reference against payment_review_items
@@ -162,6 +203,9 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
         if ri.reference
     }
 
+    # Load deposit-outstanding map once for the whole preview.
+    deposit_outstanding = _deposit_outstanding_by_lease(db, org_id)
+
     results = []
     for p in parsed:
         item = {
@@ -177,6 +221,7 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
             "lease_id": None,
             "lease_options": [],
             "whatsapp_matches": [],
+            "deposit_outstanding": None,  # populated for insufficient_first_payment
         }
 
         if not p["amount"]:
@@ -264,6 +309,10 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
                         "lease_id": l.id,
                         "unit_id": l.unit_id,
                         "rent_amount": float(l.rent_amount) if l.rent_amount is not None else None,
+                        # Include deposit-outstanding per option so the frontend
+                        # can render an inline warning against the specific
+                        # lease the landlord picks.
+                        "deposit_outstanding": deposit_outstanding.get(l.id),
                     }
                     for l in active_leases
                 ]
@@ -271,8 +320,25 @@ def build_preview(db: Session, org_id: str, parsed: list) -> dict:
                 continue
 
         if lease_id:
+            # ─── Sprint 6.2 (#7): first-payment-must-cover-deposit check ───
+            # If this lease still owes on its deposit and the row can't cover
+            # the balance, flag it. Commit-time enforces this too — preview
+            # is a heads-up.
+            deposit_remaining = deposit_outstanding.get(lease_id)
+            if deposit_remaining and float(p["amount"]) < deposit_remaining:
+                item["status"] = "insufficient_first_payment"
+                item["lease_id"] = lease_id
+                item["deposit_outstanding"] = deposit_remaining
+                results.append(item)
+                continue
+
             item["status"] = "matched"
             item["lease_id"] = lease_id
+            # Attach deposit_outstanding on matched rows too so the frontend
+            # can hint "Will be split: KES X to deposit, KES Y to rent" in the
+            # preview row. Optional to display.
+            if deposit_remaining:
+                item["deposit_outstanding"] = deposit_remaining
         else:
             item["status"] = "no_active_lease"
 

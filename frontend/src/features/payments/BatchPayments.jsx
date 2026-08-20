@@ -15,6 +15,16 @@
 //     error / result / saveResult banners. Also resets the underlying
 //     <input type="file"> so the visible filename disappears (setting
 //     state alone doesn't do this — the DOM element holds its own copy).
+//
+// Sprint 6.2 (#7) — deposit awareness:
+//   - New status `insufficient_first_payment`: row matched a lease with an
+//     outstanding deposit, but the row amount is less than the deposit
+//     balance. Backend rejects on commit; UI blocks the checkbox and shows
+//     the shortfall inline. Row is still savable to review so the landlord
+//     can follow up with the tenant.
+//   - Matched rows on leases with an outstanding deposit show a small
+//     "will be split" hint so the landlord knows the payment will be
+//     recorded as deposit + rent.
 
 import { useRef, useState } from "react";
 import {
@@ -35,12 +45,14 @@ const STATUS_LABEL = {
   unmatched: "Unmatched",
   duplicate: "Already recorded",
   parse_error: "Couldn't read",
+  insufficient_first_payment: "Deposit not covered",
 };
 
 const SAVABLE_STATUSES = new Set([
   "unmatched",
   "multiple_leases",
   "no_active_lease",
+  "insufficient_first_payment",
 ]);
 
 export default function BatchPayments() {
@@ -207,12 +219,50 @@ export default function BatchPayments() {
           {r.lease_options.map((o) => (
             <option key={o.lease_id} value={o.lease_id}>
               {money(o.rent_amount)} / mo
+              {o.deposit_outstanding
+                ? ` — deposit unpaid: ${money(o.deposit_outstanding)}`
+                : ""}
             </option>
           ))}
         </select>
       );
     }
     return "—";
+  };
+
+  // Short inline hint under the status badge — explains split-on-commit
+  // for matched rows and the shortfall for insufficient rows.
+  const renderStatusHint = (r) => {
+    if (
+      r.status === "matched" &&
+      r.deposit_outstanding &&
+      Number(r.amount) > Number(r.deposit_outstanding)
+    ) {
+      const rentPortion =
+        Number(r.amount) - Number(r.deposit_outstanding);
+      return (
+        <div className="text-xs text-muted mt-xs">
+          Will split: {money(r.deposit_outstanding)} deposit +{" "}
+          {money(rentPortion)} rent
+        </div>
+      );
+    }
+    if (r.status === "matched" && r.deposit_outstanding) {
+      return (
+        <div className="text-xs text-muted mt-xs">
+          Will apply to deposit
+        </div>
+      );
+    }
+    if (r.status === "insufficient_first_payment") {
+      return (
+        <div className="text-xs text-warning mt-xs">
+          Deposit balance is {money(r.deposit_outstanding)}. First payment
+          must cover it in full.
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -366,6 +416,7 @@ export default function BatchPayments() {
                         <span className="role-badge">
                           {STATUS_LABEL[r.status] || r.status}
                         </span>
+                        {renderStatusHint(r)}
                       </td>
                       <td>{r.date || "—"}</td>
                       <td>{r.amount != null ? money(r.amount) : "—"}</td>
@@ -396,6 +447,8 @@ export default function BatchPayments() {
                       {r.amount != null ? money(r.amount) : "—"}
                     </span>
                   </div>
+
+                  {renderStatusHint(r)}
 
                   <div className="text-sm">
                     <div>
