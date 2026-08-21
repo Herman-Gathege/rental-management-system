@@ -117,7 +117,10 @@ ssh webloom@165.245.251.183
 cd /opt/webloom/rental-management-system
 
 git pull
-docker compose up -d --build
+docker compose up --build -d
+docker compose exec backend alembic current
+docker compose exec backend alembic heads
+docker compose ps
 
 nano .env
                             ```
