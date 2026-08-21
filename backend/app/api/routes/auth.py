@@ -519,7 +519,7 @@ def forgot_password(request: Request, email: str, db: Session = Depends(get_db))
 
     db.commit()
 
-    reset_link = f"http://localhost:3000/reset-password?token={token}"
+    reset_link = f"https://alphaone.africa/reset-password?token={token}"
 
     print("RESET TOKEN:", token)  # for debugging only
 

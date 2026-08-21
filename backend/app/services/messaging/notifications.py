@@ -348,7 +348,7 @@ def notify_org_invite(
         # Build the acceptance link. The frontend route is the contract
         # between backend (here) and the React app's invite-accept page.
         # If your frontend route differs, this is the line to change.
-        invite_link = f"http://localhost:5173/accept-invite/{invitation.token}"
+        invite_link = f"https://alphaone.africa/accept-invite/{invitation.token}"
 
         _safe_send(
             send_notification,

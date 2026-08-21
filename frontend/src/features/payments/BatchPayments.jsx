@@ -9,8 +9,24 @@
 //   - Save response now surfaces WHY items were skipped ("already in
 //     review queue", "already recorded as a payment", etc.) so
 //     "Saved 0" doesn't look like a bug when it's really dedup working.
+//   - "Clear" button next to the file picker — retract a picked file
+//     before previewing, or wipe an in-progress preview to start over.
+//     Clears the file, preview, selections, lease choices, and any
+//     error / result / saveResult banners. Also resets the underlying
+//     <input type="file"> so the visible filename disappears (setting
+//     state alone doesn't do this — the DOM element holds its own copy).
+//
+// Sprint 6.2 (#7) — deposit awareness:
+//   - New status `insufficient_first_payment`: row matched a lease with an
+//     outstanding deposit, but the row amount is less than the deposit
+//     balance. Backend rejects on commit; UI blocks the checkbox and shows
+//     the shortfall inline. Row is still savable to review so the landlord
+//     can follow up with the tenant.
+//   - Matched rows on leases with an outstanding deposit show a small
+//     "will be split" hint so the landlord knows the payment will be
+//     recorded as deposit + rent.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   previewBatch,
   commitBatch,
@@ -29,15 +45,18 @@ const STATUS_LABEL = {
   unmatched: "Unmatched",
   duplicate: "Already recorded",
   parse_error: "Couldn't read",
+  insufficient_first_payment: "Deposit not covered",
 };
 
 const SAVABLE_STATUSES = new Set([
   "unmatched",
   "multiple_leases",
   "no_active_lease",
+  "insufficient_first_payment",
 ]);
 
 export default function BatchPayments() {
+  const fileInputRef = useRef(null);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [selected, setSelected] = useState({});
@@ -67,6 +86,22 @@ export default function BatchPayments() {
     setResult(null);
     setSaveResult(null);
     setError("");
+  };
+
+  // Wipe file + preview + selections + banners. Also reset the file input
+  // DOM node so its visible filename disappears — React state doesn't
+  // control that; the <input type="file"> keeps its own value.
+  const handleClear = () => {
+    setFile(null);
+    setPreview(null);
+    setSelected({});
+    setLeaseChoice({});
+    setResult(null);
+    setSaveResult(null);
+    setError("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const handleDownloadTemplate = async () => {
@@ -184,12 +219,50 @@ export default function BatchPayments() {
           {r.lease_options.map((o) => (
             <option key={o.lease_id} value={o.lease_id}>
               {money(o.rent_amount)} / mo
+              {o.deposit_outstanding
+                ? ` — deposit unpaid: ${money(o.deposit_outstanding)}`
+                : ""}
             </option>
           ))}
         </select>
       );
     }
     return "—";
+  };
+
+  // Short inline hint under the status badge — explains split-on-commit
+  // for matched rows and the shortfall for insufficient rows.
+  const renderStatusHint = (r) => {
+    if (
+      r.status === "matched" &&
+      r.deposit_outstanding &&
+      Number(r.amount) > Number(r.deposit_outstanding)
+    ) {
+      const rentPortion =
+        Number(r.amount) - Number(r.deposit_outstanding);
+      return (
+        <div className="text-xs text-muted mt-xs">
+          Will split: {money(r.deposit_outstanding)} deposit +{" "}
+          {money(rentPortion)} rent
+        </div>
+      );
+    }
+    if (r.status === "matched" && r.deposit_outstanding) {
+      return (
+        <div className="text-xs text-muted mt-xs">
+          Will apply to deposit
+        </div>
+      );
+    }
+    if (r.status === "insufficient_first_payment") {
+      return (
+        <div className="text-xs text-warning mt-xs">
+          Deposit balance is {money(r.deposit_outstanding)}. First payment
+          must cover it in full.
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -211,7 +284,12 @@ export default function BatchPayments() {
           >
             {templateLoading ? "Preparing…" : "Download Template"}
           </button>
-          <input type="file" accept=".csv" onChange={handleFile} />
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleFile}
+            ref={fileInputRef}
+          />
           <button
             className="btn btn-primary"
             onClick={runPreview}
@@ -219,6 +297,16 @@ export default function BatchPayments() {
           >
             {loading ? "Reading…" : "Preview"}
           </button>
+          {(file || preview) && (
+            <button
+              className="btn btn-secondary"
+              onClick={handleClear}
+              disabled={loading || committing || savingForReview}
+              title="Clear the picked file and any preview"
+            >
+              Clear
+            </button>
+          )}
         </div>
       </div>
 
@@ -328,6 +416,7 @@ export default function BatchPayments() {
                         <span className="role-badge">
                           {STATUS_LABEL[r.status] || r.status}
                         </span>
+                        {renderStatusHint(r)}
                       </td>
                       <td>{r.date || "—"}</td>
                       <td>{r.amount != null ? money(r.amount) : "—"}</td>
@@ -358,6 +447,8 @@ export default function BatchPayments() {
                       {r.amount != null ? money(r.amount) : "—"}
                     </span>
                   </div>
+
+                  {renderStatusHint(r)}
 
                   <div className="text-sm">
                     <div>

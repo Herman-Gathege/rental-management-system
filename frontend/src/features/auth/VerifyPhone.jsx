@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { verifyOtp, resendOtp } from "../../api/auth";
 import { getMe } from "../../api/auth";
+import SEO from "../../components/SEO";
 
 const RESEND_SECONDS = 60;
 
@@ -73,7 +74,14 @@ export default function VerifyPhone() {
     : "your phone";
 
   return (
-    <div className="auth-page">
+    <>
+      <SEO
+        title="Verify Phone — AlphaOne Rental Property Management"
+        description="Verify your phone number to complete your AlphaOne account setup. Manage rental properties and tenant operations across Kenya and East Africa."
+        canonical="https://alphaone.africa/verify-phone"
+        noindex
+      />
+      <div className="auth-page">
       <form className="auth-card card form-stack" onSubmit={handleVerify}>
         <h2 className="text-center">Verify your phone</h2>
         <p className="text-center text-muted text-sm">
@@ -124,5 +132,6 @@ export default function VerifyPhone() {
         </button>
       </form>
     </div>
+    </>
   );
 }

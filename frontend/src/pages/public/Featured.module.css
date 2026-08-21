@@ -1,0 +1,461 @@
+/* =====================================================
+   FEATURED PAGE — ISOLATED STYLING
+   Namespace: alphaPublic
+   Theme: Red + White + Black
+===================================================== */
+
+.alphaPublicRoot {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  color: #111827;
+}
+
+.alphaPublicSectionInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.alphaPublicSectionTag {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #dc2626;
+  margin-bottom: 16px;
+}
+
+.alphaPublicSectionTitle {
+  font-size: 40px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.15;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.01em;
+}
+
+.alphaPublicSectionDesc {
+  font-size: 17px;
+  line-height: 1.7;
+  color: #6b7280;
+  /* margin: 0; */
+  /* max-width: 560px; */
+    max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+
+
+}
+
+.alphaPublicSectionHeader {
+  text-align: center;
+  margin-bottom: 56px;
+}
+
+/* ================= HERO ================= */
+.alphaPublicHero {
+  padding: 80px 0 64px;
+  background: #ffffff;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.alphaPublicHeroTitle {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1.08;
+  color: #0f172a;
+  margin: 0 0 20px 0;
+  letter-spacing: -0.02em;
+  max-width: 800px;
+}
+
+.alphaPublicHeroAccent {
+  color: #dc2626;
+}
+
+.alphaPublicHeroDesc {
+  font-size: 18px;
+  line-height: 1.7;
+  color: #6b7280;
+  max-width: 640px;
+  margin: 0;
+}
+
+/* ================= SHOWCASE ================= */
+.alphaPublicShowcase {
+  padding: 96px 0;
+  background: #fafafa;
+  border-top: 1px solid #f3f4f6;
+}
+
+.alphaPublicShowcaseHeader {
+  text-align: center;
+  margin-bottom: 56px;
+}
+
+.alphaPublicShowcaseVisual {
+  display: flex;
+  justify-content: center;
+}
+
+.alphaPublicShowcaseCard {
+  width: 100%;
+  max-width: 720px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.alphaPublicShowcaseCard:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+.alphaPublicShowcaseCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid #f3f4f6;
+  background: #fafbfc;
+}
+
+.alphaPublicShowcaseCardTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.alphaPublicShowcaseCardDots {
+  display: flex;
+  gap: 6px;
+}
+
+.alphaPublicDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.alphaPublicDotRed { background: #ef4444; }
+.alphaPublicDotYellow { background: #f59e0b; }
+.alphaPublicDotGreen { background: #22c55e; }
+
+.alphaPublicShowcaseCardBody {
+  padding: 20px;
+}
+
+.alphaPublicShowcaseGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.alphaPublicShowcaseStatCard {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 14px 16px;
+  transition: background 0.2s ease;
+}
+
+.alphaPublicShowcaseStatCard:hover {
+  background: #f3f4f6;
+}
+
+.alphaPublicShowcaseStatLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.alphaPublicShowcaseStatValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  display: block;
+}
+
+.alphaPublicShowcaseStatChange {
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+  margin-top: 4px;
+}
+
+.alphaPublicShowcaseStatChangePositive {
+  color: #16a34a;
+}
+
+.alphaPublicShowcaseChart {
+  background: #fafbfc;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.alphaPublicShowcaseChartBars {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  height: 64px;
+  gap: 6px;
+}
+
+.alphaPublicShowcaseChartBar {
+  flex: 1;
+  border-radius: 4px 4px 0 0;
+  background: #dc2626;
+  min-height: 8px;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+.alphaPublicShowcaseChartBar:hover {
+  opacity: 1;
+}
+
+.alphaPublicShowcaseChartLabels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 10px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* ================= CAPABILITIES ================= */
+.alphaPublicCapabilities {
+  padding: 96px 0;
+  background: #ffffff;
+  border-top: 1px solid #f3f4f6;
+}
+
+.alphaPublicCapabilitiesGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.alphaPublicCapabilityCard {
+  background: #fafafa;
+  border: 1px solid #f3f4f6;
+  border-radius: 20px;
+  padding: 32px 28px;
+  transition: all 0.3s ease;
+}
+
+.alphaPublicCapabilityCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+  border-color: rgba(220, 38, 38, 0.1);
+  background: #ffffff;
+}
+
+.alphaPublicCapabilityIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: rgba(220, 38, 38, 0.08);
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.alphaPublicCapabilityTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 10px 0;
+}
+
+.alphaPublicCapabilityDesc {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* ================= CTA ================= */
+.alphaPublicCta {
+  padding: 96px 0;
+  background: #0f172a;
+  color: #ffffff;
+}
+
+.alphaPublicCtaContent {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.alphaPublicCtaTitle {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.01em;
+}
+
+.alphaPublicCtaDesc {
+  font-size: 17px;
+  line-height: 1.7;
+  color: #9ca3af;
+  margin: 0 0 32px 0;
+}
+
+.alphaPublicCtaActions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.alphaPublicBtnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 28px;
+  height: 56px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+  text-decoration: none;
+}
+
+.alphaPublicBtnPrimary:hover {
+  background: #b91c1c;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(220, 38, 38, 0.4);
+}
+
+.alphaPublicBtnSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 28px;
+  height: 56px;
+  background: transparent;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-decoration: none;
+}
+
+.alphaPublicBtnSecondary:hover {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 1024px) {
+  .alphaPublicHeroTitle {
+    font-size: 44px;
+  }
+
+  .alphaPublicCapabilitiesGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .alphaPublicShowcaseGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .alphaPublicSectionTitle {
+    font-size: 32px;
+  }
+
+  .alphaPublicCtaTitle {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 768px) {
+  .alphaPublicHero {
+    padding: 48px 0 40px;
+  }
+
+  .alphaPublicHeroTitle {
+    font-size: 36px;
+  }
+
+  .alphaPublicHeroDesc {
+    font-size: 16px;
+  }
+
+  .alphaPublicShowcase,
+  .alphaPublicCapabilities,
+  .alphaPublicCta {
+    padding: 64px 0;
+  }
+
+  .alphaPublicCapabilitiesGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .alphaPublicShowcaseGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .alphaPublicSectionTitle {
+    font-size: 28px;
+  }
+
+  .alphaPublicCtaTitle {
+    font-size: 28px;
+  }
+
+  .alphaPublicCtaActions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .alphaPublicCtaActions .alphaPublicBtnPrimary,
+  .alphaPublicCtaActions .alphaPublicBtnSecondary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .alphaPublicHeroTitle {
+    font-size: 30px;
+  }
+
+  .alphaPublicShowcaseGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .alphaPublicShowcaseStatCard {
+    padding: 10px 12px;
+  }
+
+  .alphaPublicShowcaseStatValue {
+    font-size: 16px;
+  }
+}

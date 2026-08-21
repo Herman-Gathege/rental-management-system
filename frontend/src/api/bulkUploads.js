@@ -1,6 +1,6 @@
 //frontend\src\api\bulkUploads.js
 //
-// Bulk upload API — properties, units. Landlord-only backend; the
+// Bulk upload API — properties, units, tenants. Landlord-only backend; the
 // nav link should already be gated so this is called with the
 // right role.
 
@@ -15,8 +15,36 @@ export const downloadPropertiesTemplate = async () => {
   return response.data;
 };
 
+export const downloadPropertiesTemplateXlsx = async () => {
+  const response = await API.get("/bulk-uploads/properties/template.xlsx", {
+    responseType: "blob",
+  });
+  return response.data;
+};
+
 export const downloadUnitsTemplate = async () => {
   const response = await API.get("/bulk-uploads/units/template", {
+    responseType: "blob",
+  });
+  return response.data;
+};
+
+export const downloadUnitsTemplateXlsx = async () => {
+  const response = await API.get("/bulk-uploads/units/template.xlsx", {
+    responseType: "blob",
+  });
+  return response.data;
+};
+
+export const downloadTenantsTemplate = async () => {
+  const response = await API.get("/bulk-uploads/tenants/template", {
+    responseType: "blob",
+  });
+  return response.data;
+};
+
+export const downloadTenantsTemplateXlsx = async () => {
+  const response = await API.get("/bulk-uploads/tenants/template.xlsx", {
     responseType: "blob",
   });
   return response.data;
@@ -37,6 +65,24 @@ export const uploadUnitsCSV = async (file) => {
   const formData = new FormData();
   formData.append("file", file);
   const { data } = await API.post("/bulk-uploads/units", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+};
+
+export const uploadTenantsCSV = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await API.post("/bulk-uploads/tenants", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return data;
+};
+
+export const previewTenantsCSV = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await API.post("/bulk-uploads/tenants/preview", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
   return data;

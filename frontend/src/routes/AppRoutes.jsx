@@ -1,7 +1,10 @@
 //frontend\src\routes\AppRoutes.jsx
 import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
-import Home from "../pages/Home";
+import PublicHome from "../pages/public/PublicHome";
+import About from "../pages/public/About";
+import Contact from "../pages/public/Contact";
+import Featured from "../pages/public/Featured";
 import Login from "../features/auth/Login";
 import Register from "../features/auth/Register";
 import DashboardDecision from "../features/dashboard/DashboardDecision";
@@ -109,7 +112,10 @@ export default function AppRoutes() {
   return (
     <Routes>
       {/* PUBLIC */}
-      <Route path="/" element={<Home />} />
+      <Route path="/" element={<PublicHome />} />
+      <Route path="/about" element={<About />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route path="/featured" element={<Featured />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/accept-invite/:token" element={<AcceptInvitation />} />

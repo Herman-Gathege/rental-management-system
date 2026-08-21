@@ -3,6 +3,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { checkPasswordStrength } from "../../utils/passwordStrength";
+import SEO from "../../components/SEO";
 
 export default function Register() {
   const { register, login } = useAuth();
@@ -50,7 +51,14 @@ export default function Register() {
   };
 
   return (
-    <div className="auth-page">
+    <>
+      <SEO
+        title="Create Account — AlphaOne Rental Property Management Kenya"
+        description="Join AlphaOne and start managing your rental properties in Kenya and East Africa. Sign up for free to track rent, manage tenants, and streamline property operations."
+        canonical="https://alphaone.africa/register"
+        noindex
+      />
+      <div className="auth-page">
       <form className="auth-card card form-stack" onSubmit={handleSubmit}>
         <h2 className="text-center">Create Account</h2>
 
@@ -107,6 +115,7 @@ export default function Register() {
         </button>
       </form>
     </div>
+    </>
   );
 }
 

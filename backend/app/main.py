@@ -64,6 +64,7 @@ app.add_middleware(
     allow_origins=[
         "https://alphaone.africa",
         "https://www.alphaone.africa",
+        "http://localhost:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],
