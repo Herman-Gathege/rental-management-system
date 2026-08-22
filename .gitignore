@@ -10,3 +10,4 @@ build/
 backend/uploads/
 file-structure.txt
 backend/venv/
+env.example
