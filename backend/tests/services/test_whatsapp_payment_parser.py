@@ -234,7 +234,8 @@ class TestEdgeCases:
         msg = "mpesa to acc 0100316372900 xyz123 timestamp: 1234567890 to 0100316372900"
         r = parse_whatsapp_payment(msg)
         assert r["is_payment_evidence"] is True
-        assert r["reference"] == "xyz123"
+        # Parser normalizes references to uppercase for cross-source matching
+        assert r["reference"] == "XYZ123"
 
     def test_very_long_standalone_ref(self):
         msg = "A" * 20 + " 25479****032 - TIMOTHY **"

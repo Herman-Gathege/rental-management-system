@@ -9,11 +9,12 @@ provider-agnostic.
 
 Docs: https://developers.facebook.com/docs/whatsapp/cloud-api
 """
-import os
 import hmac
 import hashlib
 import requests
 from typing import Optional
+
+from app.core.config import settings
 from app.services.messaging.base_provider import (
     BaseMessagingProvider,
     MessagingProviderError,
@@ -29,9 +30,9 @@ class WhatsAppProvider(BaseMessagingProvider):
     """Sends and validates messages via Meta's WhatsApp Cloud API."""
 
     def __init__(self):
-        self.phone_number_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
-        self.access_token = os.getenv("WHATSAPP_ACCESS_TOKEN")
-        self.app_secret = os.getenv("WHATSAPP_APP_SECRET")  # used for webhook signing
+        self.phone_number_id = settings.whatsapp.phone_number_id
+        self.access_token = settings.whatsapp.access_token
+        self.app_secret = settings.whatsapp.app_secret  # used for webhook signing
 
         if not self.phone_number_id or not self.access_token:
             raise MessagingProviderError(
@@ -55,7 +56,7 @@ class WhatsAppProvider(BaseMessagingProvider):
         Meta expects digits-only with country code, no '+' prefix.
         e.g. "+254 704 072 784" → "254704072784"
         """
-        default_country = os.getenv("WHATSAPP_DEFAULT_COUNTRY_CODE", "254")
+        default_country = settings.whatsapp.default_country_code
 
         # Strip everything that isn't a digit
         digits = "".join(c for c in phone if c.isdigit())

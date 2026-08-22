@@ -27,11 +27,12 @@ Example usage from any route:
         tenant_id=tenant.id,
     )
 """
-import os
 import uuid
 from typing import Optional
+
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.message import Message
 from app.services.messaging.whatsapp_provider import WhatsAppProvider
 from app.services.messaging.base_provider import MessagingProviderError
@@ -47,7 +48,7 @@ def _get_provider():
 
 def _use_meta_templates() -> bool:
     """Whether to send via Meta-approved templates or as free-form text."""
-    return os.getenv("WHATSAPP_USE_TEMPLATES", "false").lower() == "true"
+    return settings.whatsapp.use_templates
 
 
 # ─── Public API ───

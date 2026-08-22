@@ -37,3 +37,6 @@ from app.models.notification_preference import NotificationPreference
 
 # Phone verification (Sprint 6.2 #6)
 from app.models.otp_verification import OtpVerification
+
+# WhatsApp integration routing (environment-aware org resolution)
+from app.models.whatsapp_integration import WhatsAppIntegration
