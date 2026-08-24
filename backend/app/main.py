@@ -51,6 +51,9 @@ from app.api.routes import bulk_uploads
 # Sprint 7 cleanup Batch 3 — Payment reconciliation queue
 from app.api.routes import payment_reconciliation
 
+# Environment-aware WhatsApp configuration (sandbox/production)
+from app.core.config import settings
+
 
 app = FastAPI(title="Rental Management API")
 
@@ -157,5 +160,18 @@ async def startup_event():
                 print(f"[startup] seeded {cats} expense categories")
         except Exception as e:
             print(f"[startup] category seed failed (non-fatal): {e}")
+
+        # ── WhatsApp configuration validation ───────────────────────────
+        # Logs the environment and validates required config at startup so
+        # misconfiguration is caught immediately, not after the first webhook.
+        env = settings.whatsapp.environment
+        print(f"[startup] WhatsApp environment: {env}")
+        errors = settings.whatsapp.validate()
+        if errors:
+            for err in errors:
+                print(f"[startup] WhatsApp configuration error: {err}")
+            print("[startup] WhatsApp configuration: INVALID")
+        else:
+            print("[startup] WhatsApp configuration: valid")
     finally:
         db.close()

@@ -155,13 +155,22 @@ def parse_message_payload(value: dict) -> list[dict]:
         except (TypeError, ValueError):
             ts = datetime.utcnow()
 
-        parsed.append({
+        # Meta includes the destination phone_number_id once per value block
+    # (in value.metadata.phone_number_id).  Every message in this batch
+    # shares it.  We attach it to each parsed message so downstream code —
+    # particularly organization resolution — has the information needed to
+    # route the webhook to the correct tenant org.
+    metadata = value.get("metadata") or {}
+    phone_number_id = metadata.get("phone_number_id")
+
+    parsed.append({
             "provider_message_id": m.get("id"),
             "from_phone": from_phone,
             "sender_name": name_by_phone.get(from_phone),
             "message_type": msg_type,
             "body": body,
             "timestamp": ts,
+            "phone_number_id": phone_number_id,
         })
 
     return parsed
@@ -476,26 +485,42 @@ def _create_payment_review_item(
 ) -> Optional[PaymentReviewItem]:
     """Create a PaymentReviewItem from WhatsApp payment evidence.
 
-    Returns the created item, or None if creation fails (logged, not raised).
-    Duplicate protection: skips if a pending review item already exists for
-    the same source_message_id or extracted reference.
+    Returns the created item, or None if creation is skipped or fails
+    (logged, not raised).
+
+    Duplicate protection (idempotency key = source_message_id):
+      A given WhatsApp Message row should only ever produce ONE
+      PaymentReviewItem, regardless of how many duplicate webhooks Meta
+      delivers.  We therefore check for ANY existing review item on the
+      same source_message_id (not only pending_review) and skip creation
+      if one already exists.
+
+      We also check the extracted reference: if a DIFFERENT message
+      carries the same reference and a pending_review item already exists
+      for it, we skip creation to avoid double-counting.
     """
     try:
         payer_phone = _normalize_phone(parsed["from_phone"])
         payer_phone_hash = blind_index(payer_phone)
 
-        # Duplicate guard: same message already queued.
+        # Duplicate guard: any status — a message maps to at most one
+        # PaymentReviewItem, so if one already exists for this message
+        # we must not create another.
         existing = (
             db.query(PaymentReviewItem)
             .filter(
                 PaymentReviewItem.organization_id == organization_id,
                 PaymentReviewItem.source == "whatsapp",
                 PaymentReviewItem.source_message_id == message.id,
-                PaymentReviewItem.status == "pending_review",
             )
             .first()
         )
         if existing:
+            logger.info(
+                "Payment review item already exists for message %s "
+                "(id=%s, status=%s) — skipping creation",
+                message.id, existing.id, existing.status,
+            )
             return None
 
         # Duplicate guard: same reference already pending.
@@ -596,61 +621,82 @@ def handle_inbound_message(
     )
 
     if not is_new:
+        # Duplicate webhook — Meta retried delivery.  The Message and Ticket
+        # rows already exist from the first attempt and must NOT be duplicated.
+        #
+        # However, payment-evidence processing may not have completed on the
+        # first attempt (e.g. confirmation failure rolled back the review item,
+        # or the first webhook was interrupted mid-flow).  We therefore do NOT
+        # return early — we continue to payment processing so that incomplete
+        # work can be retried idempotently.
+        #
+        # _create_payment_review_item has its own duplicate guard (checks for
+        # any existing review item on this message) so we won't create a
+        # duplicate PaymentReviewItem.  The confirmation send below is best-
+        # effort; a retry may produce a second confirmation message — that's
+        # acceptable for webhook retries.
         logger.info(
-            "Duplicate inbound webhook for message %s — skipping ticket creation",
-            parsed["provider_message_id"],
+            "Duplicate inbound webhook for message %s — message %s already "
+            "exists; continuing payment processing",
+            parsed["provider_message_id"], message.id,
         )
-        return {
-            "message_id": message.id,
-            "ticket_id": message.ticket_id,
-            "tenant_id": message.tenant_id,
-            "duplicate": True,
-        }
+        # Fetch the existing ticket (created during the first webhook).
+        ticket = (
+            db.query(Ticket)
+            .filter(Ticket.id == message.ticket_id)
+            .first()
+        ) if message.ticket_id else None
+    else:
+        # 3) Create ticket
+        ticket = _create_ticket_from_message(
+            db=db,
+            organization_id=organization_id,
+            message=message,
+            tenant_id=tenant_id,
+            body=parsed["body"],
+            source_phone=_normalize_phone(parsed["from_phone"]),
+        )
 
-    # 3) Create ticket
-    ticket = _create_ticket_from_message(
-        db=db,
-        organization_id=organization_id,
-        message=message,
-        tenant_id=tenant_id,
-        body=parsed["body"],
-        source_phone=_normalize_phone(parsed["from_phone"]),
-    )
+        # 4) Audit log entries — one for message received, one for ticket created.
+        #    user_id=None because this is a system-triggered event (Meta webhook,
+        #    not a logged-in user). Your audit_log model already allows nullable
+        #    user_id.
+        log_action(
+            db=db,
+            organization_id=organization_id,
+            user_id=None,
+            action="receive",
+            entity_type="message",
+            entity_id=message.id,
+            description=(
+                f"Inbound WhatsApp message from {parsed['from_phone']}"
+                + (f" (tenant: {tenant.full_name})" if tenant else " (unknown sender)")
+            ),
+        )
+        log_action(
+            db=db,
+            organization_id=organization_id,
+            user_id=None,
+            action="create",
+            entity_type="ticket",
+            entity_id=ticket.id,
+            description=f"Ticket auto-created from WhatsApp message: {ticket.title}",
+        )
 
-    # 4) Audit log entries — one for message received, one for ticket created.
-    #    user_id=None because this is a system-triggered event (Meta webhook,
-    #    not a logged-in user). Your audit_log model already allows nullable
-    #    user_id.
-    log_action(
-        db=db,
-        organization_id=organization_id,
-        user_id=None,
-        action="receive",
-        entity_type="message",
-        entity_id=message.id,
-        description=(
-            f"Inbound WhatsApp message from {parsed['from_phone']}"
-            + (f" (tenant: {tenant.full_name})" if tenant else " (unknown sender)")
-        ),
-    )
-    log_action(
-        db=db,
-        organization_id=organization_id,
-        user_id=None,
-        action="create",
-        entity_type="ticket",
-        entity_id=ticket.id,
-        description=f"Ticket auto-created from WhatsApp message: {ticket.title}",
-    )
-
-    # 5) Commit everything together so message + ticket + audit are atomic.
-    #    The confirmation send below will commit separately so a failed
-    #    confirmation doesn't undo the ticket.
-    db.commit()
+        # 5) Commit everything together so message + ticket + audit are atomic.
+        #    The confirmation send below will commit separately so a failed
+        #    confirmation doesn't undo the ticket.
+        db.commit()
 
     # 5a) If the message looks like payment evidence, create a pending
     #     PaymentReviewItem. This is additive and best-effort: a failure
     #     here must not break the webhook or roll back the ticket.
+    #
+    #     _create_payment_review_item has its own internal duplicate guard
+    #     (checks for any existing review item on this message, regardless
+    #     of status) and its own internal rollback on *creation* failure
+    #     (to clean up the session).  We do NOT rollback here — if creation
+    #     fails the function returns None and we simply skip the review item.
     review_item = None
     try:
         parser_result = parse_whatsapp_payment(parsed["body"])
@@ -684,7 +730,14 @@ def handle_inbound_message(
                 "Payment review item creation failed for message %s",
                 message.id,
             )
-            db.rollback()
+
+        # ── Commit the PaymentReviewItem BEFORE attempting confirmation ──
+        # This separates persistence from notification: a confirmation
+        # failure must never roll back (or make it appear the review item
+        # was never created).  The confirmation send below commits its own
+        # outgoing message separately.
+        if review_item:
+            db.commit()
 
     # 6) Send the appropriate confirmation.
     #    If we've parsed a payment WITH both a reference AND a positive amount,
@@ -708,25 +761,34 @@ def handle_inbound_message(
         )
 
     if not sent_payment_ack:
-        _send_ticket_confirmation(
-            db=db,
-            organization_id=organization_id,
-            phone=parsed["from_phone"],
-            ticket_id=ticket.id,
-            tenant_id=tenant_id,
-        )
+        if ticket is not None:
+            _send_ticket_confirmation(
+                db=db,
+                organization_id=organization_id,
+                phone=parsed["from_phone"],
+                ticket_id=ticket.id,
+                tenant_id=tenant_id,
+            )
+        else:
+            logger.warning(
+                "Cannot send ticket_received confirmation for message %s — "
+                "no ticket was created/linked",
+                message.id,
+            )
 
     logger.info(
         "Inbound WhatsApp processed: message_id=%s ticket_id=%s tenant_id=%s "
-        "phone=%s payment_ack=%s",
-        message.id, ticket.id, tenant_id, parsed["from_phone"], sent_payment_ack,
+        "phone=%s payment_ack=%s duplicate=%s",
+        message.id,
+        ticket.id if ticket else None,
+        tenant_id, parsed["from_phone"], sent_payment_ack, not is_new,
     )
 
     return {
         "message_id": message.id,
-        "ticket_id": ticket.id,
+        "ticket_id": ticket.id if ticket else None,
         "tenant_id": tenant_id,
-        "duplicate": False,
+        "duplicate": not is_new,
         "payment_review_item_id": review_item.id if review_item else None,
     }
 
