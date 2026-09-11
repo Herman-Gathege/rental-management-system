@@ -205,6 +205,13 @@ def list_charges(
         # balance. This catches fully-unpaid AND partially-paid-but-late
         # charges, so late money never hides behind a "partial" status.
         query = query.filter(Charge.due_date < today, Charge.amount_paid < Charge.amount)
+    elif status == "pending":
+        # "pending" = still unpaid and not yet past its due date. Charges whose
+        # due date has passed are reported as "overdue" (see above), so scoping
+        # this filter to due_date >= today keeps the two mutually exclusive —
+        # otherwise every aged unpaid charge would show up under both filters
+        # and be relabelled "overdue" inside the pending list.
+        query = query.filter(Charge.status == "pending", Charge.due_date >= today)
     elif status:
         query = query.filter(Charge.status == status)
 

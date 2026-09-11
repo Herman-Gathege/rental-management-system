@@ -136,10 +136,10 @@ export default function Billing() {
       {success && <div className="success-banner">{success}</div>}
       {error && <div className="error-text">{error}</div>}
 
-      {/* "pending" filter removed: it duplicated "overdue" in practice.
-          Pending charges still appear under "All". */}
+      {/* "pending" = unpaid and not yet past its due date; past-due balances
+          live under "overdue", so the two filters don't overlap. */}
       <div className="flex gap-sm flex-wrap">
-        {["", "partial", "paid", "overdue"].map((s) => (
+        {["", "pending", "partial", "paid", "overdue"].map((s) => (
           <button
             key={s}
             className={`btn btn-sm ${statusFilter === s ? "btn-primary" : "btn-secondary"}`}
