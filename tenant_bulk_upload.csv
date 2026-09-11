@@ -1,0 +1,6 @@
+full_name,phone,email,alternative_phone,id_number,emergency_contact,property_name,unit,rent_amount,deposit_amount,start_date,end_date,billing_day,lease_status
+Grace Mwangi,254700000001,grace@demo.local,254700000011,30000001,Riverside Caretaker — +254 722 000 111,Riverside Apartments,A1,12000,12000,2026-09-01,2027-08-31,1,active
+David Kimani,254700000002,david@demo.local,254700000012,30000002,Riverside Caretaker — +254 722 000 111,Riverside Apartments,A2,15000,15000,2026-09-01,2027-08-31,1,active
+Sarah Wanjiku,254700000003,sarah@demo.local,254700000013,30000003,Riverside Caretaker — +254 722 000 111,Riverside Apartments,A3,18000,18000,2026-09-01,2027-08-31,1,active
+Peter Otieno,254700000004,peter@demo.local,254700000014,30000004,Riverside Caretaker — +254 722 000 111,Riverside Apartments,A4,20000,20000,2026-09-01,2027-08-31,1,active
+Mary Achieng,254700000005,mary@demo.local,254700000015,30000005,Riverside Caretaker — +254 722 000 111,Riverside Apartments,A5,10000,10000,2026-09-01,2027-08-31,1,active

@@ -11,3 +11,4 @@ backend/uploads/
 file-structure.txt
 backend/venv/
 env.example
+docker-compose.override.yml

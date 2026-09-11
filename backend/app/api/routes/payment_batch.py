@@ -45,6 +45,7 @@ from app.models.payment import Payment
 from app.models.charge import Charge
 from app.core.roles import LANDLORD, FINANCE
 from app.services import payment_batch_service
+from app.services import payment_reconciliation_service
 from app.services.audit_service import log_action
 from app.services.billing_service import recompute_lease_settlement
 from app.services.messaging import notify_payment_received
@@ -293,6 +294,18 @@ def commit_batch(
             primary = row_payment_ids[0][0]
         if primary:
             receipt_ids.append(primary)
+
+        # This row's money is now booked, so close out any pending review-queue
+        # candidate carrying the same reference. Without this the row stays
+        # "pending" in the reconciliation queue even though its payment exists.
+        if ref and primary:
+            payment_reconciliation_service.resolve_pending_items_for_reference(
+                db,
+                organization_id=org_id,
+                reference=ref,
+                payment_id=primary,
+                user_id=current_user.id,
+            )
 
     # Re-settle each affected lease once, after all its payments are flushed.
     for lease_id in leases_to_settle:

@@ -436,6 +436,65 @@ def apply_review_item(
     return item, payment
 
 
+# ─── Auto-resolve on external payment ────────────────────────────────────
+
+def resolve_pending_items_for_reference(
+    db: Session,
+    organization_id: str,
+    reference: str,
+    payment_id: str,
+    user_id: str,
+) -> int:
+    """Mark pending review items for `reference` as applied.
+
+    A review item is only a *candidate* payment. When the same reference gets
+    recorded as a real Payment through another money path (CSV batch commit),
+    leaving the candidate pending double-counts that money: the queue would
+    still show it as awaiting a decision while the payment is already booked.
+
+    The item is therefore linked to the payment that settled it. Does not
+    commit — the caller owns the transaction. Returns how many were resolved.
+    """
+    if not reference:
+        return 0
+
+    items = (
+        db.query(PaymentReviewItem)
+        .filter(
+            PaymentReviewItem.organization_id == organization_id,
+            PaymentReviewItem.reference == reference,
+            PaymentReviewItem.status == "pending_review",
+        )
+        .all()
+    )
+
+    for item in items:
+        item.status = "applied"
+        item.resolved_at = datetime.utcnow()
+        item.resolved_by_user_id = user_id
+        item.resolution_payment_id = payment_id
+
+        log_action(
+            db=db,
+            organization_id=organization_id,
+            user_id=user_id,
+            action="apply_review",
+            entity_type="payment_review",
+            entity_id=item.id,
+            description=(
+                f"Auto-applied review item — payment {payment_id} was recorded "
+                f"with the same reference ({reference})"
+            ),
+            new_values={
+                "payment_id": payment_id,
+                "reference": reference,
+                "auto_resolved_by": "payment_commit",
+            },
+        )
+
+    return len(items)
+
+
 # ─── Reject ──────────────────────────────────────────────────────────────
 
 def reject_review_item(

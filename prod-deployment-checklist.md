@@ -276,7 +276,7 @@ docker exec rental_backend printenv WHATSAPP_DEFAULT_ORG_ID
 
 ### 5.1 GET verification handshake
 ```bash
-curl -s "http://alphaone.africa/api/webhooks/whatsapp?hub.mode=subscribe&hub.challenge=test123&hub.verify_token=<SANDBOX_OR_PROD_VERIFY_TOKEN>"
+curl -s "http://alphaone.africa/webhooks/whatsapp?hub.mode=subscribe&hub.challenge=test123&hub.verify_token=<SANDBOX_OR_PROD_VERIFY_TOKEN>"
 ```
 - [ ] Returns raw `test123` when verify token matches
 - [ ] Returns `403` when verify token does not match

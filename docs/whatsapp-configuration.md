@@ -207,7 +207,7 @@ db.commit()
 
 ### Webhook configuration
 
-- **Webhook URL**: `https://your-domain.com/api/webhooks/whatsapp`
+- **Webhook URL**: `https://your-domain.com/webhooks/whatsapp`
 - **Verify token**: matches `WHATSAPP_WEBHOOK_VERIFY_TOKEN` in `.env`
 - **Subscribed fields**: `messages`
 

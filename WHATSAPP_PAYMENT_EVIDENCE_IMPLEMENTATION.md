@@ -136,7 +136,7 @@ The existing Meta webhook flow is **unchanged**:
 
 ```
 Meta webhook
-    → POST /api/webhooks/whatsapp
+    → POST /webhooks/whatsapp
     → handle_inbound_message()
     → Message (created)
     → Ticket (created)
@@ -156,10 +156,10 @@ After the ticket is committed, the system **additionally**:
 
 ### 4.3 Meta Webhook Configuration
 
-No changes needed to Meta webhook configuration. The existing `/api/webhooks/whatsapp` endpoint continues to work.
+No changes needed to Meta webhook configuration. The existing `/webhooks/whatsapp` endpoint continues to work.
 
 **Required Meta app settings (verify in Meta Developer Console):**
-- Webhook URL: `https://your-domain.com/api/webhooks/whatsapp`
+- Webhook URL: `https://your-domain.com/webhooks/whatsapp`
 - Verify token: matches `META_VERIFY_TOKEN` in backend `.env`
 - Subscribe to: `messages` field
 
@@ -172,7 +172,7 @@ No changes needed to Meta webhook configuration. The existing `/api/webhooks/wha
 
 **Option B: Use curl to simulate webhook**
 ```bash
-curl -X POST https://your-domain.com/api/webhooks/whatsapp \
+curl -X POST https://your-domain.com/webhooks/whatsapp \
   -H "Content-Type: application/json" \
   -d '{
     "object": "whatsapp_business_account",
