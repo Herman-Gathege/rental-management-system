@@ -1,6 +1,3 @@
-# Demo helper: simulate inbound WhatsApp M-PESA forwards for the Riverside org.
-# Run inside the backend container:
-#   docker exec -it rental_backend python /app/scripts/demo_simulate_whatsapp.py
 import sys, uuid
 from datetime import date, datetime, timedelta
 sys.path.insert(0, "/app")
@@ -20,9 +17,9 @@ ORG_NAME = "Riverside Property Management"
 
 # reference | tenant name | payer phone | amount (KES)
 DEMO_DATA = [
-    ("UMPZ7RTFY9", "Grace Mwangi",   "+254700000001", 12000),
-    ("UDVK3M9RPQ", "David Kimani",   "+254700000002", 30000),
-    ("USRW8N4LWM", "Sarah Wanjiku",  "+254700000003", 25000),
+    ("UI7BD6170U", "Grace Mwangi",   "+254700000001", 12000),
+    ("UI7FK5VY2Z", "David Kimani",   "+254700000002", 30000),
+    ("UI6QI57NHU", "Sarah Wanjiku",  "+254700000003", 25000),
     ("UPTR5Q7VNK", "Peter Otieno",   "+254700000004", 12000),
     ("UMAC2R6HGB", "Mary Achieng",   "+254700000005", 10000),
 ]

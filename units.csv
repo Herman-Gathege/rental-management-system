@@ -1,0 +1,6 @@
+property_name,name,description,bedrooms,bathrooms,size_sqm,rent_amount
+Riverside Apartments,A1,1-bedroom,1,1,0,12000
+Riverside Apartments,A2,1-bedroom,1,1,0,15000
+Riverside Apartments,A3,2-bedroom,2,1,0,18000
+Riverside Apartments,A4,2-bedroom,2,1,0,20000
+Riverside Apartments,A5,Bedsitter,0,1,0,10000
