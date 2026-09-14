@@ -178,7 +178,7 @@ export default function Navbar() {
   return (
     <header className="navbar flex justify-between items-center p-md">
       {/* LEFT */}
-      <div className="flex items-center gap-sm">
+      <div className="navbar-left">
         <button
           type="button"
           className="btn-ghost navbar-menu-btn"
@@ -217,7 +217,7 @@ export default function Navbar() {
       </div>
 
       {/* RIGHT */}
-      <div className="relative flex items-center gap-xs">
+      <div className="navbar-account">
         <button
           type="button"
           className="btn-ghost navbar-search-btn-mobile"

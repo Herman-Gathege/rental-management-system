@@ -14,7 +14,7 @@
 //     active page is never hidden behind a collapsed group
 
 import { NavLink, useLocation } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FiChevronDown, FiMenu, FiX } from "react-icons/fi";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -77,6 +77,44 @@ export default function Sidebar() {
   const isMenuOpen = (label) => menuOverrides[label] ?? !!autoOpen[label];
   const toggleMenu = (label) =>
     setMenuOverrides((prev) => ({ ...prev, [label]: !isMenuOpen(label) }));
+
+  /* ── Focus handling for the mobile drawer ──
+     Opening moves focus into the drawer; closing returns it to the hamburger
+     that opened it. `wasOpen` keeps the desktop rail from stealing focus on
+     first render, when mobileOpen is simply false. */
+  const drawerRef = useRef(null);
+  const wasOpen = useRef(false);
+
+  useEffect(() => {
+    if (mobileOpen) {
+      wasOpen.current = true;
+      drawerRef.current?.focus();
+      return;
+    }
+    if (wasOpen.current) {
+      wasOpen.current = false;
+      document.querySelector(".navbar-menu-btn")?.focus();
+    }
+  }, [mobileOpen]);
+
+  /* Keep Tab inside the open drawer so keyboard users can't tab onto the page
+     behind it. Escape and the backdrop are handled by the layout context. */
+  const onDrawerKeyDown = (event) => {
+    if (event.key !== "Tab") return;
+    const focusables = drawerRef.current?.querySelectorAll(
+      'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    if (!focusables?.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   if (!user) return null;
 
@@ -206,6 +244,9 @@ export default function Sidebar() {
             role="dialog"
             aria-modal="true"
             aria-label="Navigation"
+            tabIndex={-1}
+            ref={drawerRef}
+            onKeyDown={onDrawerKeyDown}
           >
             {body}
           </aside>

@@ -483,49 +483,56 @@ button.sidebar-link {
 .sidebar-section {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding-bottom: 6px;
+  gap: 4px;
+  padding-bottom: 8px;
 }
 
 .sidebar-section + .sidebar-section {
   border-top: 1px solid #f1f3f6;
   padding-top: 8px;
-  margin-top: 2px;
 }
 
 .sidebar-section-label {
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #94a3b8;
-  padding: 6px 12px 4px;
+  padding: 8px 14px 4px;
 }
 
 .sidebar-collapsed .sidebar-section + .sidebar-section {
   border-top: 1px solid #eef1f5;
 }
 
-/* The drawer is the same markup as the desktop sidebar, shown at <=768px
-   where the desktop rail is hidden by .hidden-mobile. */
+/* ── Mobile drawer ──
+   Deliberately the same markup as the desktop rail so both share the link and
+   section styling. That also means it inherits the legacy
+   `@media (max-width: 768px) { .sidebar { display: none } }` rule defined
+   higher up this file — which is why the mobile menu previously opened an
+   empty shell with no navigation in it at all. Re-declaring `display` here is
+   what makes the drawer render on phones. */
+.sidebar-drawer {
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  height: 100dvh; /* avoids the mobile browser-chrome gap under the fold */
+  width: 86%;
+  max-width: 320px;
+  z-index: 999;
+  background: #ffffff;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.28);
+  animation: sidebarSlideIn 0.18s ease;
+}
+
 .sidebar-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.45);
   z-index: 998;
-}
-
-.sidebar-drawer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 100vh;
-  width: 82%;
-  max-width: 300px;
-  z-index: 999;
-  background: #ffffff;
-  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.28);
-  animation: sidebarSlideIn 0.18s ease;
 }
 
 @keyframes sidebarSlideIn {
@@ -535,8 +542,8 @@ button.sidebar-link {
 
 .sidebar-close-btn {
   display: none;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   border: 1px solid #e2e5ea;
   background: #fff;
@@ -550,13 +557,48 @@ button.sidebar-link {
   display: inline-flex;
 }
 
-@media (max-width: 768px) {
-  .sidebar-backdrop { display: block; }
+/* Collapsing is a desktop concept — in the drawer it would just hide the very
+   links the drawer exists to show. */
+.sidebar-drawer .sidebar-collapse-btn {
+  display: none;
 }
 
-@media (min-width: 769px) {
+/* One breakpoint, matched to .hidden-mobile (which shows the desktop rail from
+   768px up): the rail and the drawer must never both render, and the hamburger
+   must never appear on a viewport that already has the rail. */
+@media (min-width: 768px) {
   .sidebar-backdrop,
   .sidebar-drawer { display: none; }
+}
+
+/* ── Mobile shell width ──
+   index.css pads #root by 1rem and forces every input/button to width:100%
+   below 600px for the public and auth pages. The dashboard shell is full-bleed
+   (its mobile bar is fixed to the viewport) and its chrome is inline, so the
+   inset is cancelled and inline control sizing restored *inside the shell
+   only* — public pages keep their existing behaviour. */
+@media (max-width: 600px) {
+  .dashboard-layout {
+    margin: -1rem;
+  }
+
+  /* Only the shell controls that carry no width of their own need rescuing
+     from the global `button { width: 100% }`. Class-based sizes (.btn,
+     .btn-ghost, .sidebar-*) already out-specify that rule and must keep their
+     tap-target dimensions. */
+  .dashboard-layout .navbar-account-trigger,
+  .dashboard-layout .ui-table-search-clear,
+  .dashboard-layout input[type="checkbox"],
+  .dashboard-layout input[type="radio"],
+  .gs-panel .gs-esc {
+    width: auto;
+  }
+
+  /* .btn-block is the explicit opt-in to a full-width button. */
+  .dashboard-layout .btn-block,
+  .gs-panel .gs-item {
+    width: 100%;
+  }
 }
 
 /* Long menus scroll inside the rail rather than pushing the collapse control
