@@ -16,6 +16,7 @@
   width: 100%;
   max-width: 620px;
   background: #fff;
+  transform: translateX(-40px);
   border-radius: 16px;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
   display: flex;
@@ -147,6 +148,7 @@
   color: #64748b;
   font-size: 13px;
   cursor: pointer;
+  margin-left: 20px;
 }
 
 .navbar-search-trigger:hover {

@@ -176,7 +176,7 @@ export default function GlobalSearch() {
 
   return (
     <div
-      className="gs-overlay"
+      className="gs-overlay "
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) close();
       }}

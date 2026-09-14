@@ -45,3 +45,9 @@ from app.models.whatsapp_integration import WhatsAppIntegration
 # scheduled-job audit trail.
 from app.models.organization_settings import OrganizationSettings
 from app.models.automation_run import AutomationRun
+
+# Imported so every model is registered on Base.metadata. The service modules
+# import this one directly, so the app always worked; without it here, any
+# tooling that relies on `import app.models` + Base.metadata.create_all (scripts,
+# throwaway databases) silently missed the table.
+from app.models.password_history import PasswordHistory
