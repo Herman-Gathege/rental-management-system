@@ -1,9 +1,17 @@
 //frontend\src\features\billing\Billing.jsx
 import { useEffect, useState } from "react";
-import { generateMonthlyCharges, getCharges } from "../../api/charges";
+import { generateMonthlyCharges, queryCharges } from "../../api/charges";
 import { useProperty } from "../../context/PropertyContext";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import Pagination from "../../components/Pagination";
 import useServerPagination from "../../hooks/useServerPagination";
+import {
+  EmptyState,
+  ErrorState,
+  NoResultsState,
+  TableSearch,
+  TableSkeleton,
+} from "../../components/ui/States";
 
 const money = (n) => Number(n || 0).toLocaleString();
 
@@ -63,43 +71,59 @@ export default function Billing() {
   const { activeProperty } = useProperty();
   const [charges, setCharges] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
+  // Charge type filter (rent / deposit / all). The backend already stores
+  // charge_type on every row; this exposes it as a real query filter so the
+  // totals below reflect exactly the rows on screen.
+  const [typeFilter, setTypeFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [generating, setGenerating] = useState(false);
 
-  const pg = useServerPagination(PER_PAGE);
+  // Re-page whenever the filters or the selected property change.
+  const pg = useServerPagination(
+    PER_PAGE,
+    `${statusFilter}|${typeFilter}|${debouncedSearch}|${activeProperty?.id || "all"}`,
+  );
   const { page, setPage, total, setTotal, totalPages, limit, offset, reset } = pg;
 
   const fetchCharges = async () => {
     try {
       setLoading(true);
-      const res = await getCharges(
-        statusFilter || null,
-        null,
-        activeProperty?.id || null,
+      setError("");
+      const res = await queryCharges({
+        status: statusFilter || null,
+        chargeType: typeFilter || null,
+        propertyId: activeProperty?.id || null,
+        search: debouncedSearch || null,
         limit,
-        offset
-      );
+        offset,
+      });
       setCharges(res.items || []);
       setTotal(res.total || 0);
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to load charges");
+      setCharges([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
   };
 
-  // Reset to page 1 when the filter or property changes.
-  useEffect(() => {
-    reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, activeProperty]);
+  const filtersActive = Boolean(statusFilter || typeFilter || debouncedSearch);
+
+  const clearFilters = () => {
+    setStatusFilter("");
+    setTypeFilter("");
+    setSearch("");
+  };
 
   useEffect(() => {
     fetchCharges();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, activeProperty, page]);
+  }, [statusFilter, typeFilter, debouncedSearch, activeProperty, page]);
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -136,31 +160,99 @@ export default function Billing() {
       {success && <div className="success-banner">{success}</div>}
       {error && <div className="error-text">{error}</div>}
 
-      {/* "pending" = unpaid and not yet past its due date; past-due balances
-          live under "overdue", so the two filters don't overlap. */}
-      <div className="flex gap-sm flex-wrap">
-        {["", "pending", "partial", "paid", "overdue"].map((s) => (
-          <button
-            key={s}
-            className={`btn btn-sm ${statusFilter === s ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => setStatusFilter(s)}
-          >
-            {s || "All"}
-          </button>
-        ))}
+      <div className="card mb-md">
+        {/* Type filter: rent vs deposit. Deposits are a separate obligation —
+            showing them mixed with rent makes month-to-month rent figures read
+            wrong, so this is the primary split. */}
+        <div className="flex gap-sm flex-wrap items-center">
+          <span className="text-sm text-muted">Charge type:</span>
+          {[
+            { value: "", label: "All charges" },
+            { value: "rent", label: "Rent" },
+            { value: "deposit", label: "Deposits" },
+          ].map((option) => (
+            <button
+              key={option.value || "all"}
+              className={`btn btn-sm ${typeFilter === option.value ? "btn-primary" : "btn-secondary"}`}
+              onClick={() => setTypeFilter(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        {/* "pending" = unpaid and not yet past its due date; past-due balances
+            live under "overdue", so the two filters don't overlap. */}
+        <div className="flex gap-sm flex-wrap items-center mt-sm">
+          <span className="text-sm text-muted">Status:</span>
+          {["", "pending", "partial", "paid", "overdue"].map((s) => (
+            <button
+              key={s}
+              className={`btn btn-sm ${statusFilter === s ? "btn-primary" : "btn-secondary"}`}
+              onClick={() => setStatusFilter(s)}
+            >
+              {s || "All"}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-sm flex-wrap items-end mt-sm">
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label htmlFor="charge-search">Search tenant</label>
+            <TableSearch
+              id="charge-search"
+              value={search}
+              onChange={setSearch}
+              placeholder="Tenant name…"
+              label="Search charges by tenant name"
+            />
+          </div>
+
+          {filtersActive && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={clearFilters}
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
-        <p>Loading charges...</p>
+        <TableSkeleton rows={6} columns={8} />
+      ) : error ? (
+        <ErrorState
+          title="Couldn’t load charges"
+          description={error}
+          onRetry={fetchCharges}
+        />
+      ) : total === 0 && filtersActive ? (
+        <NoResultsState
+          term={debouncedSearch || (typeFilter === "deposit" ? "Deposits" : typeFilter === "rent" ? "Rent" : "")}
+          onClear={clearFilters}
+          description="No charges match the selected filters. Clear them to see all charges again."
+        />
       ) : total === 0 ? (
-        <div className="empty-state">
-          <p>No charges yet.</p>
-          <p className="text-muted">Click "Generate Monthly Charges" to bill all active leases.</p>
-        </div>
+        <EmptyState
+          title="No charges yet"
+          description="Monthly rent charges will appear here automatically once invoicing runs, or you can generate them now."
+          action={
+            <button
+              className="btn btn-primary"
+              onClick={handleGenerate}
+              disabled={generating}
+            >
+              {generating ? "Generating…" : "Generate monthly charges"}
+            </button>
+          }
+        />
       ) : (
         <>
           <div className="text-sm text-muted mb-sm mt-sm">
             Showing {showingFrom}–{showingTo} of {total}
+            {typeFilter && ` ${typeFilter} charges`}
           </div>
 
           <div className="properties-table-wrapper hidden-mobile">

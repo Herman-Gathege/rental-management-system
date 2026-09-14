@@ -2,8 +2,16 @@
 import { useEffect, useState } from "react";
 import { getTenants } from "../../api/tenants";
 import { Link } from "react-router-dom";
+import { useProperty } from "../../context/PropertyContext";
+import {
+  EmptyState,
+  ErrorState,
+  NoResultsState,
+  TableSkeleton,
+} from "../../components/ui/States";
 
 export default function Tenants() {
+  const { activeProperty } = useProperty();
   const [tenants, setTenants] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -12,10 +20,14 @@ export default function Tenants() {
   const fetchTenants = async (query = null) => {
     try {
       setLoading(true);
-      const data = await getTenants(query);
+      setError("");
+      // The property selector scopes the list to tenants with a lease on the
+      // selected property; "All properties" shows the whole portfolio.
+      const data = await getTenants(query, activeProperty?.id || null);
       setTenants(data);
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to load tenants");
+      setTenants([]);
     } finally {
       setLoading(false);
     }
@@ -23,7 +35,8 @@ export default function Tenants() {
 
   useEffect(() => {
     fetchTenants();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProperty]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -50,15 +63,38 @@ export default function Tenants() {
       </div>
 
       {loading ? (
-        <p>Loading tenants...</p>
+        <TableSkeleton rows={6} columns={4} />
       ) : error ? (
-        <p className="error-text">{error}</p>
+        <ErrorState
+          title="Couldn’t load tenants"
+          description={error}
+          onRetry={() => fetchTenants(search || null)}
+        />
       ) : tenants.length === 0 ? (
-        <div className="empty-state">
-          <p>No tenants yet.</p>
-          <p className="text-muted">Add tenants to assign them to units with leases.</p>
-          <Link to="/owner/tenants/add" className="btn btn-primary">Add First Tenant</Link>
-        </div>
+        search || activeProperty ? (
+          <NoResultsState
+            term={search}
+            onClear={() => {
+              setSearch("");
+              fetchTenants(null);
+            }}
+            description={
+              activeProperty
+                ? `No tenants match in ${activeProperty.name}. Switch to “All Properties” to search the whole portfolio.`
+                : undefined
+            }
+          />
+        ) : (
+          <EmptyState
+            title="No tenants yet"
+            description="Add tenants, then assign them to a unit with a lease to start tracking rent."
+            action={
+              <Link to="/owner/tenants/add" className="btn btn-primary">
+                Add first tenant
+              </Link>
+            }
+          />
+        )
       ) : (
         <>
           {/* Desktop Table */}
@@ -105,4 +141,3 @@ export default function Tenants() {
     </section>
   );
 }
-

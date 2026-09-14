@@ -56,11 +56,42 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 # ─── Profile request bodies (Sprint 4.5 profile menu) ───
 class ProfileUpdate(BaseModel):
     full_name: Optional[str] = None
+    # Editable profile fields (profile completion). `phone` is validated and
+    # normalised; `email` is the login identity so it additionally requires
+    # `current_password` as proof of ownership (see update_me).
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    current_password: Optional[str] = None
 
 
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
+
+
+def _normalize_phone(raw: Optional[str]) -> Optional[str]:
+    """Normalise a Kenyan-style phone number to +2547XXXXXXXX.
+
+    Mirrors the normalisation used elsewhere (bulk upload / WhatsApp parser)
+    so the same human number doesn't create two different stored values.
+    Returns None for blanks. Raises ValueError when the number isn't a
+    plausible mobile number.
+    """
+    if raw is None:
+        return None
+    digits = "".join(ch for ch in str(raw).strip() if ch.isdigit() or ch == "+")
+    digits = digits.lstrip("+")
+    if not digits:
+        return None
+    if digits.startswith("0"):
+        digits = "254" + digits[1:]
+    elif digits.startswith("7") or digits.startswith("1"):
+        digits = "254" + digits
+    elif digits.startswith("254"):
+        pass
+    if not digits.startswith("254") or len(digits) != 12:
+        raise ValueError("Enter a valid phone number, e.g. 0712 345 678")
+    return "+" + digits
 
 
 def _me_payload(user: User, db: Session) -> dict:
@@ -420,10 +451,96 @@ def update_me(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Update the signed-in user's profile (currently just their name)."""
+    """Update the signed-in user's profile.
+
+    Editable: full_name, phone, email. Everything else on the user record —
+    role, organization membership, permissions, is_active — is ignored even if
+    supplied, so this endpoint can never be used to escalate privileges.
+
+    Email is the login identity, so changing it requires the current password.
+    That keeps a stolen access token alone from being able to move the account
+    to an attacker-controlled address and then trigger a password reset.
+    """
+    changed: dict = {}
+    old_values: dict = {}
+
     if payload.full_name is not None:
         # Trim; store NULL rather than an empty string.
-        current_user.full_name = payload.full_name.strip() or None
+        new_name = payload.full_name.strip() or None
+        if new_name != current_user.full_name:
+            old_values["full_name"] = current_user.full_name
+            changed["full_name"] = new_name
+        current_user.full_name = new_name
+
+    if payload.phone is not None:
+        try:
+            new_phone = _normalize_phone(payload.phone)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        if new_phone != current_user.phone:
+            # Phone uniqueness is organisation-scoped elsewhere in the system;
+            # at the account level we only need to stop two logins sharing a
+            # number, since it is used for OTP verification.
+            existing = (
+                db.query(User)
+                .filter(User.phone == new_phone, User.id != current_user.id)
+                .first()
+            )
+            if new_phone and existing:
+                raise HTTPException(
+                    status_code=400,
+                    detail="That phone number is already in use by another account",
+                )
+            old_values["phone"] = current_user.phone
+            changed["phone"] = new_phone
+            current_user.phone = new_phone
+            # A changed number is an unverified number — the OTP gate has to be
+            # re-satisfied for the new value.
+            current_user.phone_verified = False
+
+    if payload.email is not None:
+        new_email = payload.email.strip().lower()
+        if new_email != (current_user.email or "").lower():
+            if not payload.current_password or not verify_password(
+                payload.current_password, current_user.password_hash
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Confirm your current password to change your email address",
+                )
+            if "@" not in new_email or "." not in new_email.split("@")[-1]:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Enter a valid email address",
+                )
+            existing = (
+                db.query(User)
+                .filter(User.email == new_email, User.id != current_user.id)
+                .first()
+            )
+            if existing:
+                raise HTTPException(
+                    status_code=400,
+                    detail="That email address is already registered",
+                )
+            old_values["email"] = current_user.email
+            changed["email"] = new_email
+            current_user.email = new_email
+
+    if changed:
+        audit_service.log_action(
+            db=db,
+            organization_id=_first_org_id(db, current_user.id),
+            user_id=current_user.id,
+            action="update",
+            entity_type="user_profile",
+            entity_id=current_user.id,
+            description=f"Profile updated: {current_user.email}",
+            old_values=old_values,
+            # Never write credential fields into the audit log.
+            new_values={k: v for k, v in changed.items() if k != "current_password"},
+        )
+
     db.commit()
     db.refresh(current_user)
     return _me_payload(current_user, db)

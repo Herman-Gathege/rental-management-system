@@ -3,23 +3,26 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
 import BottomNav from "../../../components/BottomNav";
+import GlobalSearch from "../../../components/GlobalSearch/GlobalSearch";
+import { LayoutUIProvider } from "./LayoutUIContext";
 
 
 export default function DashboardLayout() {
-  
-
   return (
-    <div className="dashboard-layout">
-      <Sidebar />
+    <LayoutUIProvider>
+      <div className="dashboard-layout">
+        <Sidebar />
 
-      <div className="dashboard-main">
-        <Navbar />
-        <main className="dashboard-content">
-          <Outlet />
-        </main>
+        <div className="dashboard-main">
+          <Navbar />
+          <main className="dashboard-content">
+            <Outlet />
+          </main>
 
-        <BottomNav />
+          <BottomNav />
+        </div>
       </div>
-    </div>
+      <GlobalSearch />
+    </LayoutUIProvider>
   );
 }

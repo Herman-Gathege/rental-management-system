@@ -8,9 +8,16 @@ export const createTenant = async (payload) => {
   return data;
 };
 
-/* LIST TENANTS */
-export const getTenants = async (search = null) => {
-  const params = search ? { search } : {};
+/* LIST TENANTS
+ *
+ * `search` keeps the original positional signature. `propertyId` is optional
+ * and scopes the list to tenants holding a lease on that property (the
+ * property selector in the navbar drives it).
+ */
+export const getTenants = async (search = null, propertyId = null) => {
+  const params = {};
+  if (search) params.search = search;
+  if (propertyId) params.property_id = propertyId;
   const { data } = await API.get("/tenants/", { params });
   return data;
 };

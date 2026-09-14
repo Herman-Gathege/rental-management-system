@@ -31,3 +31,24 @@ export const getCharge = async (chargeId) => {
   const { data } = await API.get(`/charges/${chargeId}`);
   return data;
 };
+
+// Filter-object variant used by the billing page (adds the rent/deposit type
+// filter). getCharges() stays as-is for existing positional callers.
+export const queryCharges = async ({
+  status = null,
+  chargeType = null,
+  leaseId = null,
+  propertyId = null,
+  limit = null,
+  offset = null,
+} = {}) => {
+  const params = {};
+  if (status) params.status = status;
+  if (chargeType) params.charge_type = chargeType;
+  if (leaseId) params.lease_id = leaseId;
+  if (propertyId) params.property_id = propertyId;
+  if (limit != null) params.limit = limit;
+  if (offset != null) params.offset = offset;
+  const { data } = await API.get("/charges/", { params });
+  return data;
+};

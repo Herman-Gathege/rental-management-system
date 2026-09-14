@@ -43,23 +43,25 @@ import {
  * leases, no active lease, etc.).
  */
 export const ownerNavigation = [
-  { label: "Dashboard", icon: FiHome, path: "/owner/dashboard" },
-  { label: "Notifications", icon: FiBell, path: "/owner/notifications" },
+  { label: "Dashboard", icon: FiHome, path: "/owner/dashboard", section: "Overview" },
+  { label: "Notifications", icon: FiBell, path: "/owner/notifications", section: "Overview" },
 
   {
     label: "Properties",
     icon: FiBriefcase,
+    section: "Portfolio",
     children: [
       { label: "All Properties", path: "/owner/properties" },
       { label: "Add Property", path: "/owner/properties/new" },
     ],
   },
 
-  { label: "Bulk Upload", icon: FiUploadCloud, path: "/owner/bulk-upload" },
+  { label: "Bulk Upload", icon: FiUploadCloud, path: "/owner/bulk-upload", section: "Portfolio" },
 
   {
     label: "Units",
     icon: FiLayers,
+    section: "Portfolio",
     children: [
       { label: "All Units", path: "/owner/units" },
       { label: "Vacant Units", path: "/owner/units/vacant" },
@@ -70,6 +72,7 @@ export const ownerNavigation = [
   {
     label: "Tenants",
     icon: FiUsers,
+    section: "People",
     children: [
       { label: "All Tenants", path: "/owner/tenants" },
       { label: "Add Tenant", path: "/owner/tenants/add" },
@@ -80,6 +83,7 @@ export const ownerNavigation = [
   {
     label: "Leases",
     icon: FiFileText,
+    section: "People",
     children: [
       { label: "Active Leases", path: "/owner/leases" },
       { label: "Create Lease", path: "/owner/leases/create" },
@@ -90,6 +94,7 @@ export const ownerNavigation = [
   {
     label: "Rent & Payments",
     icon: FiDollarSign,
+    section: "Money",
     children: [
       { label: "Rent Dashboard", path: "/owner/billing" },
       { label: "Payment History", path: "/owner/payments/history" },
@@ -98,14 +103,14 @@ export const ownerNavigation = [
     ],
   },
 
-  { label: "Expenses", icon: FiCreditCard, path: "/owner/expenses" },
-  { label: "Finance Overview", icon: FiBarChart2, path: "/owner/finance" },
-  { label: "Reports", icon: FiBarChart2, path: "/owner/reports" },
-  { label: "Tickets", icon: FiAlertCircle, path: "/owner/tickets" },
+  { label: "Expenses", icon: FiCreditCard, path: "/owner/expenses", section: "Money" },
+  { label: "Finance Overview", icon: FiBarChart2, path: "/owner/finance", section: "Money" },
+  { label: "Reports", icon: FiBarChart2, path: "/owner/reports", section: "Money" },
+  { label: "Tickets", icon: FiAlertCircle, path: "/owner/tickets", section: "Support" },
 
-  { label: "Team", icon: FiKey, path: "/owner/team" },
-  { label: "Settings", icon: FiSettings, path: "/owner/settings" },
-  { label: "Profile", icon: FiUser, path: "/owner/profile" },
+  { label: "Team", icon: FiKey, path: "/owner/team", section: "Administration" },
+  { label: "Settings", icon: FiSettings, path: "/owner/settings", section: "Administration" },
+  { label: "Profile", icon: FiUser, path: "/owner/profile", section: "Administration" },
 ];
 
 /* ================= PROPERTY MANAGER =================
@@ -113,15 +118,15 @@ export const ownerNavigation = [
  * Paths use /manager/* (matches the StaffLayout mount in AppRoutes).
  */
 export const staffNavigation = [
-  { label: "Dashboard", icon: FiHome, path: "/manager/dashboard" },
-  { label: "Notifications", icon: FiBell, path: "/manager/notifications" },
-  { label: "Properties", icon: FiBriefcase, path: "/manager/properties" },
-  { label: "Units", icon: FiLayers, path: "/manager/units" },
-  { label: "Tenants", icon: FiUsers, path: "/manager/tenants" },
-  { label: "Leases", icon: FiFileText, path: "/manager/leases" },
-  { label: "Expenses", icon: FiCreditCard, path: "/manager/expenses" },
-  { label: "Tickets", icon: FiAlertCircle, path: "/manager/tickets" },
-  { label: "Profile", icon: FiUser, path: "/manager/profile" },
+  { label: "Dashboard", icon: FiHome, path: "/manager/dashboard", section: "Overview" },
+  { label: "Notifications", icon: FiBell, path: "/manager/notifications", section: "Overview" },
+  { label: "Properties", icon: FiBriefcase, path: "/manager/properties", section: "Portfolio" },
+  { label: "Units", icon: FiLayers, path: "/manager/units", section: "Portfolio" },
+  { label: "Tenants", icon: FiUsers, path: "/manager/tenants", section: "Portfolio" },
+  { label: "Leases", icon: FiFileText, path: "/manager/leases", section: "Portfolio" },
+  { label: "Expenses", icon: FiCreditCard, path: "/manager/expenses", section: "Operations" },
+  { label: "Tickets", icon: FiAlertCircle, path: "/manager/tickets", section: "Operations" },
+  { label: "Profile", icon: FiUser, path: "/manager/profile", section: "Administration" },
 ];
 
 /* ================= FINANCE =================
@@ -136,17 +141,17 @@ export const staffNavigation = [
  * feel (same icon Tickets uses in every other role).
  */
 export const financeNavigation = [
-  { label: "Dashboard", icon: FiHome, path: "/finance" },
-  { label: "Notifications", icon: FiBell, path: "/finance/notifications" },
-  { label: "Billing", icon: FiFileText, path: "/finance/billing" },
-  { label: "Payments", icon: FiDollarSign, path: "/finance/payments" },
-  { label: "Batch Upload", icon: FiUploadCloud, path: "/finance/payments/batch" },
-  { label: "Payment Review", icon: FiAlertCircle, path: "/finance/payments/reconciliation" },
-  { label: "Expenses", icon: FiCreditCard, path: "/finance/expenses" },
-  { label: "Reports", icon: FiBarChart2, path: "/finance/reports" },
-  { label: "Tickets", icon: FiAlertCircle, path: "/finance/tickets" },
-  { label: "Finance", icon: FiBarChart2, path: "/finance/finance" },
-  { label: "Profile", icon: FiUser, path: "/finance/profile" },
+  { label: "Dashboard", icon: FiHome, path: "/finance", section: "Overview" },
+  { label: "Notifications", icon: FiBell, path: "/finance/notifications", section: "Overview" },
+  { label: "Billing", icon: FiFileText, path: "/finance/billing", section: "Money" },
+  { label: "Payments", icon: FiDollarSign, path: "/finance/payments", section: "Money" },
+  { label: "Batch Upload", icon: FiUploadCloud, path: "/finance/payments/batch", section: "Money" },
+  { label: "Payment Review", icon: FiAlertCircle, path: "/finance/payments/reconciliation", section: "Money" },
+  { label: "Expenses", icon: FiCreditCard, path: "/finance/expenses", section: "Money" },
+  { label: "Reports", icon: FiBarChart2, path: "/finance/reports", section: "Insight" },
+  { label: "Finance", icon: FiBarChart2, path: "/finance/finance", section: "Insight" },
+  { label: "Tickets", icon: FiAlertCircle, path: "/finance/tickets", section: "Support" },
+  { label: "Profile", icon: FiUser, path: "/finance/profile", section: "Administration" },
 ];
 
 /* ================= TENANT =================
@@ -155,23 +160,48 @@ export const financeNavigation = [
  * inspection records for the tenant.
  */
 export const tenantNavigation = [
-  { label: "Dashboard", icon: FiHome, path: "/tenant" },
-  { label: "Notifications", icon: FiBell, path: "/tenant/notifications" },
-  { label: "My Lease", icon: FiFileText, path: "/tenant/lease" },
-  { label: "Lease Checklist", icon: FiCheckSquare, path: "/tenant/inspections" },
-  { label: "My Payments", icon: FiDollarSign, path: "/tenant/payments" },
-  { label: "My Charges", icon: FiDollarSign, path: "/tenant/charges" },
-  { label: "My Tickets", icon: FiAlertCircle, path: "/tenant/tickets" },
-  { label: "Profile", icon: FiUser, path: "/tenant/profile" },
+  { label: "Dashboard", icon: FiHome, path: "/tenant", section: "Overview" },
+  { label: "Notifications", icon: FiBell, path: "/tenant/notifications", section: "Overview" },
+  { label: "My Lease", icon: FiFileText, path: "/tenant/lease", section: "My Home" },
+  { label: "Lease Checklist", icon: FiCheckSquare, path: "/tenant/inspections", section: "My Home" },
+  { label: "My Payments", icon: FiDollarSign, path: "/tenant/payments", section: "My Home" },
+  { label: "My Charges", icon: FiDollarSign, path: "/tenant/charges", section: "My Home" },
+  { label: "My Tickets", icon: FiAlertCircle, path: "/tenant/tickets", section: "Support" },
+  { label: "Profile", icon: FiUser, path: "/tenant/profile", section: "Administration" },
 ];
 
 /* ================= SYSTEM / SUPER ADMIN ================= */
 export const superAdminNavigation = [
-  { label: "Dashboard", icon: FiHome, path: "/super-admin/dashboard" },
-  { label: "Notifications", icon: FiBell, path: "/super-admin/notifications" },
-  { label: "Organizations", icon: FiUsers, path: "/super-admin/organizations" },
-  { label: "Profile", icon: FiUser, path: "/super-admin/profile" },
+  { label: "Dashboard", icon: FiHome, path: "/super-admin/dashboard", section: "Overview" },
+  { label: "Notifications", icon: FiBell, path: "/super-admin/notifications", section: "Overview" },
+  { label: "Organizations", icon: FiUsers, path: "/super-admin/organizations", section: "Platform" },
+  { label: "Profile", icon: FiUser, path: "/super-admin/profile", section: "Administration" },
 ];
+
+/* ================= ROLE-AWARE DESTINATIONS =================
+ * Every role mounts Profile at its own prefix; only the landlord has Settings.
+ * Used by the avatar dropdown and the mobile drawer so those links always point
+ * at a route the current user can actually open.
+ */
+const ROLE_PREFIX = {
+  LANDLORD: "/owner",
+  PROPERTY_MANAGER: "/manager",
+  FINANCE: "/finance",
+  TENANT: "/tenant",
+  SYSTEM: "/super-admin",
+};
+
+export const profilePathFor = (role) => `${ROLE_PREFIX[role] || "/owner"}/profile`;
+
+export const settingsPathFor = (role) =>
+  role === "LANDLORD" ? "/owner/settings" : null;
+
+export const notificationsPathFor = (role) =>
+  role === "LANDLORD"
+    ? "/owner/notifications"
+    : role === "SYSTEM"
+      ? "/super-admin/notifications"
+      : `${ROLE_PREFIX[role] || "/owner"}/notifications`;
 
 /* ================= MOBILE BOTTOM NAV =================
  * Per-role quick links for the mobile bottom bar (rendered by

@@ -26,12 +26,16 @@ import RentRollTable from "./RentRollTable";
 import CollectionTable from "./CollectionTable";
 import VendorTable from "./VendorTable";
 import ProfitTable from "./ProfitTable";
+import { EmptyState, ErrorState, TableSkeleton } from "../../components/ui/States";
 
 const REPORTS = [
   {
     key: "rent-roll",
     label: "Rent Roll",
-    hasDates: false,
+    // Every financial report accepts a date range; rent-roll previously hid
+    // the controls, which made the one report people check most often the only
+    // one that couldn't be scoped to a period.
+    hasDates: true,
   },
   {
     key: "collection",
@@ -72,6 +76,18 @@ export default function Reports() {
   const [downloading, setDownloading] = useState(false);
 
   const [error, setError] = useState("");
+
+  // Date-range validation. `null` means valid; the same rule is enforced by
+  // the backend so a direct API call can't slip through a reversed range.
+  const rangeError =
+    startDate && endDate && startDate > endDate
+      ? "The start date must be on or before the end date."
+      : "";
+
+  const resetDates = () => {
+    setStartDate("");
+    setEndDate("");
+  };
 
   const current = REPORTS.find(
     (r) => r.key === active
@@ -137,6 +153,12 @@ export default function Reports() {
   };
 
   useEffect(() => {
+    // Don't fire a request for a range we already know is invalid.
+    if (rangeError) {
+      setRows([]);
+      setError(rangeError);
+      return;
+    }
     load();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -244,6 +266,21 @@ export default function Reports() {
         </div>
       )}
 
+      {(startDate || endDate) && (
+        <div className="flex items-center gap-sm mb-md">
+          <span className="text-sm text-muted">
+            Period: {startDate || "start"} → {endDate || "today"}
+          </span>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={resetDates}
+          >
+            Reset dates
+          </button>
+        </div>
+      )}
+
       {/* Report Results */}
 
       <div className="dash-panel">
@@ -269,14 +306,39 @@ export default function Reports() {
           )}
         </div>
 
-                {loading ? (
-          <div className="text-muted">
-            Loading report...
-          </div>
+        {loading ? (
+          <TableSkeleton rows={5} columns={4} />
+        ) : rangeError ? (
+          <ErrorState
+            title="Invalid date range"
+            description={rangeError}
+            onRetry={resetDates}
+            retryLabel="Reset dates"
+          />
         ) : rows.length === 0 ? (
-          <div className="text-muted">
-            No data available for the selected filters.
-          </div>
+          <EmptyState
+            title="No data for this report"
+            description={
+              startDate || endDate || status || search
+                ? "Nothing matches the selected filters and period. Try widening the date range or clearing the filters."
+                : "There is no activity to report yet. Records appear here once leases, charges and payments exist."
+            }
+            action={
+              (startDate || endDate || status || search) ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    resetDates();
+                    setStatus("");
+                    setSearch("");
+                  }}
+                >
+                  Clear filters
+                </button>
+              ) : null
+            }
+          />
         ) : (
           <div className="staff-table-wrap">
 

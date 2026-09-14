@@ -1,6 +1,13 @@
 //frontend\src\features\settings\Settings.jsx
 import { Link } from "react-router-dom";
-import { FiCheckSquare, FiClock, FiTag, FiTruck } from "react-icons/fi";
+import {
+  FiCheckSquare,
+  FiClock,
+  FiMessageSquare,
+  FiRepeat,
+  FiTag,
+  FiTruck,
+} from "react-icons/fi";
 
 export default function Settings() {
   const settingsTiles = [
@@ -32,7 +39,22 @@ export default function Settings() {
       link: "/owner/history",
       colorClass: "tile-purple",
     },
-    // Future tiles can be added here: billing defaults, notifications, etc.
+    {
+      title: "Billing Automation",
+      description:
+        "Choose the day invoices are generated and when pending-payment reminders go out.",
+      icon: <FiRepeat size={28} />,
+      link: "/owner/settings/automation",
+      colorClass: "",
+    },
+    {
+      title: "Communication Channels",
+      description:
+        "Keep WhatsApp as the primary channel and optionally add email delivery.",
+      icon: <FiMessageSquare size={28} />,
+      link: "/owner/settings/communication",
+      colorClass: "",
+    },
   ];
 
   return (

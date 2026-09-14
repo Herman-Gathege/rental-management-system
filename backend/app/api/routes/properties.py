@@ -11,6 +11,7 @@ from app.api.deps import get_current_user
 from app.models.users import User
 from app.models.organization_member import OrganizationMember
 from app.models.property import Property
+from app.models.unit import Unit
 from app.models.property_manager import PropertyManager
 from app.models.property_finance_manager import PropertyFinanceManager
 from app.schemas.organization import PropertyCreate, PropertyOut, AssignManagerRequest
@@ -120,6 +121,66 @@ def update_property(property_id: str, payload: PropertyUpdate, current_user: Use
     db.commit()
     db.refresh(prop)
     return {"id": prop.id, "name": prop.name, "address": prop.address, "city": prop.city, "country": prop.country, "organization_id": prop.organization_id, "created_at": prop.created_at}
+
+
+@router.delete("/{property_id}")
+def delete_property(property_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Delete a property — landlord only, and only when it is genuinely empty.
+
+    Safeguards (financial + referential integrity):
+      * A property that still has units is refused. Units can carry leases,
+        charges and payments, and those rows cascade on delete — so an empty
+        property is the only one that can be removed safely. Deactivate or
+        reassign the units first.
+      * Unit assignment rows (property managers / finance managers) are
+        removed with the property since they are pure access-control links,
+        never financial records.
+
+    There is no soft-delete column on ``properties`` today, so this preserves
+    the existing "restrict rather than cascade" pattern instead of inventing
+    a new deletion mode.
+    """
+    membership = get_user_org_membership(current_user, db)
+    if membership.role.name != LANDLORD:
+        raise HTTPException(status_code=403, detail="Only landlords can delete properties")
+
+    prop = db.query(Property).filter(
+        Property.id == property_id,
+        Property.organization_id == membership.organization_id,
+    ).first()
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    unit_count = db.query(Unit).filter(Unit.property_id == property_id).count()
+    if unit_count:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Cannot delete a property that still has {unit_count} unit(s). "
+                "Remove or reassign the units first."
+            ),
+        )
+
+    db.query(PropertyManager).filter(PropertyManager.property_id == property_id).delete(
+        synchronize_session=False
+    )
+    db.query(PropertyFinanceManager).filter(
+        PropertyFinanceManager.property_id == property_id
+    ).delete(synchronize_session=False)
+
+    log_action(
+        db,
+        membership.organization_id,
+        current_user.id,
+        "delete",
+        "property",
+        prop.id,
+        f"Deleted property: {prop.name}",
+        old_values={"name": prop.name, "address": prop.address, "city": prop.city, "country": prop.country},
+    )
+    db.delete(prop)
+    db.commit()
+    return {"message": "Property deleted"}
 
 
 @router.post("/{property_id}/assign-manager")

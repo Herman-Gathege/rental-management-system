@@ -1,211 +1,334 @@
 // frontend/src/features/dashboard/layout/Navbar.jsx
 //
-// Sprint 4.5, Chunk 5: the mobile dropdown nav now maps FINANCE to its own
-// financeNavigation (it used to share the manager menu). Everything else is
-// unchanged.
+// Top bar of the app shell.
 //
-// Sprint 4.5 tenant portal: tenants now get their own property switcher
-// (TenantPropertySwitcher), sourced from their leases rather than the org.
+// Shell pass (requirement 12):
+//   * mobile menu button that drives the sidebar drawer
+//   * a visible global-search trigger (Ctrl+K still works from anywhere)
+//   * a proper account dropdown: identity, role/organisation, Profile,
+//     Settings (landlord only), Notifications with an unread badge, and a
+//     Logout with a pending state and error feedback
+//   * the dropdown closes on outside click, Escape, and navigation, and moves
+//     focus predictably for keyboard users
 //
-// Portal updates: FINANCE now also gets the org PropertySwitcher (scoped to
-// their assigned properties via list_properties), shown only when they have
-// at least one assignment so an unassigned finance user doesn't see an empty
-// switcher.
+// The old version dumped the entire navigation tree into the dropdown; that
+// duplicated the sidebar and made the menu unusable on mobile.
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  FiBell,
+  FiChevronDown,
+  FiLogOut,
+  FiMaximize,
+  FiMinimize,
+  FiMenu,
+  FiSearch,
+  FiSettings,
+  FiUser,
+} from "react-icons/fi";
 import { useAuth } from "../../../context/AuthContext";
 import { useProperty } from "../../../context/PropertyContext";
-import { FiMaximize, FiMinimize, FiChevronDown } from "react-icons/fi";
-import { NavLink } from "react-router-dom";
 import PropertySwitcher from "../../../components/PropertySwitcher/PropertySwitcher";
 import TenantPropertySwitcher from "../../../components/PropertySwitcher/TenantPropertySwitcher";
+import { getNotifications } from "../../../api/notifications";
 import {
-  ownerNavigation,
-  staffNavigation,
-  financeNavigation,
-  superAdminNavigation,
-  tenantNavigation,
+  notificationsPathFor,
+  profilePathFor,
+  settingsPathFor,
 } from "../../../config/navigation";
+import { useLayoutUI } from "./useLayoutUI";
+
+const ROLE_LABELS = {
+  LANDLORD: "Landlord",
+  PROPERTY_MANAGER: "Property manager",
+  FINANCE: "Finance",
+  TENANT: "Tenant",
+  SYSTEM: "Platform admin",
+};
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, organization, logout } = useAuth();
   const { properties } = useProperty();
-  const [open, setOpen] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [isFullscreen, setIsFullscreen] = useState(
-    !!document.fullscreenElement,
-  );
+  const { openMobile } = useLayoutUI();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // ----------------------------
-  // TIME HANDLING
-  // ----------------------------
+  const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+  const [unread, setUnread] = useState(0);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+
+  const menuRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  const role = user?.role;
+
+  /* ── Clock ── */
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // ----------------------------
-  // FULLSCREEN HANDLING
-  // ----------------------------
+  /* ── Fullscreen tracking ── */
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
+  /* ── Unread notification badge ──
+     Best-effort: a failure here must never break the shell, so errors are
+     swallowed and the badge simply stays hidden. Refreshed whenever the route
+     changes (marking something read on another page updates the badge). */
+  useEffect(() => {
+    if (!user) return undefined;
+    let cancelled = false;
+    getNotifications(true)
+      .then((items) => {
+        if (!cancelled) setUnread(Array.isArray(items) ? items.length : 0);
+      })
+      .catch(() => {
+        if (!cancelled) setUnread(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, location.pathname]);
+
+  /* ── Close the dropdown on outside click / Escape, and on navigation ── */
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const onPointerDown = (event) => {
+      if (
+        menuRef.current?.contains(event.target) ||
+        triggerRef.current?.contains(event.target)
+      ) {
+        return;
+      }
+      setOpen(false);
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  const openSearch = () => {
+    window.dispatchEvent(new CustomEvent("alphaone:open-global-search"));
+  };
+
+  const handleLogout = async () => {
+    setLogoutError("");
+    setLoggingOut(true);
+    try {
+      await Promise.resolve(logout());
+      navigate("/login", { replace: true });
+    } catch (err) {
+      setLogoutError(err?.message || "Could not sign out. Please try again.");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
   if (!user) return <header className="navbar" />;
 
-  // ----------------------------
-  // NORMALIZE ROLE
-  // ----------------------------
-  const role = user.role?.toLowerCase();
-
-  const navigation = useMemo(() => {
-    switch (role) {
-      case "landlord":
-        return ownerNavigation;
-      case "tenant":
-        return tenantNavigation;
-      case "property_manager":
-        return staffNavigation;
-      case "finance":
-        return financeNavigation;
-      case "system":
-        return superAdminNavigation;
-      default:
-        // Unknown role - safest fallback is the most-restricted nav.
-        return tenantNavigation;
-    }
-  }, [role]);
-
-  // Who sees the org property switcher. Landlord + property manager always;
-  // finance only when they actually have assigned properties (strict scoping
-  // means an unassigned finance user has none -> hide rather than show empty).
   const showOrgSwitcher =
-    role === "landlord" ||
-    role === "property_manager" ||
-    (role === "finance" && (properties?.length || 0) > 0);
+    role === "LANDLORD" ||
+    role === "PROPERTY_MANAGER" ||
+    (role === "FINANCE" && (properties?.length || 0) > 0);
 
-  // ----------------------------
-  // SAFE USER DISPLAY HELPERS
-  // ----------------------------
   const displayName = user.full_name || user.email || "User";
-  const avatarLetter = (user.full_name || user.email || "U")
-    .charAt(0)
-    .toUpperCase();
+  const avatarLetter = displayName.charAt(0).toUpperCase();
+  const settingsPath = settingsPathFor(role);
+  const notificationsPath = notificationsPathFor(role);
 
-  // ----------------------------
-  // FORMATTED TIME
-  // ----------------------------
   const formattedTime = currentTime.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
   });
 
   const formattedDate = currentTime.toLocaleDateString([], {
     weekday: "short",
     day: "numeric",
     month: "short",
-    year: "numeric",
   });
-
-  // ----------------------------
-  // FULLSCREEN TOGGLE
-  // ----------------------------
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(console.error);
-    } else {
-      document.exitFullscreen();
-    }
-  };
 
   return (
     <header className="navbar flex justify-between items-center p-md">
       {/* LEFT */}
-      <div className="flex items-center gap-md">
+      <div className="flex items-center gap-sm">
+        <button
+          type="button"
+          className="btn-ghost navbar-menu-btn"
+          onClick={openMobile}
+          aria-label="Open navigation"
+        >
+          <FiMenu />
+        </button>
+
         <button
           type="button"
           onClick={toggleFullscreen}
-          className="btn"
-          title="Toggle Fullscreen"
+          className="btn-ghost hidden-mobile"
+          title="Toggle fullscreen"
+          aria-label="Toggle fullscreen"
         >
-          {isFullscreen ? <FiMinimize size={20} /> : <FiMaximize size={20} />}
+          {isFullscreen ? <FiMinimize size={18} /> : <FiMaximize size={18} />}
         </button>
 
-        {/* Property Switcher — org properties (landlord / manager / finance) */}
         {showOrgSwitcher && <PropertySwitcher />}
-
-        {/* Property Switcher — Sprint 4.5 (tenant: their own leased properties) */}
-        {role === "tenant" && <TenantPropertySwitcher />}
+        {role === "TENANT" && <TenantPropertySwitcher />}
       </div>
 
       {/* CENTER */}
-      <div className="flex flex-col items-center text-sm hidden-mobile gap-md">
-        <span className="text-muted mr-sm">{formattedDate}</span>
-        <span className="text-bold">{formattedTime}</span>
+      <div className="navbar-center hidden-mobile">
+        <button
+          type="button"
+          className="navbar-search-trigger"
+          onClick={openSearch}
+          aria-label="Search the system (Ctrl+K)"
+        >
+          <FiSearch aria-hidden="true" />
+          <span className="navbar-search-label">Search…</span>
+          <span className="navbar-search-kbd">Ctrl K</span>
+        </button>
       </div>
 
       {/* RIGHT */}
       <div className="relative flex items-center gap-xs">
-        {/* Avatar */}
-        <div className="avatar cursor-pointer" onClick={() => setOpen((o) => !o)}>
-          {avatarLetter}
-        </div>
+        <button
+          type="button"
+          className="btn-ghost navbar-search-btn-mobile"
+          onClick={openSearch}
+          aria-label="Search"
+        >
+          <FiSearch />
+        </button>
 
-        {/* Chevron */}
-        <FiChevronDown
+        <Link
+          to={notificationsPath}
+          className="btn-ghost navbar-bell"
+          aria-label={
+            unread > 0 ? `Notifications, ${unread} unread` : "Notifications"
+          }
+        >
+          <FiBell />
+          {unread > 0 && <span className="navbar-badge">{unread > 9 ? "9+" : unread}</span>}
+        </Link>
+
+        <span className="navbar-clock text-muted text-sm hidden-mobile">
+          {formattedDate} · {formattedTime}
+        </span>
+
+        <button
+          type="button"
+          ref={triggerRef}
+          className="navbar-account-trigger"
           onClick={() => setOpen((o) => !o)}
-          className={`chevron cursor-pointer transition-transform duration-200 ${
-            open ? "rotate-180" : ""
-          }`}
-        />
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label="Account menu"
+        >
+          <span className="avatar avatar-sm" aria-hidden="true">
+            {avatarLetter}
+          </span>
+          <FiChevronDown
+            className={`chevron navbar-chevron ${open ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
 
-        {/* DROPDOWN */}
         {open && (
-          <div className="dropdown dropdown-lg">
-            {/* USER HEADER */}
+          <div className="dropdown dropdown-lg" role="menu" ref={menuRef}>
             <div className="dropdown-header">
-              <div className="avatar avatar-sm">{avatarLetter}</div>
+              <div className="avatar avatar-sm" aria-hidden="true">
+                {avatarLetter}
+              </div>
               <div className="dropdown-user-info">
                 <div className="dropdown-name">{displayName}</div>
-                <div className="dropdown-role">{user.role}</div>
+                <div className="dropdown-email">{user.email}</div>
               </div>
+            </div>
+
+            <div className="dropdown-meta">
+              <span className="dropdown-chip">{ROLE_LABELS[role] || role}</span>
+              {organization?.name && (
+                <span className="dropdown-chip dropdown-chip-muted">
+                  {organization.name}
+                </span>
+              )}
             </div>
 
             <div className="dropdown-divider" />
 
-            {/* NAVIGATION */}
-            {navigation.map((item) =>
-              item.children ? (
-                item.children.map((child) => (
-                  <NavLink
-                    key={child.path}
-                    to={child.path}
-                    className="dropdown-item"
-                    onClick={() => setOpen(false)}
-                  >
-                    {child.label}
-                  </NavLink>
-                ))
-              ) : (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  className="dropdown-item"
-                  onClick={() => setOpen(false)}
-                >
-                  {item.label}
-                </NavLink>
-              ),
+            <Link
+              to={profilePathFor(role)}
+              className="dropdown-item dropdown-item-row"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+            >
+              <FiUser aria-hidden="true" />
+              <span>Profile</span>
+            </Link>
+
+            {settingsPath && (
+              <Link
+                to={settingsPath}
+                className="dropdown-item dropdown-item-row"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+              >
+                <FiSettings aria-hidden="true" />
+                <span>Settings</span>
+              </Link>
             )}
+
+            <Link
+              to={notificationsPath}
+              className="dropdown-item dropdown-item-row"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+            >
+              <FiBell aria-hidden="true" />
+              <span>Notifications</span>
+              {unread > 0 && <span className="dropdown-count">{unread}</span>}
+            </Link>
 
             <div className="dropdown-divider" />
 
-            {/* LOGOUT */}
-            <button className="btn btn-secondary mr-sm ml-sm" onClick={logout}>
-              Logout
+            {logoutError && <p className="dropdown-error text-sm">{logoutError}</p>}
+
+            <button
+              type="button"
+              className="dropdown-item dropdown-item-row dropdown-danger"
+              role="menuitem"
+              onClick={handleLogout}
+              disabled={loggingOut}
+            >
+              <FiLogOut aria-hidden="true" />
+              <span>{loggingOut ? "Signing out…" : "Log out"}</span>
             </button>
           </div>
         )}

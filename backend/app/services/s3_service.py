@@ -33,8 +33,11 @@
 import os
 from pathlib import Path
 
-# Base directory where files are written inside the container
-UPLOAD_DIR = Path("/app/uploads")
+# Base directory where files are written inside the container.
+# Honours UPLOAD_DIR the same way main.py's static mount does, so the location
+# is configurable (and the module stays importable in environments without a
+# writable /app — e.g. a local test run).
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/app/uploads"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Public base URL — backend serves /uploads/<key> as a static mount

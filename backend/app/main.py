@@ -51,6 +51,11 @@ from app.api.routes import bulk_uploads
 # Sprint 7 cleanup Batch 3 — Payment reconciliation queue
 from app.api.routes import payment_reconciliation
 
+# System-wide upgrade — org settings (automation + communication) and the
+# Ctrl+K global search.
+from app.api.routes.settings import router as settings_router
+from app.api.routes.search import router as search_router
+
 # Environment-aware WhatsApp configuration (sandbox/production)
 from app.core.config import settings
 
@@ -122,6 +127,10 @@ app.include_router(ticket_metrics_router)
 
 # Sprint 7 cleanup Batch 2 — Bulk uploads
 app.include_router(bulk_uploads.router)
+
+# System-wide upgrade
+app.include_router(settings_router)
+app.include_router(search_router)
 
 
 # ─── Health endpoints ───

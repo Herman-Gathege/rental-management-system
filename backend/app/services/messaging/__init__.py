@@ -19,4 +19,5 @@ from app.services.messaging.notifications import (
     notify_payment_received,
     notify_rent_due_for_charges,
     notify_org_invite,
+    notify_pending_payment,
 )

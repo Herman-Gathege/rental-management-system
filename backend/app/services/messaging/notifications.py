@@ -178,12 +178,20 @@ def notify_lease_created(lease_id: str) -> None:
 
 def notify_payment_received(payment_id: str) -> None:
     """
-    Send a 'payment_receipt' WhatsApp to the tenant when their payment is recorded.
+    Send a 'payment_receipt' to the tenant when their payment is recorded.
 
     Template: payment_receipt
     Vars:     tenant_name, amount, date
 
     Called from POST /payments/ after commit.
+
+    Channel: routed by the org's communication settings — WhatsApp first, with
+    email when the org has it enabled (and either as fallback or alongside,
+    depending on the configured mode). A tenant with an email but no phone now
+    still receives their receipt.
+
+    Idempotency: keyed on the payment id, so a retried background task (or a
+    duplicate apply from the reconciliation queue) cannot send two receipts.
     """
     db = _db()
     try:
@@ -195,9 +203,9 @@ def notify_payment_received(payment_id: str) -> None:
             return
 
         tenant = db.query(Tenant).filter(Tenant.id == payment.tenant_id).first()
-        if not tenant or not tenant.phone:
+        if not tenant or not (tenant.phone or tenant.email):
             logger.warning(
-                "notify_payment_received: tenant %s missing or has no phone",
+                "notify_payment_received: tenant %s missing or has no phone/email",
                 payment.tenant_id,
             )
             return
@@ -208,6 +216,8 @@ def notify_payment_received(payment_id: str) -> None:
             db=db,
             organization_id=payment.organization_id,
             phone_number=tenant.phone,
+            email_address=tenant.email,
+            idempotency_key=f"payment_receipt:{payment.id}",
             template_name="payment_receipt",
             variables={
                 "tenant_name": tenant.full_name,
@@ -257,10 +267,10 @@ def notify_rent_due_for_charges(charge_ids: list[str]) -> None:
             tenant = (
                 db.query(Tenant).filter(Tenant.id == lease.tenant_id).first()
             )
-            if not tenant or not tenant.phone:
+            if not tenant or not (tenant.phone or tenant.email):
                 logger.info(
                     "notify_rent_due_for_charges: skipping charge %s — tenant "
-                    "missing phone",
+                    "missing phone and email",
                     charge_id,
                 )
                 continue
@@ -271,6 +281,10 @@ def notify_rent_due_for_charges(charge_ids: list[str]) -> None:
                 db=db,
                 organization_id=charge.organization_id,
                 phone_number=tenant.phone,
+                email_address=tenant.email,
+                # One reminder per charge, ever — a retried generation run or a
+                # manual re-trigger cannot re-notify the tenant.
+                idempotency_key=f"rent_due:{charge_id}",
                 template_name="rent_due_reminder",
                 variables={
                     "tenant_name": tenant.full_name,
@@ -281,6 +295,69 @@ def notify_rent_due_for_charges(charge_ids: list[str]) -> None:
                 message_type="notification",
             )
             db.commit()
+    finally:
+        db.close()
+
+
+def notify_pending_payment(
+    tenant_id: str,
+    lease_id: str,
+    organization_id: str,
+    amount,
+    days_overdue: int,
+    period_key: str,
+) -> bool:
+    """
+    Send the pending-payment reminder for one tenant.
+
+    Template: overdue_notice (the existing pending-payment message)
+    Vars:     tenant_name, amount, days_overdue
+
+    Called by the scheduled reminder job and by the manual "run now" action in
+    the automation settings page.
+
+    ``period_key`` scopes the idempotency key (e.g. "2026-09" for the September
+    billing period) so a tenant gets at most one reminder per period no matter
+    how many times the job is retried or re-triggered.
+
+    Returns True when a message was sent or already existed, False when the
+    tenant had no reachable channel.
+    """
+    db = _db()
+    try:
+        tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+        if not tenant:
+            logger.warning("notify_pending_payment: tenant %s not found", tenant_id)
+            return False
+        if not (tenant.phone or tenant.email):
+            logger.info(
+                "notify_pending_payment: tenant %s has no phone or email", tenant_id,
+            )
+            return False
+
+        message = send_notification(
+            db=db,
+            organization_id=organization_id,
+            phone_number=tenant.phone,
+            email_address=tenant.email,
+            idempotency_key=f"payment_reminder:{lease_id}:{period_key}",
+            template_name="overdue_notice",
+            variables={
+                "tenant_name": tenant.full_name,
+                "amount": _format_amount(amount),
+                "days_overdue": days_overdue,
+            },
+            tenant_id=tenant.id,
+            message_type="notification",
+        )
+        db.commit()
+        return message.status in ("sent", "queued")
+    except Exception as exc:  # noqa: BLE001 — background-task safety contract
+        logger.exception(
+            "notify_pending_payment failed for tenant %s: %s", tenant_id, exc,
+        )
+        db.rollback()
+        return False
     finally:
         db.close()
 

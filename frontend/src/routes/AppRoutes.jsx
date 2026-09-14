@@ -66,6 +66,8 @@ import Settings from "../features/settings/Settings";
 import ChecklistTemplate from "../features/settings/ChecklistTemplate";
 import ExpenseCategoriesSettings from "../features/settings/ExpenseCategoriesSettings";
 import VendorsSettings from "../features/settings/VendorsSettings";
+import AutomationSettings from "../features/settings/AutomationSettings";
+import CommunicationSettings from "../features/settings/CommunicationSettings";
 
 /* Profile (Sprint 4.5 profile menu — role-agnostic) */
 import Profile from "../features/profile/Profile";
@@ -223,6 +225,8 @@ export default function AppRoutes() {
         <Route path="settings/checklist" element={<ChecklistTemplate />} />
         <Route path="settings/expense-categories" element={<ExpenseCategoriesSettings />} />
         <Route path="settings/vendors" element={<VendorsSettings />} />
+        <Route path="settings/automation" element={<AutomationSettings />} />
+        <Route path="settings/communication" element={<CommunicationSettings />} />
 
         {/* Notifications */}
         <Route path="notifications" element={<Notifications />} />

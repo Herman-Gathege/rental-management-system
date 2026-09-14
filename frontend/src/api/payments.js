@@ -30,3 +30,31 @@ export const getPayment = async (paymentId) => {
   const { data } = await API.get(`/payments/${paymentId}`);
   return data;
 };
+
+// Filter-object variant used by the payment history page. Kept separate from
+// getPayments() so the existing positional callers (dashboards, tenant portal)
+// are untouched.
+export const queryPayments = async ({
+  tenantId = null,
+  leaseId = null,
+  propertyId = null,
+  paymentType = null,
+  paymentMethod = null,
+  startDate = null,
+  endDate = null,
+  limit = null,
+  offset = null,
+} = {}) => {
+  const params = {};
+  if (tenantId) params.tenant_id = tenantId;
+  if (leaseId) params.lease_id = leaseId;
+  if (propertyId) params.property_id = propertyId;
+  if (paymentType) params.payment_type = paymentType;
+  if (paymentMethod) params.payment_method = paymentMethod;
+  if (startDate) params.start_date = startDate;
+  if (endDate) params.end_date = endDate;
+  if (limit != null) params.limit = limit;
+  if (offset != null) params.offset = offset;
+  const { data } = await API.get("/payments/", { params });
+  return data;
+};

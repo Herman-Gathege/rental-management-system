@@ -20,6 +20,13 @@ export const getProperty = async (propertyId) => {
   return data;
 };
 
+/* DELETE a property (landlord only). The backend refuses to delete a property
+   that still has units, and returns the reason in `detail`. */
+export const deleteProperty = async (propertyId) => {
+  const { data } = await API.delete(`/properties/${propertyId}`);
+  return data;
+};
+
 /* ASSIGN manager to a property */
 export const assignManager = async (propertyId, userId) => {
   const { data } = await API.post(`/properties/${propertyId}/assign-manager`, {

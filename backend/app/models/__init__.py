@@ -40,3 +40,8 @@ from app.models.otp_verification import OtpVerification
 
 # WhatsApp integration routing (environment-aware org resolution)
 from app.models.whatsapp_integration import WhatsAppIntegration
+
+# System-wide upgrade: per-org automation + communication settings, and the
+# scheduled-job audit trail.
+from app.models.organization_settings import OrganizationSettings
+from app.models.automation_run import AutomationRun

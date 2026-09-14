@@ -16,6 +16,7 @@ from app.models.organization_member import OrganizationMember
 from app.models.tenant import Tenant
 from app.models.tenant_document import TenantDocument
 from app.models.lease import Lease
+from app.models.unit import Unit
 from app.schemas.rental import TenantCreate, TenantUpdate
 from app.services.audit_service import log_action
 from app.services.s3_service import upload_file
@@ -337,6 +338,7 @@ def _search_filters(search: str):
 @router.get("/")
 def list_tenants(
     search: str = Query(None, description="Search by name; exact match on full phone / email / ID"),
+    property_id: str = Query(None, description="Only tenants with a lease on this property"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -345,6 +347,21 @@ def list_tenants(
     query = db.query(Tenant).filter(
         Tenant.organization_id == membership.organization_id
     )
+
+    if property_id:
+        # Property scoping follows the same path the rest of the platform uses:
+        # property → units → leases → tenants. "All properties" (no filter)
+        # keeps the org-wide list.
+        scoped_tenant_ids = [
+            row[0]
+            for row in db.query(Lease.tenant_id)
+            .join(Unit, Unit.id == Lease.unit_id)
+            .filter(
+                Lease.organization_id == membership.organization_id,
+                Unit.property_id == property_id,
+            )
+        ]
+        query = query.filter(Tenant.id.in_(scoped_tenant_ids or [""]))
 
     if search:
         clauses = _search_filters(search)

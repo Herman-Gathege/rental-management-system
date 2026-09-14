@@ -471,3 +471,102 @@ button.sidebar-link {
         grid-template-columns:1fr;
     }
 }
+/* ============================================================
+   SIDEBAR — GROUPING, MOBILE DRAWER (shell pass)
+   ============================================================ */
+
+.sidebar {
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 6px;
+}
+
+.sidebar-section + .sidebar-section {
+  border-top: 1px solid #f1f3f6;
+  padding-top: 8px;
+  margin-top: 2px;
+}
+
+.sidebar-section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  padding: 6px 12px 4px;
+}
+
+.sidebar-collapsed .sidebar-section + .sidebar-section {
+  border-top: 1px solid #eef1f5;
+}
+
+/* The drawer is the same markup as the desktop sidebar, shown at <=768px
+   where the desktop rail is hidden by .hidden-mobile. */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 998;
+}
+
+.sidebar-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 82%;
+  max-width: 300px;
+  z-index: 999;
+  background: #ffffff;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.28);
+  animation: sidebarSlideIn 0.18s ease;
+}
+
+@keyframes sidebarSlideIn {
+  from { transform: translateX(-14px); opacity: 0.6; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+.sidebar-close-btn {
+  display: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid #e2e5ea;
+  background: #fff;
+  color: #475569;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.sidebar-drawer .sidebar-close-btn {
+  display: inline-flex;
+}
+
+@media (max-width: 768px) {
+  .sidebar-backdrop { display: block; }
+}
+
+@media (min-width: 769px) {
+  .sidebar-backdrop,
+  .sidebar-drawer { display: none; }
+}
+
+/* Long menus scroll inside the rail rather than pushing the collapse control
+   off-screen. */
+.sidebar-nav {
+  scrollbar-width: thin;
+}
+
+.sidebar-nav::-webkit-scrollbar { width: 8px; }
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: #e2e5ea;
+  border-radius: 8px;
+}

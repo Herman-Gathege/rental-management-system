@@ -1,6 +1,6 @@
 #backend\app\api\routes\charges.py
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 import uuid
 from datetime import date
@@ -19,6 +19,7 @@ from app.core.roles import FINANCE
 from app.services.audit_service import log_action
 from app.services.messaging import notify_rent_due_for_charges
 from app.services.billing_service import recompute_lease_settlement
+from app.services.automation_service import generate_monthly_invoices
 from app.services.finance_scope import assigned_finance_property_ids, lease_ids_for_properties
 
 router = APIRouter(prefix="/charges", tags=["Charges"])
@@ -119,53 +120,18 @@ def generate_monthly_charges(
     org_id = membership.organization_id
     if not billing_date:
         billing_date = date.today()
-    billing_month = billing_date.replace(day=1)
-    active_leases = db.query(Lease).filter(Lease.organization_id == org_id, Lease.status == "active").all()
-
-    # Collect the IDs of newly-created charges so we can fire one
-    # rent_due_reminder per tenant in a single background task batch.
-    new_charge_ids: list[str] = []
-    affected_lease_ids: set[str] = set()
-    skipped = 0
-
-    for lease in active_leases:
-        existing = db.query(Charge).filter(Charge.lease_id == lease.id, Charge.billing_month == billing_month).first()
-        if existing:
-            skipped += 1
-            continue
-        try:
-            due = billing_date.replace(day=lease.billing_day)
-        except ValueError:
-            due = billing_date.replace(day=28)
-        # Sprint 7 cleanup: set charge_type explicitly so the UI type column
-        # is always populated. Mirrors how create_lease sets charge_type
-        # explicitly for deposit charges — no more relying on the model
-        # default for rent.
-        charge = Charge(
-            id=str(uuid.uuid4()),
-            organization_id=org_id,
-            lease_id=lease.id,
-            amount=lease.rent_amount,
-            charge_type="rent",
-            due_date=due,
-            billing_month=billing_month,
-            status="pending",
-        )
-        db.add(charge)
-        new_charge_ids.append(charge.id)
-        affected_lease_ids.add(lease.id)
-
-    created = len(new_charge_ids)
-
-    # Re-settle each lease that got a new charge so any existing credit is
-    # applied immediately and the new charge's amount_paid/status are correct.
-    if affected_lease_ids:
-        db.flush()
-        for lid in affected_lease_ids:
-            recompute_lease_settlement(db, lid)
-
-    if created > 0:
-        log_action(db, org_id, current_user.id, "billing", "charge", "batch", f"Generated {created} monthly charges for {billing_month}")
+    # The generation loop now lives in automation_service so this manual
+    # trigger and the scheduled job share one implementation (and one set of
+    # idempotency guarantees). See app/services/automation_service.py.
+    result = generate_monthly_invoices(
+        db,
+        org_id,
+        billing_date=billing_date,
+        triggered_by_user_id=current_user.id,
+    )
+    new_charge_ids = result["charge_ids"]
+    created = result["created"]
+    skipped = result["skipped"]
     db.commit()
 
     # Send rent_due_reminder WhatsApp to each tenant whose lease just
@@ -180,8 +146,10 @@ def generate_monthly_charges(
 @router.get("/")
 def list_charges(
     status: str = Query(None),
+    charge_type: str = Query(None),
     lease_id: str = Query(None),
     property_id: str = Query(None),
+    search: str = Query(None, max_length=100),
     limit: int = Query(None, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
@@ -193,12 +161,31 @@ def list_charges(
     Pagination (Sprint 6.2 #3): when `limit` is provided, returns a paginated
     envelope { items, total, limit, offset }. When `limit` is omitted, returns
     the bare list (unchanged) so existing callers keep working.
+
+    Type filter (rent / deposit): charges already carry `charge_type` (see
+    models/charge.py) — this exposes it as a query filter so the billing page
+    can show rent-only or deposit-only views. Historical rows may have a NULL
+    charge_type from before the column existed and are treated as rent,
+    matching the fallback `enrich_charge` already applies.
     """
     membership = get_user_org(current_user, db)
     org_id = membership.organization_id
     role = membership.role.name if membership.role else None
     today = date.today()
     query = db.query(Charge).filter(Charge.organization_id == org_id)
+
+    if charge_type:
+        if charge_type not in ("rent", "deposit"):
+            raise HTTPException(
+                status_code=400,
+                detail="charge_type must be 'rent' or 'deposit'",
+            )
+        if charge_type == "rent":
+            query = query.filter(
+                (Charge.charge_type == "rent") | (Charge.charge_type.is_(None))
+            )
+        else:
+            query = query.filter(Charge.charge_type == "deposit")
 
     if status == "overdue":
         # Option A: "overdue" = anything past its due date that still owes a
@@ -217,6 +204,20 @@ def list_charges(
 
     if lease_id:
         query = query.filter(Charge.lease_id == lease_id)
+    if search and search.strip():
+        # Page-local table search: match the tenant name for this charge's
+        # lease. Charge rows carry no free-text field of their own.
+        term = f"%{search.strip()}%"
+        matching_lease_ids = [
+            row[0]
+            for row in db.query(Lease.id)
+            .join(Tenant, Tenant.id == Lease.tenant_id)
+            .filter(
+                Lease.organization_id == org_id,
+                Tenant.full_name.ilike(term),
+            )
+        ]
+        query = query.filter(Charge.lease_id.in_(matching_lease_ids or [""]))
     if property_id:
         lease_ids = db.query(Lease.id).join(Unit, Lease.unit_id == Unit.id).filter(Unit.property_id == property_id).subquery()
         query = query.filter(Charge.lease_id.in_(lease_ids))

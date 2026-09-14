@@ -148,6 +148,97 @@ class WhatsAppSettings:
         }
 
 
+class EmailSettings:
+    """
+    SMTP configuration for the optional email channel.
+
+    Credentials come from the environment only — never from the database, the
+    API or the frontend. ``describe()`` is deliberately secret-free so it is
+    safe to return to an authenticated admin.
+
+    Behaviour mirrors WhatsAppSettings: the channel is *optional*. With no
+    ``SMTP_HOST`` set, ``is_configured`` is False and the communication
+    pipeline simply reports the channel as "not configured" instead of failing.
+
+    Environment variables
+    ---------------------
+    SMTP_HOST            SMTP server hostname (enables the channel when set)
+    SMTP_PORT            defaults to 587
+    SMTP_USERNAME        SMTP auth user
+    SMTP_PASSWORD        SMTP auth password / API key
+    SMTP_FROM_EMAIL      From: address (defaults to SMTP_USERNAME)
+    SMTP_FROM_NAME       From: display name, defaults to "AlphaOne"
+    SMTP_USE_TLS         STARTTLS on the submission port, default "true"
+    SMTP_USE_SSL         implicit TLS (port 465), default "false"
+    SMTP_TIMEOUT_SECONDS socket timeout, default 10
+    EMAIL_ENABLED        global kill switch, default "true" when SMTP is set
+    EMAIL_FROM           legacy SendGrid from-address (kept for compatibility)
+    SENDGRID_API_KEY     legacy SendGrid key — used only when SMTP is absent
+    """
+
+    def __init__(self) -> None:
+        self.host: str = (os.getenv("SMTP_HOST") or "").strip()
+        self.port: int = int(os.getenv("SMTP_PORT") or 587)
+        self.username: str = (os.getenv("SMTP_USERNAME") or "").strip()
+        self.password: str = os.getenv("SMTP_PASSWORD") or ""
+        self.from_email: str = (
+            os.getenv("SMTP_FROM_EMAIL") or os.getenv("EMAIL_FROM") or ""
+        ).strip()
+        self.from_name: str = (os.getenv("SMTP_FROM_NAME") or "AlphaOne").strip()
+        self.use_tls: bool = (
+            os.getenv("SMTP_USE_TLS", "true").strip().lower() == "true"
+        )
+        self.use_ssl: bool = (
+            os.getenv("SMTP_USE_SSL", "false").strip().lower() == "true"
+        )
+        self.timeout: int = int(os.getenv("SMTP_TIMEOUT_SECONDS") or 10)
+        # Global kill switch. Defaults to enabled so that configuring SMTP is
+        # enough — the per-org switch in organization_settings is what decides
+        # whether a given organisation actually sends email.
+        self.enabled: bool = (
+            os.getenv("EMAIL_ENABLED", "true").strip().lower() == "true"
+        )
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.host and self.from_email)
+
+    @property
+    def is_usable(self) -> bool:
+        return self.enabled and self.is_configured
+
+    def validate(self) -> list[str]:
+        """Human-readable configuration errors. Empty list means valid."""
+        errors: list[str] = []
+        if not self.host:
+            errors.append("SMTP_HOST is not set")
+        if not self.from_email:
+            errors.append("SMTP_FROM_EMAIL (or EMAIL_FROM) is not set")
+        elif "@" not in self.from_email:
+            errors.append("SMTP_FROM_EMAIL is not a valid email address")
+        if not (1 <= self.port <= 65535):
+            errors.append(f"SMTP_PORT is out of range: {self.port}")
+        if self.use_ssl and self.use_tls:
+            errors.append("SMTP_USE_SSL and SMTP_USE_TLS cannot both be true")
+        if self.username and not self.password:
+            errors.append("SMTP_USERNAME is set but SMTP_PASSWORD is empty")
+        return errors
+
+    def describe(self) -> dict:
+        """Secret-free summary, safe for API responses and startup logs."""
+        return {
+            "enabled": self.enabled,
+            "configured": self.is_configured,
+            "host": self.host or None,
+            "port": self.port,
+            "from_email": self.from_email or None,
+            "from_name": self.from_name,
+            "use_tls": self.use_tls,
+            "use_ssl": self.use_ssl,
+            "has_credentials": bool(self.username and self.password),
+        }
+
+
 class Settings:
     DATABASE_URL: str = os.getenv("DATABASE_URL")
     SECRET_KEY: str = os.getenv("SECRET_KEY")
@@ -155,6 +246,7 @@ class Settings:
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 
     whatsapp: WhatsAppSettings = WhatsAppSettings()
+    email: EmailSettings = EmailSettings()
 
 
 settings = Settings()

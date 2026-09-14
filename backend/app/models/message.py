@@ -25,8 +25,15 @@ class Message(Base):
     organization_id = Column(String, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
 
     # ─── Recipient / Sender ───
-    # Phone number in E.164 format (e.g. +254712345678)
-    phone_number = Column(String, nullable=False, index=True)
+    # Phone number in E.164 format (e.g. +254712345678).
+    # Nullable since the channel pipeline landed: an email-only delivery has no
+    # phone number to record, and forcing a placeholder phone onto an email row
+    # would corrupt conversation lookups (which query by phone_number).
+    phone_number = Column(String, nullable=True, index=True)
+
+    # Email recipient for channel="email" deliveries. Null for every WhatsApp
+    # row, which is all rows created before this column existed.
+    email_address = Column(String, nullable=True, index=True)
 
     # outgoing — system → user
     # incoming — user → system (from webhook)
@@ -63,6 +70,12 @@ class Message(Base):
     # ─── Metadata ───
     # Which channel this went through — for now always "whatsapp"
     channel = Column(String, nullable=False, default="whatsapp")
+
+    # Deduplication key for automated sends. Webhooks and background tasks can
+    # fire the same business event twice; when a key is supplied the messaging
+    # service returns the existing row instead of sending again. Scoped to the
+    # organisation (see send_notification), so two orgs may reuse a key.
+    idempotency_key = Column(String, nullable=True, index=True)
 
     # Optional FK to the user who triggered the send (for audit)
     triggered_by_user_id = Column(String, ForeignKey("users.id"), nullable=True)

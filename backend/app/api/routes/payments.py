@@ -1,5 +1,6 @@
 #backend\app\api\routes\payments.py
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 import uuid
 from datetime import date
@@ -148,6 +149,11 @@ def list_payments(
     tenant_id: str = Query(None),
     lease_id: str = Query(None),
     property_id: str = Query(None),
+    payment_type: str = Query(None),
+    payment_method: str = Query(None),
+    start_date: date = Query(None),
+    end_date: date = Query(None),
+    search: str = Query(None, max_length=100),
     limit: int = Query(None, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
@@ -159,16 +165,58 @@ def list_payments(
     Pagination (Sprint 6.2 #3): when `limit` is provided, returns a paginated
     envelope { items, total, limit, offset }. When `limit` is omitted, returns
     the bare list (unchanged) so existing callers keep working.
+
+    Date range (payment history filter): filters on ``Payment.payment_date`` —
+    the business date the money was received, which is the same field the list
+    is sorted by and the one shown in the UI. ``created_at`` is deliberately
+    NOT used: a payment back-dated during batch reconciliation would otherwise
+    land outside the period the user filtered for.
     """
     membership = get_user_org(current_user, db)
     org_id = membership.organization_id
     role = membership.role.name if membership.role else None
     query = db.query(Payment).filter(Payment.organization_id == org_id)
 
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="start_date cannot be after end_date",
+        )
+
     if tenant_id:
         query = query.filter(Payment.tenant_id == tenant_id)
     if lease_id:
         query = query.filter(Payment.lease_id == lease_id)
+    if payment_type:
+        if payment_type not in VALID_PAYMENT_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid payment_type. Choose from: {VALID_PAYMENT_TYPES}",
+            )
+        query = query.filter(Payment.payment_type == payment_type)
+    if payment_method:
+        query = query.filter(Payment.payment_method == payment_method)
+    if search and search.strip():
+        # Page-local table search: match the tenant name or the payment
+        # reference. Scoped to the org by the query's existing filter.
+        term = f"%{search.strip()}%"
+        matching_tenant_ids = [
+            row[0]
+            for row in db.query(Tenant.id).filter(
+                Tenant.organization_id == org_id,
+                Tenant.full_name.ilike(term),
+            )
+        ]
+        query = query.filter(
+            or_(
+                Payment.reference.ilike(term),
+                Payment.tenant_id.in_(matching_tenant_ids or [""]),
+            )
+        )
+    if start_date:
+        query = query.filter(Payment.payment_date >= start_date)
+    if end_date:
+        query = query.filter(Payment.payment_date <= end_date)
     if property_id:
         from app.models.unit import Unit
         lease_ids = (

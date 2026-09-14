@@ -1,9 +1,17 @@
 //frontend/src/features/profile/Profile.jsx
 //
-// Profile page (Sprint 4.5 profile menu). Role-agnostic — reachable by every
-// role under their own prefix (/owner/profile, /finance/profile, etc.).
-// Edit your name + change your password. Email and organization are shown
-// read-only (changing those touches uniqueness / other tables; out of scope).
+// Profile page. Role-agnostic — reachable by every role under their own prefix
+// (/owner/profile, /finance/profile, etc.).
+//
+// Editable (requirement 8): full name, phone number and email address.
+//   * phone is validated and normalised server-side, must be unique, and flips
+//     back to unverified when it changes
+//   * email is the login identity, so it additionally requires the current
+//     password
+//   * role, organisation and permissions are not editable here and the API
+//     ignores any attempt to send them
+//
+// Password changes stay a separate workflow below, as before.
 //
 // Tenants additionally get a "Documents" tab to upload and manage their own
 // identification documents (national ID, passport biodata, other). These use
@@ -11,7 +19,7 @@
 // logged-in user — a tenant can only ever see their own documents. Owners/PMs
 // continue to view tenant documents on the EditTenant page.
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { updateProfile, changePassword } from "../../api/auth";
 import {
@@ -35,9 +43,13 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState("account");
 
   const [fullName, setFullName] = useState(user?.full_name || "");
+  const [email, setEmail] = useState(user?.email || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [emailPassword, setEmailPassword] = useState("");
   const [savingName, setSavingName] = useState(false);
   const [nameMsg, setNameMsg] = useState("");
   const [nameErr, setNameErr] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -74,16 +86,79 @@ export default function Profile() {
     if (isTenant) loadDocs();
   }, [isTenant]);
 
+  // Warn before leaving with unsaved profile edits. Declared with the other
+  // hooks (before any early return) so hook order never changes between
+  // renders.
+  const dirty = useMemo(() => {
+    const nameChanged = (fullName || "") !== (user?.full_name || "");
+    const phoneChanged = (phone || "") !== (user?.phone || "");
+    const emailChanged =
+      (email || "").trim().toLowerCase() !== (user?.email || "").toLowerCase();
+    return nameChanged || phoneChanged || emailChanged;
+  }, [fullName, phone, email, user]);
+
+  useEffect(() => {
+    const onBeforeUnload = (event) => {
+      if (!dirty) return undefined;
+      event.preventDefault();
+      event.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+
   if (!user) return null;
 
   const saveName = async () => {
     setNameErr("");
     setNameMsg("");
+    setFieldErrors({});
+
+    // Inline validation mirrors the server rules so the user gets feedback
+    // before a round trip; the server still enforces all of it.
+    const errors = {};
+    if (phone) {
+      const digits = phone.replace(/[^\d]/g, "");
+      const normalised =
+        digits.startsWith("0") && digits.length === 10
+          ? `254${digits.slice(1)}`
+          : digits;
+      if (!/^254\d{9}$/.test(normalised)) {
+        errors.phone = "Enter a valid phone number, e.g. 0712 345 678.";
+      }
+    }
+    const emailChanged = (email || "").trim().toLowerCase() !== (user.email || "").toLowerCase();
+    if (emailChanged) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || "").trim())) {
+        errors.email = "Enter a valid email address.";
+      } else if (!emailPassword) {
+        errors.emailPassword =
+          "Confirm your current password to change your email address.";
+      }
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
     setSavingName(true);
     try {
-      const updated = await updateProfile({ full_name: fullName });
+      const payload = { full_name: fullName, phone: phone || null };
+      if (emailChanged) {
+        payload.email = email.trim();
+        payload.current_password = emailPassword;
+      }
+      const updated = await updateProfile(payload);
       setUser(updated); // reflect the new name in the navbar/greeting at once
-      setNameMsg("Profile updated.");
+      setEmail(updated.email || "");
+      setPhone(updated.phone || "");
+      setEmailPassword("");
+      setNameMsg(
+        emailChanged
+          ? "Profile updated. Use your new email address next time you sign in."
+          : "Profile updated.",
+      );
       setTimeout(() => setNameMsg(""), 3000);
     } catch (err) {
       setNameErr(err?.response?.data?.detail || "Could not update profile.");
@@ -196,12 +271,85 @@ export default function Profile() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Your name"
+                aria-invalid={Boolean(fieldErrors.full_name)}
               />
             </div>
 
             <div className="profile-field">
-              <label>Email</label>
-              <input className="input" value={user.email || ""} disabled />
+              <label htmlFor="profile-email">Email address</label>
+              <input
+                id="profile-email"
+                className="input"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                aria-invalid={Boolean(fieldErrors.email)}
+              />
+              {fieldErrors.email && (
+                <span className="field-error">{fieldErrors.email}</span>
+              )}
+              <small className="text-muted">
+                This is the address you sign in with. Changing it requires your
+                current password.
+              </small>
+            </div>
+
+            <div className="profile-field">
+              <label htmlFor="profile-phone">Phone number</label>
+              <input
+                id="profile-phone"
+                className="input"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="0712 345 678"
+                aria-invalid={Boolean(fieldErrors.phone)}
+              />
+              {fieldErrors.phone && (
+                <span className="field-error">{fieldErrors.phone}</span>
+              )}
+              {user.phone && (
+                <small className="text-muted">
+                  {user.phone_verified
+                    ? "Verified"
+                    : "Not yet verified — you may be asked to confirm this number."}
+                </small>
+              )}
+            </div>
+
+            {(email || "").trim().toLowerCase() !== (user.email || "").toLowerCase() && (
+              <div className="profile-field">
+                <label htmlFor="profile-email-password">Current password</label>
+                <input
+                  id="profile-email-password"
+                  className="input"
+                  type="password"
+                  value={emailPassword}
+                  onChange={(e) => setEmailPassword(e.target.value)}
+                  autoComplete="current-password"
+                  aria-invalid={Boolean(fieldErrors.emailPassword)}
+                />
+                {fieldErrors.emailPassword && (
+                  <span className="field-error">{fieldErrors.emailPassword}</span>
+                )}
+                <small className="text-muted">
+                  Required because your email address is your login.
+                </small>
+              </div>
+            )}
+
+            <div className="profile-field">
+              <label>Role</label>
+              <input
+                className="input"
+                value={user.role || ""}
+                disabled
+                aria-describedby="profile-role-help"
+              />
+              <small className="text-muted" id="profile-role-help">
+                Managed by your organisation administrator.
+              </small>
             </div>
 
             {organization?.name && (
@@ -217,7 +365,7 @@ export default function Profile() {
             <button
               className="btn btn-primary btn-sm"
               onClick={saveName}
-              disabled={savingName}
+              disabled={savingName || !dirty}
             >
               {savingName ? "Saving…" : "Save"}
             </button>
